@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cosmos/go-bip39"
 	"github.com/spf13/viper"
 )
 
@@ -40,19 +39,9 @@ func SetupConfig() error {
 		return err
 	}
 
-	err := viper.Unmarshal(&configuration)
-	if err != nil {
+	if err := viper.Unmarshal(&configuration); err != nil {
 		fmt.Printf("error to decode, %v", err)
 		return err
 	}
-
-	var cryptoConf = CryptoConfig()
-
-	valid := bip39.IsMnemonicValid(cryptoConf.HDWalletMnemonic)
-	if !valid {
-		fmt.Printf("Invalid mnemonic phrase")
-		return nil
-	}
-
 	return nil
 }

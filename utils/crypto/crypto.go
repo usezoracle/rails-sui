@@ -3,7 +3,6 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -12,15 +11,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	"github.com/ethereum/go-ethereum/common"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/usezoracle/rails-sui/config"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var authConf = config.AuthConfig()
-var cryptoConf = config.CryptoConfig()
+var _ = config.CryptoConfig // kept callable; package init validates it loads
 
 // CheckPasswordHash is a function to compare provided password with the hashed password
 func CheckPasswordHash(password, hash string) bool {
@@ -196,32 +192,3 @@ func PublicKeyDecryptJSON(ciphertext []byte, privateKeyPEM string) (interface{},
 
 	return data, nil
 }
-
-// GenerateAccountFromIndex generates a crypto wallet account from HD wallet mnemonic
-func GenerateAccountFromIndex(accountIndex int) (*common.Address, *ecdsa.PrivateKey, error) {
-	mnemonic := cryptoConf.HDWalletMnemonic
-
-	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create wallet from mnemonic: %w", err)
-	}
-
-	path, err := hdwallet.ParseDerivationPath(fmt.Sprintf("m/44'/60'/0'/0/%d", accountIndex))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse derivation path: %w", err)
-	}
-
-	account, err := wallet.Derive(path, false)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to derive account: %w", err)
-	}
-
-	privateKey, err := wallet.PrivateKey(account)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get private key: %w", err)
-	}
-	privateKey.Curve = btcec.S256()
-
-	return &account.Address, privateKey, nil
-}
-
