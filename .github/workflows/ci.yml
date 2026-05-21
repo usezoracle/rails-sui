@@ -1,0 +1,57 @@
+name: Pre Merge CI Pipeline 
+
+on:
+  pull_request:
+    branches: [ "main", "staging" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3.0.1
+
+      - name: Set up Redis
+        uses: shogo82148/actions-setup-redis@v1.34.0
+        with:
+          redis-version: '6.0'
+          
+      - run: redis-cli ping
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.x
+
+      # - name: Go-linter
+      #   uses: Jerome1337/golint-action@v1.0.3
+
+      - name: Set up environment variables
+        env:
+          ENV_FILE_PATH: '/utils/test/test.env' # Specify the path to your test environment file
+        run: |
+          echo "ENV_FILE_PATH=$ENV_FILE_PATH" >> $GITHUB_ENV
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' 
+
+      - name: Install dependencies
+        run: npm install -g ganache-cli
+
+      - name: Start Ganache
+        run: ganache-cli -m "${{ secrets.HD_WALLET_MNEMONIC }}" --accounts 10 --networkId 1337 --gasLimit 900000000 --deterministic &
+        env:
+          HD_WALLET_MNEMONIC: ${{ secrets.HD_WALLET_MNEMONIC }}
+
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -o paycrest
+
+      - name: Run tests with coverage
+        run: go test $(go list ./... | grep -v /ent | grep -v /config | grep -v /database | grep -v /routers)  -coverprofile=coverage.out ./...

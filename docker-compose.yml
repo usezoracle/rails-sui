@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  postgres_db:
+    container_name: paycrest_db
+    image: postgres:16-alpine3.17
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - ./tmp/db:/var/lib/postgresql/data
+    ports:
+      - ${DB_PORT}:5432
+    restart: always
+
+  redis:
+    container_name: paycrest_redis
+    image: redis:7.2-alpine
+    environment:
+      - REDIS_DB=0
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - ${REDIS_PORT}:6379
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    restart: always
+
+  server:
+    container_name: paycrest_server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    depends_on:
+      - postgres_db
+    links:
+      - postgres_db:postgres_db
+    volumes:
+      - .:/app
+    restart: always
