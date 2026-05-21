@@ -30,6 +30,16 @@ type OrderConfiguration struct {
 	SuiGatewayObjectID      string
 	SuiAggregatorCapID      string
 	SuiAggregatorPrivateKey []byte // raw 32-byte Ed25519 seed; hex-decoded from SUI_AGGREGATOR_PRIVATE_KEY env var
+
+	// LiFi (Route A bridging).
+	LiFiBaseURL  string
+	LiFiAPIKey   string // optional; free tier when empty (rate-limited)
+
+	// BSC (Route A destination). The BSC USDC type used as LiFi's toToken
+	// is hard-coded since Circle's address is canonical and immutable.
+	BSCRpcURL              string
+	BSCAggregatorAddress   string // our BSC hot wallet, receives bridged USDC
+	BSCGatewayContract     string // existing EVM Gateway address (for mode=lp dispatch)
 }
 
 // OrderConfig sets the order configuration
@@ -43,6 +53,8 @@ func OrderConfig() *OrderConfiguration {
 	viper.SetDefault("PERCENT_DEVIATION_FROM_EXTERNAL_RATE", 0.01)
 	viper.SetDefault("PERCENT_DEVIATION_FROM_MARKET_RATE", 0.1)
 	viper.SetDefault("SUI_RPC_URL", "https://fullnode.testnet.sui.io:443")
+	viper.SetDefault("LIFI_BASE_URL", "https://li.quest/v1")
+	viper.SetDefault("BSC_RPC_URL", "https://bsc-dataseed.bnbchain.org")
 
 	// SUI_AGGREGATOR_PRIVATE_KEY is expected hex-encoded; decoded once at startup.
 	aggregatorKeyHex := viper.GetString("SUI_AGGREGATOR_PRIVATE_KEY")
@@ -68,6 +80,11 @@ func OrderConfig() *OrderConfiguration {
 		SuiGatewayObjectID:               viper.GetString("SUI_GATEWAY_OBJECT_ID"),
 		SuiAggregatorCapID:               viper.GetString("SUI_AGGREGATOR_CAP_ID"),
 		SuiAggregatorPrivateKey:          aggregatorKey,
+		LiFiBaseURL:                      viper.GetString("LIFI_BASE_URL"),
+		LiFiAPIKey:                       viper.GetString("LIFI_API_KEY"),
+		BSCRpcURL:                        viper.GetString("BSC_RPC_URL"),
+		BSCAggregatorAddress:             viper.GetString("BSC_AGGREGATOR_ADDRESS"),
+		BSCGatewayContract:               viper.GetString("BSC_GATEWAY_CONTRACT"),
 	}
 }
 

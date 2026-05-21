@@ -1282,6 +1282,29 @@ func HasSuiReceiveAddressWith(preds ...predicate.SuiReceiveAddress) predicate.Pa
 	})
 }
 
+// HasRouteAOrder applies the HasEdge predicate on the "route_a_order" edge.
+func HasRouteAOrder() predicate.PaymentOrder {
+	return predicate.PaymentOrder(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, RouteAOrderTable, RouteAOrderColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRouteAOrderWith applies the HasEdge predicate on the "route_a_order" edge with a given conditions (other predicates).
+func HasRouteAOrderWith(preds ...predicate.RouteAOrder) predicate.PaymentOrder {
+	return predicate.PaymentOrder(func(s *sql.Selector) {
+		step := newRouteAOrderStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasRecipient applies the HasEdge predicate on the "recipient" edge.
 func HasRecipient() predicate.PaymentOrder {
 	return predicate.PaymentOrder(func(s *sql.Selector) {

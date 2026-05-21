@@ -18,6 +18,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/paymentorderrecipient"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
 	"github.com/usezoracle/rails-sui/ent/token"
@@ -36,6 +37,7 @@ type PaymentOrderQuery struct {
 	withLinkedAddress     *LinkedAddressQuery
 	withReceiveAddress    *ReceiveAddressQuery
 	withSuiReceiveAddress *SuiReceiveAddressQuery
+	withRouteAOrder       *RouteAOrderQuery
 	withRecipient         *PaymentOrderRecipientQuery
 	withTransactions      *TransactionLogQuery
 	withFKs               bool
@@ -178,6 +180,28 @@ func (poq *PaymentOrderQuery) QuerySuiReceiveAddress() *SuiReceiveAddressQuery {
 			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
 			sqlgraph.To(suireceiveaddress.Table, suireceiveaddress.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.SuiReceiveAddressTable, paymentorder.SuiReceiveAddressColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(poq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRouteAOrder chains the current query on the "route_a_order" edge.
+func (poq *PaymentOrderQuery) QueryRouteAOrder() *RouteAOrderQuery {
+	query := (&RouteAOrderClient{config: poq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := poq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := poq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
+			sqlgraph.To(routeaorder.Table, routeaorder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.RouteAOrderTable, paymentorder.RouteAOrderColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(poq.driver.Dialect(), step)
 		return fromU, nil
@@ -426,6 +450,7 @@ func (poq *PaymentOrderQuery) Clone() *PaymentOrderQuery {
 		withLinkedAddress:     poq.withLinkedAddress.Clone(),
 		withReceiveAddress:    poq.withReceiveAddress.Clone(),
 		withSuiReceiveAddress: poq.withSuiReceiveAddress.Clone(),
+		withRouteAOrder:       poq.withRouteAOrder.Clone(),
 		withRecipient:         poq.withRecipient.Clone(),
 		withTransactions:      poq.withTransactions.Clone(),
 		// clone intermediate query.
@@ -486,6 +511,17 @@ func (poq *PaymentOrderQuery) WithSuiReceiveAddress(opts ...func(*SuiReceiveAddr
 		opt(query)
 	}
 	poq.withSuiReceiveAddress = query
+	return poq
+}
+
+// WithRouteAOrder tells the query-builder to eager-load the nodes that are connected to
+// the "route_a_order" edge. The optional arguments are used to configure the query builder of the edge.
+func (poq *PaymentOrderQuery) WithRouteAOrder(opts ...func(*RouteAOrderQuery)) *PaymentOrderQuery {
+	query := (&RouteAOrderClient{config: poq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	poq.withRouteAOrder = query
 	return poq
 }
 
@@ -590,12 +626,13 @@ func (poq *PaymentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 		nodes       = []*PaymentOrder{}
 		withFKs     = poq.withFKs
 		_spec       = poq.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			poq.withSenderProfile != nil,
 			poq.withToken != nil,
 			poq.withLinkedAddress != nil,
 			poq.withReceiveAddress != nil,
 			poq.withSuiReceiveAddress != nil,
+			poq.withRouteAOrder != nil,
 			poq.withRecipient != nil,
 			poq.withTransactions != nil,
 		}
@@ -651,6 +688,12 @@ func (poq *PaymentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	if query := poq.withSuiReceiveAddress; query != nil {
 		if err := poq.loadSuiReceiveAddress(ctx, query, nodes, nil,
 			func(n *PaymentOrder, e *SuiReceiveAddress) { n.Edges.SuiReceiveAddress = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := poq.withRouteAOrder; query != nil {
+		if err := poq.loadRouteAOrder(ctx, query, nodes, nil,
+			func(n *PaymentOrder, e *RouteAOrder) { n.Edges.RouteAOrder = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -817,6 +860,34 @@ func (poq *PaymentOrderQuery) loadSuiReceiveAddress(ctx context.Context, query *
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "payment_order_sui_receive_address" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (poq *PaymentOrderQuery) loadRouteAOrder(ctx context.Context, query *RouteAOrderQuery, nodes []*PaymentOrder, init func(*PaymentOrder), assign func(*PaymentOrder, *RouteAOrder)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*PaymentOrder)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	query.withFKs = true
+	query.Where(predicate.RouteAOrder(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(paymentorder.RouteAOrderColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.payment_order_route_a_order
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "payment_order_route_a_order" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "payment_order_route_a_order" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

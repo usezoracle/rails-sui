@@ -20,6 +20,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerrating"
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/schema"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
@@ -325,6 +326,21 @@ func init() {
 	receiveaddressDescTxHash := receiveaddressFields[5].Descriptor()
 	// receiveaddress.TxHashValidator is a validator for the "tx_hash" field. It is called by the builders before save.
 	receiveaddress.TxHashValidator = receiveaddressDescTxHash.Validators[0].(func(string) error)
+	routeaorderMixin := schema.RouteAOrder{}.Mixin()
+	routeaorderMixinFields0 := routeaorderMixin[0].Fields()
+	_ = routeaorderMixinFields0
+	routeaorderFields := schema.RouteAOrder{}.Fields()
+	_ = routeaorderFields
+	// routeaorderDescCreatedAt is the schema descriptor for created_at field.
+	routeaorderDescCreatedAt := routeaorderMixinFields0[0].Descriptor()
+	// routeaorder.DefaultCreatedAt holds the default value on creation for the created_at field.
+	routeaorder.DefaultCreatedAt = routeaorderDescCreatedAt.Default.(func() time.Time)
+	// routeaorderDescUpdatedAt is the schema descriptor for updated_at field.
+	routeaorderDescUpdatedAt := routeaorderMixinFields0[1].Descriptor()
+	// routeaorder.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	routeaorder.DefaultUpdatedAt = routeaorderDescUpdatedAt.Default.(func() time.Time)
+	// routeaorder.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	routeaorder.UpdateDefaultUpdatedAt = routeaorderDescUpdatedAt.UpdateDefault.(func() time.Time)
 	senderordertokenMixin := schema.SenderOrderToken{}.Mixin()
 	senderordertokenMixinFields0 := senderordertokenMixin[0].Fields()
 	_ = senderordertokenMixinFields0

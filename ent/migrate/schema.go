@@ -448,6 +448,37 @@ var (
 			},
 		},
 	}
+	// RouteAordersColumns holds the columns for the "route_aorders" table.
+	RouteAordersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "mode", Type: field.TypeEnum, Enums: []string{"lp", "treasury"}, Default: "treasury"},
+		{Name: "lifi_quote_id", Type: field.TypeString, Nullable: true},
+		{Name: "lifi_tool", Type: field.TypeString, Nullable: true},
+		{Name: "bridge_tx_sui", Type: field.TypeString, Nullable: true},
+		{Name: "bridge_tx_bsc", Type: field.TypeString, Nullable: true},
+		{Name: "bridge_status", Type: field.TypeEnum, Enums: []string{"pending", "bridging", "bridged", "dispatching", "settled", "failed"}, Default: "pending"},
+		{Name: "bsc_order_id", Type: field.TypeString, Nullable: true},
+		{Name: "treasury_payout_ref", Type: field.TypeString, Nullable: true},
+		{Name: "bridged_amount", Type: field.TypeFloat64, Nullable: true},
+		{Name: "failure_reason", Type: field.TypeString, Nullable: true},
+		{Name: "payment_order_route_a_order", Type: field.TypeUUID, Unique: true},
+	}
+	// RouteAordersTable holds the schema information for the "route_aorders" table.
+	RouteAordersTable = &schema.Table{
+		Name:       "route_aorders",
+		Columns:    RouteAordersColumns,
+		PrimaryKey: []*schema.Column{RouteAordersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "route_aorders_payment_orders_route_a_order",
+				Columns:    []*schema.Column{RouteAordersColumns[13]},
+				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// SenderOrderTokensColumns holds the columns for the "sender_order_tokens" table.
 	SenderOrderTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -707,6 +738,7 @@ var (
 		ProviderRatingsTable,
 		ProvisionBucketsTable,
 		ReceiveAddressesTable,
+		RouteAordersTable,
 		SenderOrderTokensTable,
 		SenderProfilesTable,
 		SuiReceiveAddressesTable,
@@ -739,6 +771,7 @@ func init() {
 	ProviderRatingsTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	ProvisionBucketsTable.ForeignKeys[0].RefTable = FiatCurrenciesTable
 	ReceiveAddressesTable.ForeignKeys[0].RefTable = PaymentOrdersTable
+	RouteAordersTable.ForeignKeys[0].RefTable = PaymentOrdersTable
 	SenderOrderTokensTable.ForeignKeys[0].RefTable = SenderProfilesTable
 	SenderOrderTokensTable.ForeignKeys[1].RefTable = TokensTable
 	SenderProfilesTable.ForeignKeys[0].RefTable = UsersTable

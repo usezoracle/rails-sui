@@ -810,5 +810,17 @@ func StartCronJobs() {
 		logger.Errorf("StartCronJobs: %v", err)
 	}
 
+	// Route A dispatcher — every minute, advances RouteAOrder rows through
+	// pending → bridging → bridged → dispatching → settled via LiFi. See
+	// docs/route-a-spec.md.
+	routeAD := services.NewRouteADispatcher()
+	if _, err := scheduler.Cron("*/1 * * * *").Do(func() {
+		if err := routeAD.Tick(context.Background()); err != nil {
+			logger.Errorf("StartCronJobs: route-a dispatcher: %v", err)
+		}
+	}); err != nil {
+		logger.Errorf("StartCronJobs: %v", err)
+	}
+
 	scheduler.StartAsync()
 }

@@ -66,6 +66,8 @@ const (
 	EdgeReceiveAddress = "receive_address"
 	// EdgeSuiReceiveAddress holds the string denoting the sui_receive_address edge name in mutations.
 	EdgeSuiReceiveAddress = "sui_receive_address"
+	// EdgeRouteAOrder holds the string denoting the route_a_order edge name in mutations.
+	EdgeRouteAOrder = "route_a_order"
 	// EdgeRecipient holds the string denoting the recipient edge name in mutations.
 	EdgeRecipient = "recipient"
 	// EdgeTransactions holds the string denoting the transactions edge name in mutations.
@@ -107,6 +109,13 @@ const (
 	SuiReceiveAddressInverseTable = "sui_receive_addresses"
 	// SuiReceiveAddressColumn is the table column denoting the sui_receive_address relation/edge.
 	SuiReceiveAddressColumn = "payment_order_sui_receive_address"
+	// RouteAOrderTable is the table that holds the route_a_order relation/edge.
+	RouteAOrderTable = "route_aorders"
+	// RouteAOrderInverseTable is the table name for the RouteAOrder entity.
+	// It exists in this package in order to avoid circular dependency with the "routeaorder" package.
+	RouteAOrderInverseTable = "route_aorders"
+	// RouteAOrderColumn is the table column denoting the route_a_order relation/edge.
+	RouteAOrderColumn = "payment_order_route_a_order"
 	// RecipientTable is the table that holds the recipient relation/edge.
 	RecipientTable = "payment_order_recipients"
 	// RecipientInverseTable is the table name for the PaymentOrderRecipient entity.
@@ -371,6 +380,13 @@ func BySuiReceiveAddressField(field string, opts ...sql.OrderTermOption) OrderOp
 	}
 }
 
+// ByRouteAOrderField orders the results by route_a_order field.
+func ByRouteAOrderField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRouteAOrderStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByRecipientField orders the results by recipient field.
 func ByRecipientField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -424,6 +440,13 @@ func newSuiReceiveAddressStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SuiReceiveAddressInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, SuiReceiveAddressTable, SuiReceiveAddressColumn),
+	)
+}
+func newRouteAOrderStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RouteAOrderInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, RouteAOrderTable, RouteAOrderColumn),
 	)
 }
 func newRecipientStep() *sqlgraph.Step {

@@ -29,6 +29,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerrating"
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
@@ -63,6 +64,7 @@ const (
 	TypeProviderRating              = "ProviderRating"
 	TypeProvisionBucket             = "ProvisionBucket"
 	TypeReceiveAddress              = "ReceiveAddress"
+	TypeRouteAOrder                 = "RouteAOrder"
 	TypeSenderOrderToken            = "SenderOrderToken"
 	TypeSenderProfile               = "SenderProfile"
 	TypeSuiReceiveAddress           = "SuiReceiveAddress"
@@ -7299,6 +7301,8 @@ type PaymentOrderMutation struct {
 	clearedreceive_address     bool
 	sui_receive_address        *int
 	clearedsui_receive_address bool
+	route_a_order              *int
+	clearedroute_a_order       bool
 	recipient                  *int
 	clearedrecipient           bool
 	transactions               map[uuid.UUID]struct{}
@@ -8606,6 +8610,45 @@ func (m *PaymentOrderMutation) ResetSuiReceiveAddress() {
 	m.clearedsui_receive_address = false
 }
 
+// SetRouteAOrderID sets the "route_a_order" edge to the RouteAOrder entity by id.
+func (m *PaymentOrderMutation) SetRouteAOrderID(id int) {
+	m.route_a_order = &id
+}
+
+// ClearRouteAOrder clears the "route_a_order" edge to the RouteAOrder entity.
+func (m *PaymentOrderMutation) ClearRouteAOrder() {
+	m.clearedroute_a_order = true
+}
+
+// RouteAOrderCleared reports if the "route_a_order" edge to the RouteAOrder entity was cleared.
+func (m *PaymentOrderMutation) RouteAOrderCleared() bool {
+	return m.clearedroute_a_order
+}
+
+// RouteAOrderID returns the "route_a_order" edge ID in the mutation.
+func (m *PaymentOrderMutation) RouteAOrderID() (id int, exists bool) {
+	if m.route_a_order != nil {
+		return *m.route_a_order, true
+	}
+	return
+}
+
+// RouteAOrderIDs returns the "route_a_order" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// RouteAOrderID instead. It exists only for internal usage by the builders.
+func (m *PaymentOrderMutation) RouteAOrderIDs() (ids []int) {
+	if id := m.route_a_order; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetRouteAOrder resets all changes to the "route_a_order" edge.
+func (m *PaymentOrderMutation) ResetRouteAOrder() {
+	m.route_a_order = nil
+	m.clearedroute_a_order = false
+}
+
 // SetRecipientID sets the "recipient" edge to the PaymentOrderRecipient entity by id.
 func (m *PaymentOrderMutation) SetRecipientID(id int) {
 	m.recipient = &id
@@ -9317,7 +9360,7 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *PaymentOrderMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.sender_profile != nil {
 		edges = append(edges, paymentorder.EdgeSenderProfile)
 	}
@@ -9332,6 +9375,9 @@ func (m *PaymentOrderMutation) AddedEdges() []string {
 	}
 	if m.sui_receive_address != nil {
 		edges = append(edges, paymentorder.EdgeSuiReceiveAddress)
+	}
+	if m.route_a_order != nil {
+		edges = append(edges, paymentorder.EdgeRouteAOrder)
 	}
 	if m.recipient != nil {
 		edges = append(edges, paymentorder.EdgeRecipient)
@@ -9366,6 +9412,10 @@ func (m *PaymentOrderMutation) AddedIDs(name string) []ent.Value {
 		if id := m.sui_receive_address; id != nil {
 			return []ent.Value{*id}
 		}
+	case paymentorder.EdgeRouteAOrder:
+		if id := m.route_a_order; id != nil {
+			return []ent.Value{*id}
+		}
 	case paymentorder.EdgeRecipient:
 		if id := m.recipient; id != nil {
 			return []ent.Value{*id}
@@ -9382,7 +9432,7 @@ func (m *PaymentOrderMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *PaymentOrderMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedtransactions != nil {
 		edges = append(edges, paymentorder.EdgeTransactions)
 	}
@@ -9405,7 +9455,7 @@ func (m *PaymentOrderMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *PaymentOrderMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedsender_profile {
 		edges = append(edges, paymentorder.EdgeSenderProfile)
 	}
@@ -9420,6 +9470,9 @@ func (m *PaymentOrderMutation) ClearedEdges() []string {
 	}
 	if m.clearedsui_receive_address {
 		edges = append(edges, paymentorder.EdgeSuiReceiveAddress)
+	}
+	if m.clearedroute_a_order {
+		edges = append(edges, paymentorder.EdgeRouteAOrder)
 	}
 	if m.clearedrecipient {
 		edges = append(edges, paymentorder.EdgeRecipient)
@@ -9444,6 +9497,8 @@ func (m *PaymentOrderMutation) EdgeCleared(name string) bool {
 		return m.clearedreceive_address
 	case paymentorder.EdgeSuiReceiveAddress:
 		return m.clearedsui_receive_address
+	case paymentorder.EdgeRouteAOrder:
+		return m.clearedroute_a_order
 	case paymentorder.EdgeRecipient:
 		return m.clearedrecipient
 	case paymentorder.EdgeTransactions:
@@ -9471,6 +9526,9 @@ func (m *PaymentOrderMutation) ClearEdge(name string) error {
 	case paymentorder.EdgeSuiReceiveAddress:
 		m.ClearSuiReceiveAddress()
 		return nil
+	case paymentorder.EdgeRouteAOrder:
+		m.ClearRouteAOrder()
+		return nil
 	case paymentorder.EdgeRecipient:
 		m.ClearRecipient()
 		return nil
@@ -9496,6 +9554,9 @@ func (m *PaymentOrderMutation) ResetEdge(name string) error {
 		return nil
 	case paymentorder.EdgeSuiReceiveAddress:
 		m.ResetSuiReceiveAddress()
+		return nil
+	case paymentorder.EdgeRouteAOrder:
+		m.ResetRouteAOrder()
 		return nil
 	case paymentorder.EdgeRecipient:
 		m.ResetRecipient()
@@ -15128,6 +15189,1185 @@ func (m *ReceiveAddressMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ReceiveAddress edge %s", name)
+}
+
+// RouteAOrderMutation represents an operation that mutates the RouteAOrder nodes in the graph.
+type RouteAOrderMutation struct {
+	config
+	op                   Op
+	typ                  string
+	id                   *int
+	created_at           *time.Time
+	updated_at           *time.Time
+	mode                 *routeaorder.Mode
+	lifi_quote_id        *string
+	lifi_tool            *string
+	bridge_tx_sui        *string
+	bridge_tx_bsc        *string
+	bridge_status        *routeaorder.BridgeStatus
+	bsc_order_id         *string
+	treasury_payout_ref  *string
+	bridged_amount       *decimal.Decimal
+	addbridged_amount    *decimal.Decimal
+	failure_reason       *string
+	clearedFields        map[string]struct{}
+	payment_order        *uuid.UUID
+	clearedpayment_order bool
+	done                 bool
+	oldValue             func(context.Context) (*RouteAOrder, error)
+	predicates           []predicate.RouteAOrder
+}
+
+var _ ent.Mutation = (*RouteAOrderMutation)(nil)
+
+// routeaorderOption allows management of the mutation configuration using functional options.
+type routeaorderOption func(*RouteAOrderMutation)
+
+// newRouteAOrderMutation creates new mutation for the RouteAOrder entity.
+func newRouteAOrderMutation(c config, op Op, opts ...routeaorderOption) *RouteAOrderMutation {
+	m := &RouteAOrderMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRouteAOrder,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRouteAOrderID sets the ID field of the mutation.
+func withRouteAOrderID(id int) routeaorderOption {
+	return func(m *RouteAOrderMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RouteAOrder
+		)
+		m.oldValue = func(ctx context.Context) (*RouteAOrder, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RouteAOrder.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRouteAOrder sets the old RouteAOrder of the mutation.
+func withRouteAOrder(node *RouteAOrder) routeaorderOption {
+	return func(m *RouteAOrderMutation) {
+		m.oldValue = func(context.Context) (*RouteAOrder, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RouteAOrderMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RouteAOrderMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RouteAOrderMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RouteAOrderMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RouteAOrder.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RouteAOrderMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RouteAOrderMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RouteAOrderMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *RouteAOrderMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *RouteAOrderMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *RouteAOrderMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetMode sets the "mode" field.
+func (m *RouteAOrderMutation) SetMode(r routeaorder.Mode) {
+	m.mode = &r
+}
+
+// Mode returns the value of the "mode" field in the mutation.
+func (m *RouteAOrderMutation) Mode() (r routeaorder.Mode, exists bool) {
+	v := m.mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMode returns the old "mode" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldMode(ctx context.Context) (v routeaorder.Mode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMode: %w", err)
+	}
+	return oldValue.Mode, nil
+}
+
+// ResetMode resets all changes to the "mode" field.
+func (m *RouteAOrderMutation) ResetMode() {
+	m.mode = nil
+}
+
+// SetLifiQuoteID sets the "lifi_quote_id" field.
+func (m *RouteAOrderMutation) SetLifiQuoteID(s string) {
+	m.lifi_quote_id = &s
+}
+
+// LifiQuoteID returns the value of the "lifi_quote_id" field in the mutation.
+func (m *RouteAOrderMutation) LifiQuoteID() (r string, exists bool) {
+	v := m.lifi_quote_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLifiQuoteID returns the old "lifi_quote_id" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldLifiQuoteID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLifiQuoteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLifiQuoteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLifiQuoteID: %w", err)
+	}
+	return oldValue.LifiQuoteID, nil
+}
+
+// ClearLifiQuoteID clears the value of the "lifi_quote_id" field.
+func (m *RouteAOrderMutation) ClearLifiQuoteID() {
+	m.lifi_quote_id = nil
+	m.clearedFields[routeaorder.FieldLifiQuoteID] = struct{}{}
+}
+
+// LifiQuoteIDCleared returns if the "lifi_quote_id" field was cleared in this mutation.
+func (m *RouteAOrderMutation) LifiQuoteIDCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldLifiQuoteID]
+	return ok
+}
+
+// ResetLifiQuoteID resets all changes to the "lifi_quote_id" field.
+func (m *RouteAOrderMutation) ResetLifiQuoteID() {
+	m.lifi_quote_id = nil
+	delete(m.clearedFields, routeaorder.FieldLifiQuoteID)
+}
+
+// SetLifiTool sets the "lifi_tool" field.
+func (m *RouteAOrderMutation) SetLifiTool(s string) {
+	m.lifi_tool = &s
+}
+
+// LifiTool returns the value of the "lifi_tool" field in the mutation.
+func (m *RouteAOrderMutation) LifiTool() (r string, exists bool) {
+	v := m.lifi_tool
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLifiTool returns the old "lifi_tool" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldLifiTool(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLifiTool is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLifiTool requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLifiTool: %w", err)
+	}
+	return oldValue.LifiTool, nil
+}
+
+// ClearLifiTool clears the value of the "lifi_tool" field.
+func (m *RouteAOrderMutation) ClearLifiTool() {
+	m.lifi_tool = nil
+	m.clearedFields[routeaorder.FieldLifiTool] = struct{}{}
+}
+
+// LifiToolCleared returns if the "lifi_tool" field was cleared in this mutation.
+func (m *RouteAOrderMutation) LifiToolCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldLifiTool]
+	return ok
+}
+
+// ResetLifiTool resets all changes to the "lifi_tool" field.
+func (m *RouteAOrderMutation) ResetLifiTool() {
+	m.lifi_tool = nil
+	delete(m.clearedFields, routeaorder.FieldLifiTool)
+}
+
+// SetBridgeTxSui sets the "bridge_tx_sui" field.
+func (m *RouteAOrderMutation) SetBridgeTxSui(s string) {
+	m.bridge_tx_sui = &s
+}
+
+// BridgeTxSui returns the value of the "bridge_tx_sui" field in the mutation.
+func (m *RouteAOrderMutation) BridgeTxSui() (r string, exists bool) {
+	v := m.bridge_tx_sui
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBridgeTxSui returns the old "bridge_tx_sui" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldBridgeTxSui(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBridgeTxSui is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBridgeTxSui requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBridgeTxSui: %w", err)
+	}
+	return oldValue.BridgeTxSui, nil
+}
+
+// ClearBridgeTxSui clears the value of the "bridge_tx_sui" field.
+func (m *RouteAOrderMutation) ClearBridgeTxSui() {
+	m.bridge_tx_sui = nil
+	m.clearedFields[routeaorder.FieldBridgeTxSui] = struct{}{}
+}
+
+// BridgeTxSuiCleared returns if the "bridge_tx_sui" field was cleared in this mutation.
+func (m *RouteAOrderMutation) BridgeTxSuiCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldBridgeTxSui]
+	return ok
+}
+
+// ResetBridgeTxSui resets all changes to the "bridge_tx_sui" field.
+func (m *RouteAOrderMutation) ResetBridgeTxSui() {
+	m.bridge_tx_sui = nil
+	delete(m.clearedFields, routeaorder.FieldBridgeTxSui)
+}
+
+// SetBridgeTxBsc sets the "bridge_tx_bsc" field.
+func (m *RouteAOrderMutation) SetBridgeTxBsc(s string) {
+	m.bridge_tx_bsc = &s
+}
+
+// BridgeTxBsc returns the value of the "bridge_tx_bsc" field in the mutation.
+func (m *RouteAOrderMutation) BridgeTxBsc() (r string, exists bool) {
+	v := m.bridge_tx_bsc
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBridgeTxBsc returns the old "bridge_tx_bsc" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldBridgeTxBsc(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBridgeTxBsc is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBridgeTxBsc requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBridgeTxBsc: %w", err)
+	}
+	return oldValue.BridgeTxBsc, nil
+}
+
+// ClearBridgeTxBsc clears the value of the "bridge_tx_bsc" field.
+func (m *RouteAOrderMutation) ClearBridgeTxBsc() {
+	m.bridge_tx_bsc = nil
+	m.clearedFields[routeaorder.FieldBridgeTxBsc] = struct{}{}
+}
+
+// BridgeTxBscCleared returns if the "bridge_tx_bsc" field was cleared in this mutation.
+func (m *RouteAOrderMutation) BridgeTxBscCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldBridgeTxBsc]
+	return ok
+}
+
+// ResetBridgeTxBsc resets all changes to the "bridge_tx_bsc" field.
+func (m *RouteAOrderMutation) ResetBridgeTxBsc() {
+	m.bridge_tx_bsc = nil
+	delete(m.clearedFields, routeaorder.FieldBridgeTxBsc)
+}
+
+// SetBridgeStatus sets the "bridge_status" field.
+func (m *RouteAOrderMutation) SetBridgeStatus(rs routeaorder.BridgeStatus) {
+	m.bridge_status = &rs
+}
+
+// BridgeStatus returns the value of the "bridge_status" field in the mutation.
+func (m *RouteAOrderMutation) BridgeStatus() (r routeaorder.BridgeStatus, exists bool) {
+	v := m.bridge_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBridgeStatus returns the old "bridge_status" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldBridgeStatus(ctx context.Context) (v routeaorder.BridgeStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBridgeStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBridgeStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBridgeStatus: %w", err)
+	}
+	return oldValue.BridgeStatus, nil
+}
+
+// ResetBridgeStatus resets all changes to the "bridge_status" field.
+func (m *RouteAOrderMutation) ResetBridgeStatus() {
+	m.bridge_status = nil
+}
+
+// SetBscOrderID sets the "bsc_order_id" field.
+func (m *RouteAOrderMutation) SetBscOrderID(s string) {
+	m.bsc_order_id = &s
+}
+
+// BscOrderID returns the value of the "bsc_order_id" field in the mutation.
+func (m *RouteAOrderMutation) BscOrderID() (r string, exists bool) {
+	v := m.bsc_order_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBscOrderID returns the old "bsc_order_id" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldBscOrderID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBscOrderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBscOrderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBscOrderID: %w", err)
+	}
+	return oldValue.BscOrderID, nil
+}
+
+// ClearBscOrderID clears the value of the "bsc_order_id" field.
+func (m *RouteAOrderMutation) ClearBscOrderID() {
+	m.bsc_order_id = nil
+	m.clearedFields[routeaorder.FieldBscOrderID] = struct{}{}
+}
+
+// BscOrderIDCleared returns if the "bsc_order_id" field was cleared in this mutation.
+func (m *RouteAOrderMutation) BscOrderIDCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldBscOrderID]
+	return ok
+}
+
+// ResetBscOrderID resets all changes to the "bsc_order_id" field.
+func (m *RouteAOrderMutation) ResetBscOrderID() {
+	m.bsc_order_id = nil
+	delete(m.clearedFields, routeaorder.FieldBscOrderID)
+}
+
+// SetTreasuryPayoutRef sets the "treasury_payout_ref" field.
+func (m *RouteAOrderMutation) SetTreasuryPayoutRef(s string) {
+	m.treasury_payout_ref = &s
+}
+
+// TreasuryPayoutRef returns the value of the "treasury_payout_ref" field in the mutation.
+func (m *RouteAOrderMutation) TreasuryPayoutRef() (r string, exists bool) {
+	v := m.treasury_payout_ref
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTreasuryPayoutRef returns the old "treasury_payout_ref" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldTreasuryPayoutRef(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTreasuryPayoutRef is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTreasuryPayoutRef requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTreasuryPayoutRef: %w", err)
+	}
+	return oldValue.TreasuryPayoutRef, nil
+}
+
+// ClearTreasuryPayoutRef clears the value of the "treasury_payout_ref" field.
+func (m *RouteAOrderMutation) ClearTreasuryPayoutRef() {
+	m.treasury_payout_ref = nil
+	m.clearedFields[routeaorder.FieldTreasuryPayoutRef] = struct{}{}
+}
+
+// TreasuryPayoutRefCleared returns if the "treasury_payout_ref" field was cleared in this mutation.
+func (m *RouteAOrderMutation) TreasuryPayoutRefCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldTreasuryPayoutRef]
+	return ok
+}
+
+// ResetTreasuryPayoutRef resets all changes to the "treasury_payout_ref" field.
+func (m *RouteAOrderMutation) ResetTreasuryPayoutRef() {
+	m.treasury_payout_ref = nil
+	delete(m.clearedFields, routeaorder.FieldTreasuryPayoutRef)
+}
+
+// SetBridgedAmount sets the "bridged_amount" field.
+func (m *RouteAOrderMutation) SetBridgedAmount(d decimal.Decimal) {
+	m.bridged_amount = &d
+	m.addbridged_amount = nil
+}
+
+// BridgedAmount returns the value of the "bridged_amount" field in the mutation.
+func (m *RouteAOrderMutation) BridgedAmount() (r decimal.Decimal, exists bool) {
+	v := m.bridged_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBridgedAmount returns the old "bridged_amount" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldBridgedAmount(ctx context.Context) (v decimal.Decimal, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBridgedAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBridgedAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBridgedAmount: %w", err)
+	}
+	return oldValue.BridgedAmount, nil
+}
+
+// AddBridgedAmount adds d to the "bridged_amount" field.
+func (m *RouteAOrderMutation) AddBridgedAmount(d decimal.Decimal) {
+	if m.addbridged_amount != nil {
+		*m.addbridged_amount = m.addbridged_amount.Add(d)
+	} else {
+		m.addbridged_amount = &d
+	}
+}
+
+// AddedBridgedAmount returns the value that was added to the "bridged_amount" field in this mutation.
+func (m *RouteAOrderMutation) AddedBridgedAmount() (r decimal.Decimal, exists bool) {
+	v := m.addbridged_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBridgedAmount clears the value of the "bridged_amount" field.
+func (m *RouteAOrderMutation) ClearBridgedAmount() {
+	m.bridged_amount = nil
+	m.addbridged_amount = nil
+	m.clearedFields[routeaorder.FieldBridgedAmount] = struct{}{}
+}
+
+// BridgedAmountCleared returns if the "bridged_amount" field was cleared in this mutation.
+func (m *RouteAOrderMutation) BridgedAmountCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldBridgedAmount]
+	return ok
+}
+
+// ResetBridgedAmount resets all changes to the "bridged_amount" field.
+func (m *RouteAOrderMutation) ResetBridgedAmount() {
+	m.bridged_amount = nil
+	m.addbridged_amount = nil
+	delete(m.clearedFields, routeaorder.FieldBridgedAmount)
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (m *RouteAOrderMutation) SetFailureReason(s string) {
+	m.failure_reason = &s
+}
+
+// FailureReason returns the value of the "failure_reason" field in the mutation.
+func (m *RouteAOrderMutation) FailureReason() (r string, exists bool) {
+	v := m.failure_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFailureReason returns the old "failure_reason" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldFailureReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFailureReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFailureReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFailureReason: %w", err)
+	}
+	return oldValue.FailureReason, nil
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (m *RouteAOrderMutation) ClearFailureReason() {
+	m.failure_reason = nil
+	m.clearedFields[routeaorder.FieldFailureReason] = struct{}{}
+}
+
+// FailureReasonCleared returns if the "failure_reason" field was cleared in this mutation.
+func (m *RouteAOrderMutation) FailureReasonCleared() bool {
+	_, ok := m.clearedFields[routeaorder.FieldFailureReason]
+	return ok
+}
+
+// ResetFailureReason resets all changes to the "failure_reason" field.
+func (m *RouteAOrderMutation) ResetFailureReason() {
+	m.failure_reason = nil
+	delete(m.clearedFields, routeaorder.FieldFailureReason)
+}
+
+// SetPaymentOrderID sets the "payment_order" edge to the PaymentOrder entity by id.
+func (m *RouteAOrderMutation) SetPaymentOrderID(id uuid.UUID) {
+	m.payment_order = &id
+}
+
+// ClearPaymentOrder clears the "payment_order" edge to the PaymentOrder entity.
+func (m *RouteAOrderMutation) ClearPaymentOrder() {
+	m.clearedpayment_order = true
+}
+
+// PaymentOrderCleared reports if the "payment_order" edge to the PaymentOrder entity was cleared.
+func (m *RouteAOrderMutation) PaymentOrderCleared() bool {
+	return m.clearedpayment_order
+}
+
+// PaymentOrderID returns the "payment_order" edge ID in the mutation.
+func (m *RouteAOrderMutation) PaymentOrderID() (id uuid.UUID, exists bool) {
+	if m.payment_order != nil {
+		return *m.payment_order, true
+	}
+	return
+}
+
+// PaymentOrderIDs returns the "payment_order" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PaymentOrderID instead. It exists only for internal usage by the builders.
+func (m *RouteAOrderMutation) PaymentOrderIDs() (ids []uuid.UUID) {
+	if id := m.payment_order; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPaymentOrder resets all changes to the "payment_order" edge.
+func (m *RouteAOrderMutation) ResetPaymentOrder() {
+	m.payment_order = nil
+	m.clearedpayment_order = false
+}
+
+// Where appends a list predicates to the RouteAOrderMutation builder.
+func (m *RouteAOrderMutation) Where(ps ...predicate.RouteAOrder) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RouteAOrderMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RouteAOrderMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RouteAOrder, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RouteAOrderMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RouteAOrderMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RouteAOrder).
+func (m *RouteAOrderMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RouteAOrderMutation) Fields() []string {
+	fields := make([]string, 0, 12)
+	if m.created_at != nil {
+		fields = append(fields, routeaorder.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, routeaorder.FieldUpdatedAt)
+	}
+	if m.mode != nil {
+		fields = append(fields, routeaorder.FieldMode)
+	}
+	if m.lifi_quote_id != nil {
+		fields = append(fields, routeaorder.FieldLifiQuoteID)
+	}
+	if m.lifi_tool != nil {
+		fields = append(fields, routeaorder.FieldLifiTool)
+	}
+	if m.bridge_tx_sui != nil {
+		fields = append(fields, routeaorder.FieldBridgeTxSui)
+	}
+	if m.bridge_tx_bsc != nil {
+		fields = append(fields, routeaorder.FieldBridgeTxBsc)
+	}
+	if m.bridge_status != nil {
+		fields = append(fields, routeaorder.FieldBridgeStatus)
+	}
+	if m.bsc_order_id != nil {
+		fields = append(fields, routeaorder.FieldBscOrderID)
+	}
+	if m.treasury_payout_ref != nil {
+		fields = append(fields, routeaorder.FieldTreasuryPayoutRef)
+	}
+	if m.bridged_amount != nil {
+		fields = append(fields, routeaorder.FieldBridgedAmount)
+	}
+	if m.failure_reason != nil {
+		fields = append(fields, routeaorder.FieldFailureReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RouteAOrderMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case routeaorder.FieldCreatedAt:
+		return m.CreatedAt()
+	case routeaorder.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case routeaorder.FieldMode:
+		return m.Mode()
+	case routeaorder.FieldLifiQuoteID:
+		return m.LifiQuoteID()
+	case routeaorder.FieldLifiTool:
+		return m.LifiTool()
+	case routeaorder.FieldBridgeTxSui:
+		return m.BridgeTxSui()
+	case routeaorder.FieldBridgeTxBsc:
+		return m.BridgeTxBsc()
+	case routeaorder.FieldBridgeStatus:
+		return m.BridgeStatus()
+	case routeaorder.FieldBscOrderID:
+		return m.BscOrderID()
+	case routeaorder.FieldTreasuryPayoutRef:
+		return m.TreasuryPayoutRef()
+	case routeaorder.FieldBridgedAmount:
+		return m.BridgedAmount()
+	case routeaorder.FieldFailureReason:
+		return m.FailureReason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RouteAOrderMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case routeaorder.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case routeaorder.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case routeaorder.FieldMode:
+		return m.OldMode(ctx)
+	case routeaorder.FieldLifiQuoteID:
+		return m.OldLifiQuoteID(ctx)
+	case routeaorder.FieldLifiTool:
+		return m.OldLifiTool(ctx)
+	case routeaorder.FieldBridgeTxSui:
+		return m.OldBridgeTxSui(ctx)
+	case routeaorder.FieldBridgeTxBsc:
+		return m.OldBridgeTxBsc(ctx)
+	case routeaorder.FieldBridgeStatus:
+		return m.OldBridgeStatus(ctx)
+	case routeaorder.FieldBscOrderID:
+		return m.OldBscOrderID(ctx)
+	case routeaorder.FieldTreasuryPayoutRef:
+		return m.OldTreasuryPayoutRef(ctx)
+	case routeaorder.FieldBridgedAmount:
+		return m.OldBridgedAmount(ctx)
+	case routeaorder.FieldFailureReason:
+		return m.OldFailureReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown RouteAOrder field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RouteAOrderMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case routeaorder.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case routeaorder.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case routeaorder.FieldMode:
+		v, ok := value.(routeaorder.Mode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMode(v)
+		return nil
+	case routeaorder.FieldLifiQuoteID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLifiQuoteID(v)
+		return nil
+	case routeaorder.FieldLifiTool:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLifiTool(v)
+		return nil
+	case routeaorder.FieldBridgeTxSui:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBridgeTxSui(v)
+		return nil
+	case routeaorder.FieldBridgeTxBsc:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBridgeTxBsc(v)
+		return nil
+	case routeaorder.FieldBridgeStatus:
+		v, ok := value.(routeaorder.BridgeStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBridgeStatus(v)
+		return nil
+	case routeaorder.FieldBscOrderID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBscOrderID(v)
+		return nil
+	case routeaorder.FieldTreasuryPayoutRef:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTreasuryPayoutRef(v)
+		return nil
+	case routeaorder.FieldBridgedAmount:
+		v, ok := value.(decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBridgedAmount(v)
+		return nil
+	case routeaorder.FieldFailureReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFailureReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAOrder field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RouteAOrderMutation) AddedFields() []string {
+	var fields []string
+	if m.addbridged_amount != nil {
+		fields = append(fields, routeaorder.FieldBridgedAmount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RouteAOrderMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case routeaorder.FieldBridgedAmount:
+		return m.AddedBridgedAmount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RouteAOrderMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case routeaorder.FieldBridgedAmount:
+		v, ok := value.(decimal.Decimal)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBridgedAmount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAOrder numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RouteAOrderMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(routeaorder.FieldLifiQuoteID) {
+		fields = append(fields, routeaorder.FieldLifiQuoteID)
+	}
+	if m.FieldCleared(routeaorder.FieldLifiTool) {
+		fields = append(fields, routeaorder.FieldLifiTool)
+	}
+	if m.FieldCleared(routeaorder.FieldBridgeTxSui) {
+		fields = append(fields, routeaorder.FieldBridgeTxSui)
+	}
+	if m.FieldCleared(routeaorder.FieldBridgeTxBsc) {
+		fields = append(fields, routeaorder.FieldBridgeTxBsc)
+	}
+	if m.FieldCleared(routeaorder.FieldBscOrderID) {
+		fields = append(fields, routeaorder.FieldBscOrderID)
+	}
+	if m.FieldCleared(routeaorder.FieldTreasuryPayoutRef) {
+		fields = append(fields, routeaorder.FieldTreasuryPayoutRef)
+	}
+	if m.FieldCleared(routeaorder.FieldBridgedAmount) {
+		fields = append(fields, routeaorder.FieldBridgedAmount)
+	}
+	if m.FieldCleared(routeaorder.FieldFailureReason) {
+		fields = append(fields, routeaorder.FieldFailureReason)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RouteAOrderMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RouteAOrderMutation) ClearField(name string) error {
+	switch name {
+	case routeaorder.FieldLifiQuoteID:
+		m.ClearLifiQuoteID()
+		return nil
+	case routeaorder.FieldLifiTool:
+		m.ClearLifiTool()
+		return nil
+	case routeaorder.FieldBridgeTxSui:
+		m.ClearBridgeTxSui()
+		return nil
+	case routeaorder.FieldBridgeTxBsc:
+		m.ClearBridgeTxBsc()
+		return nil
+	case routeaorder.FieldBscOrderID:
+		m.ClearBscOrderID()
+		return nil
+	case routeaorder.FieldTreasuryPayoutRef:
+		m.ClearTreasuryPayoutRef()
+		return nil
+	case routeaorder.FieldBridgedAmount:
+		m.ClearBridgedAmount()
+		return nil
+	case routeaorder.FieldFailureReason:
+		m.ClearFailureReason()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAOrder nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RouteAOrderMutation) ResetField(name string) error {
+	switch name {
+	case routeaorder.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case routeaorder.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case routeaorder.FieldMode:
+		m.ResetMode()
+		return nil
+	case routeaorder.FieldLifiQuoteID:
+		m.ResetLifiQuoteID()
+		return nil
+	case routeaorder.FieldLifiTool:
+		m.ResetLifiTool()
+		return nil
+	case routeaorder.FieldBridgeTxSui:
+		m.ResetBridgeTxSui()
+		return nil
+	case routeaorder.FieldBridgeTxBsc:
+		m.ResetBridgeTxBsc()
+		return nil
+	case routeaorder.FieldBridgeStatus:
+		m.ResetBridgeStatus()
+		return nil
+	case routeaorder.FieldBscOrderID:
+		m.ResetBscOrderID()
+		return nil
+	case routeaorder.FieldTreasuryPayoutRef:
+		m.ResetTreasuryPayoutRef()
+		return nil
+	case routeaorder.FieldBridgedAmount:
+		m.ResetBridgedAmount()
+		return nil
+	case routeaorder.FieldFailureReason:
+		m.ResetFailureReason()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAOrder field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RouteAOrderMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.payment_order != nil {
+		edges = append(edges, routeaorder.EdgePaymentOrder)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RouteAOrderMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case routeaorder.EdgePaymentOrder:
+		if id := m.payment_order; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RouteAOrderMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RouteAOrderMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RouteAOrderMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedpayment_order {
+		edges = append(edges, routeaorder.EdgePaymentOrder)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RouteAOrderMutation) EdgeCleared(name string) bool {
+	switch name {
+	case routeaorder.EdgePaymentOrder:
+		return m.clearedpayment_order
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RouteAOrderMutation) ClearEdge(name string) error {
+	switch name {
+	case routeaorder.EdgePaymentOrder:
+		m.ClearPaymentOrder()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAOrder unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RouteAOrderMutation) ResetEdge(name string) error {
+	switch name {
+	case routeaorder.EdgePaymentOrder:
+		m.ResetPaymentOrder()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAOrder edge %s", name)
 }
 
 // SenderOrderTokenMutation represents an operation that mutates the SenderOrderToken nodes in the graph.

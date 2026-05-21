@@ -189,6 +189,18 @@ func (f ReceiveAddressFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReceiveAddressMutation", m)
 }
 
+// The RouteAOrderFunc type is an adapter to allow the use of ordinary
+// function as RouteAOrder mutator.
+type RouteAOrderFunc func(context.Context, *ent.RouteAOrderMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RouteAOrderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RouteAOrderMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RouteAOrderMutation", m)
+}
+
 // The SenderOrderTokenFunc type is an adapter to allow the use of ordinary
 // function as SenderOrderToken mutator.
 type SenderOrderTokenFunc func(context.Context, *ent.SenderOrderTokenMutation) (ent.Value, error)

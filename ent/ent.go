@@ -27,6 +27,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerrating"
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
@@ -110,6 +111,7 @@ func checkColumn(table, column string) error {
 			providerrating.Table:              providerrating.ValidColumn,
 			provisionbucket.Table:             provisionbucket.ValidColumn,
 			receiveaddress.Table:              receiveaddress.ValidColumn,
+			routeaorder.Table:                 routeaorder.ValidColumn,
 			senderordertoken.Table:            senderordertoken.ValidColumn,
 			senderprofile.Table:               senderprofile.ValidColumn,
 			suireceiveaddress.Table:           suireceiveaddress.ValidColumn,
