@@ -25,6 +25,7 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"github.com/usezoracle/rails-sui/config"
@@ -38,6 +39,7 @@ import (
 	tokenent "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/services/contracts"
+	orderpkg "github.com/usezoracle/rails-sui/services/order"
 	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils"
@@ -52,6 +54,7 @@ type SuiEventIndexer struct {
 	packageID     string
 	networkKey    string // "sui-mainnet" or "sui-testnet", used to scope DB Network lookups
 	priorityQueue *PriorityQueueService
+	orderSui      *orderpkg.OrderSui // used for Route A self-settle to aggregator
 	subscribers   []*subscription
 }
 
@@ -65,11 +68,16 @@ type subscription struct {
 // endpoint and Gateway package ID. networkKey identifies which Network row
 // the indexer associates created LockPaymentOrders with (e.g. "sui-mainnet").
 func NewSuiEventIndexer(wsURL, packageID, networkKey string) *SuiEventIndexer {
+	var orderSui *orderpkg.OrderSui
+	if svc, ok := orderpkg.NewOrderSui().(*orderpkg.OrderSui); ok {
+		orderSui = svc
+	}
 	idx := &SuiEventIndexer{
 		wsURL:         wsURL,
 		packageID:     packageID,
 		networkKey:    networkKey,
 		priorityQueue: NewPriorityQueueService(),
+		orderSui:      orderSui,
 	}
 	idx.subscribers = []*subscription{
 		{eventName: contracts.EventOrderCreated, handler: idx.handleOrderCreated},
@@ -176,7 +184,76 @@ func (s *SuiEventIndexer) handleOrderCreated(ctx context.Context, raw models.Sui
 		return nil
 	}
 
-	return s.createLockPaymentOrder(ctx, evt)
+	// Decrypt message_hash early — we need Reference to detect Route A orders
+	// before deciding whether to enter the LP matching flow or self-settle.
+	recipient, err := s.decryptMessageHash(evt.MessageHash)
+	if err != nil {
+		// Decryption failure means we can't safely process — log and skip.
+		return fmt.Errorf("OrderCreated: decrypt message_hash: %w", err)
+	}
+
+	// Route A branch: if the Reference points to a PaymentOrder with a
+	// RouteAOrder edge, drain the Gateway escrow to the aggregator wallet so
+	// RouteADispatcher can bridge it. Skip LP matching entirely.
+	if recipient.Reference != "" {
+		isRouteA, err := s.handleRouteAIfApplicable(ctx, evt, recipient.Reference)
+		if err != nil {
+			logger.Errorf("OrderCreated: route-a branch (ref=%s): %v", recipient.Reference, err)
+			// Fall through to Route B as a safety net — better to match an LP than
+			// to leave coin stuck in escrow because of a routing bug.
+		}
+		if isRouteA {
+			return nil
+		}
+	}
+
+	return s.createLockPaymentOrderWithRecipient(ctx, evt, recipient)
+}
+
+// handleRouteAIfApplicable checks whether the OrderCreated event belongs to
+// a Route A order and, if so, self-settles the Gateway escrow to the
+// aggregator wallet. Returns (true, nil) when handled as Route A; (false, nil)
+// when the order is plain Route B (caller should continue with LP matching);
+// or (true, err) when Route A was attempted but the self-settle failed
+// (don't fall through to LP matching, the dispatcher will retry).
+func (s *SuiEventIndexer) handleRouteAIfApplicable(ctx context.Context, evt *types.SuiOrderCreatedEvent, reference string) (bool, error) {
+	refUUID, err := uuid.Parse(reference)
+	if err != nil {
+		// Reference isn't a UUID — not a Rails-managed PaymentOrder.
+		return false, nil
+	}
+
+	po, err := db.Client.PaymentOrder.
+		Query().
+		Where(paymentorder.IDEQ(refUUID)).
+		WithRouteAOrder().
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lookup payment order by reference: %w", err)
+	}
+	if po.Edges.RouteAOrder == nil {
+		return false, nil
+	}
+
+	if s.orderSui == nil {
+		return true, fmt.Errorf("OrderSui not initialised (SUI_AGGREGATOR_PRIVATE_KEY missing?) — cannot self-settle")
+	}
+
+	if err := s.orderSui.SelfSettleToAggregator(ctx, evt.OrderID, evt.CoinType); err != nil {
+		return true, fmt.Errorf("self-settle to aggregator: %w", err)
+	}
+
+	// Stamp the PaymentOrder so we can correlate later and surface state.
+	if _, err := po.Update().SetGatewayID(evt.OrderID).SetTxHash(evt.TxDigest).Save(ctx); err != nil {
+		logger.Errorf("OrderCreated route-a: persist GatewayID/TxHash on PaymentOrder %s: %v", po.ID, err)
+	}
+
+	logger.Infof("sui event indexer: route-a self-settled order=%s payment_order=%s tx=%s",
+		evt.OrderID, po.ID, evt.TxDigest)
+	return true, nil
 }
 
 // createLockPaymentOrder is the Sui-native equivalent of the upstream
@@ -188,7 +265,7 @@ func (s *SuiEventIndexer) handleOrderCreated(ctx context.Context, raw models.Sui
 //   - GatewayID is the Sui Order object ID (already hex, no formatting needed)
 //   - TxHash is the Sui transaction digest (base58)
 //   - BlockNumber is unused on Sui (checkpoint-based finality)
-func (s *SuiEventIndexer) createLockPaymentOrder(ctx context.Context, evt *types.SuiOrderCreatedEvent) error {
+func (s *SuiEventIndexer) createLockPaymentOrderWithRecipient(ctx context.Context, evt *types.SuiOrderCreatedEvent, recipient *types.PaymentOrderRecipient) error {
 	// Find the Network row this event came from.
 	network, err := db.Client.Network.
 		Query().
@@ -209,14 +286,6 @@ func (s *SuiEventIndexer) createLockPaymentOrder(ctx context.Context, evt *types
 		Only(ctx)
 	if err != nil {
 		return fmt.Errorf("OrderCreated: load token %s on %s: %w", evt.CoinType, s.networkKey, err)
-	}
-
-	// Decrypt the message_hash to recover the recipient bank details. The hash
-	// is base64-encoded RSA-encrypted JSON of a PaymentOrderRecipient, signed
-	// to our aggregator public key at order-creation time.
-	recipient, err := s.decryptMessageHash(evt.MessageHash)
-	if err != nil {
-		return fmt.Errorf("OrderCreated: decrypt message_hash: %w", err)
 	}
 
 	// Institution + currency lookups.

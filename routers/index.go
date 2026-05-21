@@ -106,6 +106,7 @@ func senderRoutes(route *gin.Engine) {
 	v1.Use(middleware.OnlySenderMiddleware)
 
 	v1.POST("orders", senderCtrl.InitiatePaymentOrder)
+	v1.POST("orders/route-a", senderCtrl.InitiateRouteAOrder)
 	v1.GET("orders/:id", senderCtrl.GetPaymentOrderByID)
 	v1.GET("orders", senderCtrl.GetPaymentOrders)
 	v1.GET("stats", senderCtrl.Stats)

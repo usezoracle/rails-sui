@@ -434,7 +434,12 @@ type PaymentOrderRecipient struct {
 	Memo              string `json:"memo" binding:"required"`
 	ProviderID        string `json:"providerId"`
 	Currency          string `json:"currency"`
-	Nonce 		      string `json:"nonce"`
+	Nonce             string `json:"nonce"`
+	// Reference correlates an on-chain OrderCreated event back to a sender-side
+	// PaymentOrder. Carried through the encrypted message_hash so the indexer
+	// can branch the post-deposit flow on PaymentOrder state (e.g. detecting a
+	// RouteAOrder edge to trigger bridging instead of LP matching).
+	Reference string `json:"reference"`
 }
 
 // NewPaymentOrderPayload is the payload for the create payment order endpoint

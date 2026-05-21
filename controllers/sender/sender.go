@@ -17,6 +17,7 @@ import (
 	providerprofile "github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
@@ -411,6 +412,156 @@ func (ctrl *SenderController) InitiatePaymentOrder(ctx *gin.Context) {
 			TransactionFee: protocolFee.Add(token.Edges.Network.Fee),
 			Reference:      paymentOrder.Reference,
 		})
+}
+
+// InitiateRouteAOrder creates a Route A payment order (Sui USDC bridged to
+// BSC via LiFi, then dispatched to fiat). Path-2 (receive-address) deposit
+// flow only in v1 — the user sends Sui USDC from any wallet/exchange to the
+// returned receive address; the deposit watcher detects it, forwards via
+// OrderSui.CreateOrder (embedding the PaymentOrder UUID in message_hash);
+// the indexer's handleOrderCreated sees the RouteAOrder edge, self-settles
+// Gateway escrow to the aggregator wallet; RouteADispatcher then bridges
+// via LiFi and dispatches per mode.
+//
+// Payload extends NewPaymentOrderPayload with a `mode` field
+// ("lp" | "treasury", default "treasury").
+func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
+	var payload struct {
+		types.NewPaymentOrderPayload
+		Mode string `json:"mode"` // "lp" | "treasury"
+	}
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Failed to validate payload", u.GetErrorData(err))
+		return
+	}
+
+	mode := strings.ToLower(strings.TrimSpace(payload.Mode))
+	if mode == "" {
+		mode = "treasury"
+	}
+	if mode != "lp" && mode != "treasury" {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"mode must be one of: lp, treasury", nil)
+		return
+	}
+
+	senderVal, _ := ctx.Get("sender")
+	sender, ok := senderVal.(*ent.SenderProfile)
+	if !ok || sender == nil {
+		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Sender not authenticated", nil)
+		return
+	}
+
+	token, err := storage.Client.Token.
+		Query().
+		Where(
+			tokenEnt.SymbolEQ(strings.ToUpper(payload.Token)),
+			tokenEnt.IsEnabledEQ(true),
+		).
+		WithNetwork().
+		Only(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Token is not supported", nil)
+		return
+	}
+
+	address, encryptedSeed, err := ctrl.receiveAddressService.CreateSuiReceiveAddress(ctx)
+	if err != nil {
+		logger.Errorf("InitiateRouteAOrder.receive_address: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	receiveAddress, err := storage.Client.SuiReceiveAddress.
+		Create().
+		SetAddress(address).
+		SetEncryptedSeed(encryptedSeed).
+		SetCoinType(token.ContractAddress).
+		SetExpectedAmount(u.ToSubunit(payload.Amount, token.Decimals).Uint64()).
+		SetStatus(suireceiveaddress.StatusUnused).
+		SetValidUntil(time.Now().Add(orderConf.ReceiveAddressValidity)).
+		Save(ctx)
+	if err != nil {
+		logger.Errorf("InitiateRouteAOrder.receive_address.persist: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	tx, err := storage.Client.Tx(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	paymentOrder, err := tx.PaymentOrder.
+		Create().
+		SetSenderProfile(sender).
+		SetAmount(payload.Amount).
+		SetAmountPaid(decimal.NewFromInt(0)).
+		SetAmountReturned(decimal.NewFromInt(0)).
+		SetPercentSettled(decimal.NewFromInt(0)).
+		SetNetworkFee(token.Edges.Network.Fee).
+		SetProtocolFee(decimal.NewFromInt(0)).
+		SetSenderFee(decimal.NewFromInt(0)).
+		SetToken(token).
+		SetRate(payload.Rate).
+		SetSuiReceiveAddress(receiveAddress).
+		SetReceiveAddressText(receiveAddress.Address).
+		SetFeePercent(decimal.NewFromInt(0)).
+		SetReturnAddress(payload.ReturnAddress).
+		SetReference(payload.Reference).
+		Save(ctx)
+	if err != nil {
+		_ = tx.Rollback()
+		logger.Errorf("InitiateRouteAOrder.payment_order: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	if _, err := tx.PaymentOrderRecipient.
+		Create().
+		SetInstitution(payload.Recipient.Institution).
+		SetAccountIdentifier(payload.Recipient.AccountIdentifier).
+		SetAccountName(payload.Recipient.AccountName).
+		SetProviderID(payload.Recipient.ProviderID).
+		SetMemo(payload.Recipient.Memo).
+		SetPaymentOrder(paymentOrder).
+		Save(ctx); err != nil {
+		_ = tx.Rollback()
+		logger.Errorf("InitiateRouteAOrder.recipient: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	if _, err := tx.RouteAOrder.
+		Create().
+		SetMode(routeaorder.Mode(mode)).
+		SetBridgeStatus(routeaorder.BridgeStatusPending).
+		SetPaymentOrder(paymentOrder).
+		Save(ctx); err != nil {
+		_ = tx.Rollback()
+		logger.Errorf("InitiateRouteAOrder.route_a_order: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Errorf("InitiateRouteAOrder.commit: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to initiate route-a order", nil)
+		return
+	}
+
+	u.APIResponse(ctx, http.StatusCreated, "success", "Route A payment order initiated", map[string]interface{}{
+		"id":             paymentOrder.ID,
+		"mode":           mode,
+		"amount":         paymentOrder.Amount,
+		"rate":           paymentOrder.Rate,
+		"coin_type":      token.ContractAddress,
+		"receive_address": receiveAddress.Address,
+		"valid_until":    receiveAddress.ValidUntil,
+		"reference":      paymentOrder.Reference,
+	})
 }
 
 // GetPaymentOrderByID controller fetches a payment order by ID

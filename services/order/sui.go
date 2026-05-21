@@ -182,7 +182,9 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 	// Mirrors the EVM encryptOrderRecipient pattern: RSA-encrypt a
 	// nonced JSON payload with the aggregator's public key; on the indexer
 	// side, decryptMessageHash (sui_event_indexer.go) reverses this.
-	messageHash, err := encryptRecipient(order.Edges.Recipient)
+	// Carry PaymentOrder UUID as Reference so the indexer can correlate
+	// OrderCreated back to this order (and branch on RouteAOrder edge, etc.).
+	messageHash, err := encryptRecipient(order.Edges.Recipient, order.ID.String())
 	if err != nil {
 		return fmt.Errorf("create_order: encrypt recipient: %w", err)
 	}
@@ -274,7 +276,7 @@ func rateAsU64(rate decimal.Decimal) uint64 {
 // Institution, ProviderID, Memo} blob with the aggregator's public key and
 // returns the base64 ciphertext suitable to pass as the create_order
 // message_hash argument. The indexer's decryptMessageHash reverses it.
-func encryptRecipient(r *ent.PaymentOrderRecipient) (string, error) {
+func encryptRecipient(r *ent.PaymentOrderRecipient, reference string) (string, error) {
 	if r == nil {
 		return "", errors.New("recipient is nil")
 	}
@@ -289,6 +291,7 @@ func encryptRecipient(r *ent.PaymentOrderRecipient) (string, error) {
 		Institution       string
 		ProviderID        string
 		Memo              string
+		Reference         string
 	}{
 		Nonce:             base64.StdEncoding.EncodeToString(nonce),
 		AccountIdentifier: r.AccountIdentifier,
@@ -296,6 +299,7 @@ func encryptRecipient(r *ent.PaymentOrderRecipient) (string, error) {
 		Institution:       r.Institution,
 		ProviderID:        r.ProviderID,
 		Memo:              r.Memo,
+		Reference:         reference,
 	}
 	cipher, err := cryptoUtils.PublicKeyEncryptJSON(payload, config.CryptoConfig().AggregatorPublicKey)
 	if err != nil {
@@ -389,6 +393,64 @@ func (s *OrderSui) SettleOrder(ctx context.Context, orderID uuid.UUID) error {
 		return fmt.Errorf("settle_order: persist tx digest: %w", err)
 	}
 
+	return nil
+}
+
+// SelfSettleToAggregator drains the full escrow of a Gateway Order shared
+// object to the aggregator wallet. Used by Route A: after the user's deposit
+// lands in escrow, the indexer self-settles 100% to our wallet so the
+// RouteADispatcher can bridge the coin via LiFi.
+//
+// gatewayOrderID is the on-chain Order object ID (from OrderCreated event).
+// coinType is the Move coin type string used at create_order time
+// (e.g. "0x...::usdc::USDC").
+//
+// This bypasses LockPaymentOrder lookup since Route A orders never enter
+// the LP matching engine — they go straight to the bridge.
+func (s *OrderSui) SelfSettleToAggregator(ctx context.Context, gatewayOrderID, coinType string) error {
+	if s.signer == nil {
+		return ErrAggregatorNotConfigured
+	}
+	if gatewayOrderID == "" {
+		return errors.New("self_settle: gatewayOrderID is empty")
+	}
+
+	coinTypeTag, err := parseCoinTypeTag(coinType)
+	if err != nil {
+		return fmt.Errorf("self_settle: parse coin type: %w", err)
+	}
+
+	tx, err := s.newAggregatorTx(ctx)
+	if err != nil {
+		return fmt.Errorf("self_settle: prepare tx: %w", err)
+	}
+
+	tx.MoveCall(
+		models.SuiAddress(s.packageID),
+		"order",
+		"settle_order",
+		[]transaction.TypeTag{coinTypeTag},
+		[]transaction.Argument{
+			tx.Object(s.aggregatorCapID),
+			tx.Object(s.gatewayObjectID),
+			tx.Object(gatewayOrderID),
+			tx.Pure(s.signer.Address),       // lp_address = aggregator wallet
+			tx.Pure(uint64(10_000)),         // 100% settle
+			tx.Pure([]byte("route_a_self")), // split_order_id marker
+		},
+	)
+
+	resp, err := tx.Execute(
+		ctx,
+		models.SuiTransactionBlockOptions{ShowEffects: true},
+		"WaitForLocalExecution",
+	)
+	if err != nil {
+		return fmt.Errorf("self_settle: submit: %w", err)
+	}
+	if !isTxSuccess(resp) {
+		return fmt.Errorf("self_settle: on-chain failure: digest=%s", resp.Digest)
+	}
 	return nil
 }
 
