@@ -97,35 +97,6 @@ var (
 			},
 		},
 	}
-	// LinkedAddressesColumns holds the columns for the "linked_addresses" table.
-	LinkedAddressesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "address", Type: field.TypeString, Unique: true},
-		{Name: "salt", Type: field.TypeBytes, Unique: true},
-		{Name: "institution", Type: field.TypeString},
-		{Name: "account_identifier", Type: field.TypeString},
-		{Name: "account_name", Type: field.TypeString},
-		{Name: "owner_address", Type: field.TypeString, Unique: true},
-		{Name: "last_indexed_block", Type: field.TypeInt64, Nullable: true},
-		{Name: "tx_hash", Type: field.TypeString, Nullable: true, Size: 70},
-		{Name: "sender_profile_linked_address", Type: field.TypeUUID, Nullable: true},
-	}
-	// LinkedAddressesTable holds the schema information for the "linked_addresses" table.
-	LinkedAddressesTable = &schema.Table{
-		Name:       "linked_addresses",
-		Columns:    LinkedAddressesColumns,
-		PrimaryKey: []*schema.Column{LinkedAddressesColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "linked_addresses_sender_profiles_linked_address",
-				Columns:    []*schema.Column{LinkedAddressesColumns[11]},
-				RefColumns: []*schema.Column{SenderProfilesColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
 	// LockOrderFulfillmentsColumns holds the columns for the "lock_order_fulfillments" table.
 	LockOrderFulfillmentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -247,7 +218,6 @@ var (
 		{Name: "reference", Type: field.TypeString, Nullable: true, Size: 70},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"initiated", "pending", "expired", "settled", "refunded"}, Default: "initiated"},
 		{Name: "api_key_payment_orders", Type: field.TypeUUID, Nullable: true},
-		{Name: "linked_address_payment_orders", Type: field.TypeInt, Nullable: true},
 		{Name: "sender_profile_payment_orders", Type: field.TypeUUID, Nullable: true},
 		{Name: "token_payment_orders", Type: field.TypeInt},
 	}
@@ -264,20 +234,14 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "payment_orders_linked_addresses_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[22]},
-				RefColumns: []*schema.Column{LinkedAddressesColumns[0]},
-				OnDelete:   schema.SetNull,
-			},
-			{
 				Symbol:     "payment_orders_sender_profiles_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[23]},
+				Columns:    []*schema.Column{PaymentOrdersColumns[22]},
 				RefColumns: []*schema.Column{SenderProfilesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "payment_orders_tokens_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[24]},
+				Columns:    []*schema.Column{PaymentOrdersColumns[23]},
 				RefColumns: []*schema.Column{TokensColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -727,7 +691,6 @@ var (
 		FiatCurrenciesTable,
 		IdentityVerificationRequestsTable,
 		InstitutionsTable,
-		LinkedAddressesTable,
 		LockOrderFulfillmentsTable,
 		LockPaymentOrdersTable,
 		NetworksTable,
@@ -755,15 +718,13 @@ func init() {
 	APIKeysTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	APIKeysTable.ForeignKeys[1].RefTable = SenderProfilesTable
 	InstitutionsTable.ForeignKeys[0].RefTable = FiatCurrenciesTable
-	LinkedAddressesTable.ForeignKeys[0].RefTable = SenderProfilesTable
 	LockOrderFulfillmentsTable.ForeignKeys[0].RefTable = LockPaymentOrdersTable
 	LockPaymentOrdersTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	LockPaymentOrdersTable.ForeignKeys[1].RefTable = ProvisionBucketsTable
 	LockPaymentOrdersTable.ForeignKeys[2].RefTable = TokensTable
 	PaymentOrdersTable.ForeignKeys[0].RefTable = APIKeysTable
-	PaymentOrdersTable.ForeignKeys[1].RefTable = LinkedAddressesTable
-	PaymentOrdersTable.ForeignKeys[2].RefTable = SenderProfilesTable
-	PaymentOrdersTable.ForeignKeys[3].RefTable = TokensTable
+	PaymentOrdersTable.ForeignKeys[1].RefTable = SenderProfilesTable
+	PaymentOrdersTable.ForeignKeys[2].RefTable = TokensTable
 	PaymentOrderRecipientsTable.ForeignKeys[0].RefTable = PaymentOrdersTable
 	ProviderOrderTokensTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	ProviderProfilesTable.ForeignKeys[0].RefTable = FiatCurrenciesTable

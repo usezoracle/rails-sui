@@ -16,7 +16,6 @@ import (
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/institution"
-	"github.com/usezoracle/rails-sui/ent/linkedaddress"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
 	"github.com/usezoracle/rails-sui/ent/network"
@@ -100,7 +99,6 @@ func checkColumn(table, column string) error {
 			fiatcurrency.Table:                fiatcurrency.ValidColumn,
 			identityverificationrequest.Table: identityverificationrequest.ValidColumn,
 			institution.Table:                 institution.ValidColumn,
-			linkedaddress.Table:               linkedaddress.ValidColumn,
 			lockorderfulfillment.Table:        lockorderfulfillment.ValidColumn,
 			lockpaymentorder.Table:            lockpaymentorder.ValidColumn,
 			network.Table:                     network.ValidColumn,

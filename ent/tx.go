@@ -20,8 +20,6 @@ type Tx struct {
 	IdentityVerificationRequest *IdentityVerificationRequestClient
 	// Institution is the client for interacting with the Institution builders.
 	Institution *InstitutionClient
-	// LinkedAddress is the client for interacting with the LinkedAddress builders.
-	LinkedAddress *LinkedAddressClient
 	// LockOrderFulfillment is the client for interacting with the LockOrderFulfillment builders.
 	LockOrderFulfillment *LockOrderFulfillmentClient
 	// LockPaymentOrder is the client for interacting with the LockPaymentOrder builders.
@@ -195,7 +193,6 @@ func (tx *Tx) init() {
 	tx.FiatCurrency = NewFiatCurrencyClient(tx.config)
 	tx.IdentityVerificationRequest = NewIdentityVerificationRequestClient(tx.config)
 	tx.Institution = NewInstitutionClient(tx.config)
-	tx.LinkedAddress = NewLinkedAddressClient(tx.config)
 	tx.LockOrderFulfillment = NewLockOrderFulfillmentClient(tx.config)
 	tx.LockPaymentOrder = NewLockPaymentOrderClient(tx.config)
 	tx.Network = NewNetworkClient(tx.config)

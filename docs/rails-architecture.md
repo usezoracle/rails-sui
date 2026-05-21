@@ -36,7 +36,7 @@ Both routes share: order lifecycle, KYC, merchant onboarding, webhooks, settleme
 │  └────────────────┘  └─────────────────┘  └───────────────┘  │
 │  ┌────────────────┐  ┌─────────────────┐  ┌───────────────┐  │
 │  │  KYC (Smile)   │  │  LiFi client    │  │ BaaS client   │  │
-│  │  Auth (Privy)  │  │  (Route A)      │  │ (virtual      │  │
+│  │  Auth (API key)  │  │  (Route A)      │  │ (virtual      │  │
 │  │                │  │                 │  │  accounts)    │  │
 │  └────────────────┘  └─────────────────┘  └───────────────┘  │
 └──────┬─────────────────────┬───────────────────┬─────────────┘

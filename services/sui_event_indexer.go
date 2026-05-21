@@ -548,7 +548,6 @@ func (s *SuiEventIndexer) updateOrderStatusRefunded(ctx context.Context, evt *ty
 		Query().
 		Where(paymentorder.GatewayIDEQ(evt.OrderID)).
 		WithSenderProfile().
-		WithLinkedAddress().
 		Only(ctx)
 	if err != nil {
 		if !ent.IsNotFound(err) {
@@ -611,11 +610,6 @@ func (s *SuiEventIndexer) updateOrderStatusRefunded(ctx context.Context, evt *ty
 			Where(paymentorder.GatewayIDEQ(evt.OrderID)).
 			SetTxHash(evt.TxDigest).
 			SetStatus(paymentorder.StatusRefunded)
-		// Mirror the legacy behaviour for LinkedAddress flows: clear GatewayID
-		// on refund so the address becomes reusable for a fresh order.
-		if po.Edges.LinkedAddress != nil {
-			poUpdate = poUpdate.SetGatewayID("")
-		}
 		if txLog != nil {
 			poUpdate = poUpdate.AddTransactions(txLog)
 		}

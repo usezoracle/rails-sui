@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
@@ -94,104 +92,6 @@ func JWTMiddleware(c *gin.Context) {
 
 		c.Set("provider", providerProfile)
 	}
-
-	c.Next()
-}
-
-type PrivyClaims struct {
-	jwt.MapClaims
-	AppId          string `json:"aud,omitempty"`
-	Expiration     uint64 `json:"exp,omitempty"`
-	Issuer         string `json:"iss,omitempty"`
-	UserId         string `json:"sub,omitempty"`
-	LinkedAccounts string `json:"linked_accounts,omitempty"`
-}
-
-type LinkedAccount struct {
-	Type             string `json:"type"`
-	Address          string `json:"address"`
-	ChainType        string `json:"chain_type"`
-	WalletClientType string `json:"wallet_client_type"`
-	Lv               int64  `json:"lv"`
-}
-
-// PrivyMiddleware verifies the access token from a Privy (privy.io) login
-func PrivyMiddleware(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		u.APIResponse(c, http.StatusUnauthorized, "error",
-			"Authorization header is missing", "Expected: Bearer <token>")
-		c.Abort()
-		return
-	}
-
-	// Split the Authorization header value into two parts: the authentication scheme and the token value
-	authParts := strings.SplitN(authHeader, " ", 2)
-	if len(authParts) != 2 || authParts[0] != "Bearer" {
-		u.APIResponse(c, http.StatusUnauthorized, "error",
-			"Invalid Authorization header format", "Expected: Bearer <token>")
-		c.Abort()
-		return
-	}
-
-	accessToken := authParts[1]
-	identityConf := config.IdentityConfig()
-
-	// Check the JWT signature and decode claims
-	token, err := jwt.ParseWithClaims(accessToken, &PrivyClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if token.Method.Alg() != "ES256" {
-			return nil, fmt.Errorf("unexpected signing method=%v", token.Header["alg"])
-		}
-		return jwt.ParseECPublicKeyFromPEM([]byte(identityConf.PrivyVerificationKey))
-	})
-	if err != nil {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "JWT signature is invalid.", err.Error())
-		c.Abort()
-		return
-	}
-
-	// Parse the JWT claims into your custom struct
-	privyClaim, ok := token.Claims.(*PrivyClaims)
-	if !ok {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "JWT does not have all the necessary claims.", nil)
-		c.Abort()
-		return
-	}
-
-	// Check the JWT claims
-	if privyClaim.AppId != identityConf.PrivyAppID {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Invalid App ID", nil)
-		c.Abort()
-		return
-	}
-
-	if privyClaim.Issuer != "privy.io" {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Invalid Issuer", nil)
-		c.Abort()
-		return
-	}
-
-	if privyClaim.Expiration < uint64(time.Now().Unix()) {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Token is expired", nil)
-		c.Abort()
-		return
-	}
-
-	if privyClaim.LinkedAccounts == "" {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Missing linked accounts", nil)
-		c.Abort()
-		return
-	}
-
-	// Parse the linked accounts
-	var accounts []LinkedAccount
-	err = json.Unmarshal([]byte(privyClaim.LinkedAccounts), &accounts)
-	if err != nil {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Failed to parse linked accounts", err.Error())
-		c.Abort()
-		return
-	}
-	c.Set("owner_address", determineOwnerAddress(accounts))
 
 	c.Next()
 }
@@ -496,33 +396,3 @@ func OnlyWebMiddleware(c *gin.Context) {
 	c.Next()
 }
 
-// determineOwnerAddress determines the owner address from the linked accounts
-func determineOwnerAddress(accounts []LinkedAccount) string {
-	var emailExists bool
-	var privyWallet, nonPrivyEthereumWallet string
-
-	for _, account := range accounts {
-		switch {
-		case account.Type == "email":
-			emailExists = true
-		case account.Type == "wallet" && account.ChainType == "ethereum":
-			if account.WalletClientType == "privy" {
-				privyWallet = account.Address
-			} else if nonPrivyEthereumWallet == "" {
-				nonPrivyEthereumWallet = account.Address
-			}
-		}
-	}
-
-	if emailExists && privyWallet != "" {
-		return privyWallet
-	}
-	if nonPrivyEthereumWallet != "" {
-		return nonPrivyEthereumWallet
-	}
-	if privyWallet != "" {
-		return privyWallet
-	}
-
-	return ""
-}

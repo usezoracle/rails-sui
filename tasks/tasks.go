@@ -760,7 +760,7 @@ func StartCronJobs() {
 	// Sui chain event indexer — long-lived WebSocket subscription to the
 	// Gateway package's four Move events (OrderCreated, OrderSettled,
 	// OrderRefunded, SenderFeeTransferred). Replaces the legacy EVM/Tron
-	// polling jobs (IndexBlockchainEvents, IndexLinkedAddresses) which were
+	// polling jobs (IndexBlockchainEvents) which were
 	// removed during the Sui port. The indexer runs as a goroutine for the
 	// lifetime of the process; cancel-on-signal would be a server-shutdown
 	// concern handled by main.
