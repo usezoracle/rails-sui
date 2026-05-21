@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Issue a **dedicated virtual bank account** to each onboarded LP, in the LP's local currency. LP deposits fiat into that account; Rails has pull authority to debit it when the LP wins an order. This is a hard requirement from the PRD, and a deliberate departure from the open-source Paycrest `protocol` repo (which delegates fulfillment to LP-operated webhook servers via `host_identifier`).
+Issue a **dedicated virtual bank account** to each onboarded LP, in the LP's local currency. LP deposits fiat into that account; Rails has pull authority to debit it when the LP wins an order. This is a hard requirement from the PRD, and a deliberate departure from the legacy protocol design (which delegates fulfillment to LP-operated webhook servers via `host_identifier`).
 
 ## Custody & Mandate Model (locked, regulatorily load-bearing)
 
@@ -51,7 +51,7 @@ LPs are **passive capital providers**. They do not run any infrastructure — no
 4. Deposit fiat into their virtual account via bank transfer (recurring)
 5. Watch their Sui wallet receive coin payouts as orders settle
 
-The `host_identifier` webhook field on Paycrest's `ProviderProfile` schema is **dropped** in the Rails fork. LPs do not receive per-order webhooks because they have no per-order decision to make — the matching engine selects them based on static config (rate, balance, KYB), and the BaaS executes the debit. (We may later repurpose a notification webhook for things like low-balance alerts, but it's not a per-order signal.)
+The `host_identifier` webhook field on the legacy `ProviderProfile` schema is **dropped** in the Rails fork. LPs do not receive per-order webhooks because they have no per-order decision to make — the matching engine selects them based on static config (rate, balance, KYB), and the BaaS executes the debit. (We may later repurpose a notification webhook for things like low-balance alerts, but it's not a per-order signal.)
 
 Two distinct capabilities are needed from whichever BaaS provider we pick per market:
 
@@ -178,7 +178,7 @@ One LP can have multiple fiat accounts (one per currency they support).
 
 The crypto-side custody story mirrors the fiat side: **LPs supply their own Sui wallet address**. Rails does not generate keypairs, does not store private keys, does not custody coin. The wallet is whatever the LP wants — Sui Wallet, Suiet, hardware wallet, exchange deposit address, multisig.
 
-Trust model: we adopt **Paycrest's two-tier pattern verbatim** (see `controllers/index.go:594-628` in `/Users/mac/protocol` for the EVM original):
+Trust model: we adopt **the two-tier pattern verbatim** (see `controllers/index.go:594-628` in the upstream reference for the EVM original):
 
 ### Tier 1 — KYC-time wallet proof (cryptographic, once)
 
@@ -203,11 +203,11 @@ Backend (`controllers/index.go` ported, `utils/sui_signature.go` new):
    - **Multisig / zkLogin**: defer to Sui's verification helpers (Phase 1 ships Ed25519 only; others added as we encounter them).
 4. Derive the Sui address from the recovered pubKey: `blake2b256(flag_byte || pubKey)[:32]`. Note Sui uses an **Intent scope wrapper** around `personal_sign` — the verified hash is `blake2b256(IntentScope::PersonalMessage || BCS::serialize(message))`, not the raw message. Adopt Sui's spec, don't roll our own prefix.
 5. Compare derived address to claimed address. Reject on mismatch.
-6. Persist on `IdentityVerificationRequest.wallet_address` + `.wallet_signature` (Paycrest's existing schema works for Sui addresses with no change).
+6. Persist on `IdentityVerificationRequest.wallet_address` + `.wallet_signature` (the existing schema works for Sui addresses with no change).
 
-Same algorithmic shape as Paycrest's EVM flow, Sui primitives substituted:
+Same algorithmic shape as the upstream EVM flow, Sui primitives substituted:
 
-| Paycrest (EVM) | Rails (Sui) |
+| Upstream (EVM) | Rails (Sui) |
 |---|---|
 | EIP-191 prefix `"\x19Ethereum Signed Message:\n" + len(msg)` | `IntentScope::PersonalMessage` BCS-encoded prefix |
 | `crypto.Keccak256Hash` | `blake2b256` |
@@ -219,7 +219,7 @@ Same algorithmic shape as Paycrest's EVM flow, Sui primitives substituted:
 
 Once authenticated (tier 1 done, KYB approved), the LP configures payout addresses on `ProviderOrderToken.addresses` via the existing `UpdateProviderProfile` endpoint (`controllers/accounts/profile.go:215+`). Addresses are accepted as submitted, with format validation only (`IsValidSuiAddress`). No signature, no test transfer, no proof of ownership per address.
 
-This matches Paycrest verbatim and is industry-standard for B2B settlement (same trust model as Stripe Connect's payout-account configuration). The implicit contract: the authenticated LP is responsible for the correctness of payout addresses they declare. If they typo and lose funds, that's on them.
+This matches the established pattern verbatim and is industry-standard for B2B settlement (same trust model as Stripe Connect's payout-account configuration). The implicit contract: the authenticated LP is responsible for the correctness of payout addresses they declare. If they typo and lose funds, that's on them.
 
 The existing schema is fine — no extension needed:
 
@@ -230,7 +230,7 @@ The existing schema is fine — no extension needed:
 }
 ```
 
-We can add a `label` field later if LPs ask for it (purely cosmetic), and `coin_type` if we ever support multiple coin types per LP per currency, but the v1 ports the Paycrest shape one-for-one.
+We can add a `label` field later if LPs ask for it (purely cosmetic), and `coin_type` if we ever support multiple coin types per LP per currency, but v1 ports the legacy shape one-for-one.
 
 ### Settlement (custody-free path on-chain)
 
@@ -242,7 +242,7 @@ If we ever find ourselves writing code that generates a Sui keypair for an LP an
 
 ## LP Onboarding Flow Extension
 
-Current Paycrest flow (controllers/provider/provider.go):
+Current legacy flow (controllers/provider/provider.go):
 1. User signs up → `User` created.
 2. User submits KYB → Smile Identity verification.
 3. KYB passes → `ProviderProfile.is_kyb_verified = true`.

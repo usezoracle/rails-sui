@@ -676,7 +676,7 @@ func RetryFailedWebhookNotifications() error {
 		// Send the webhook notification
 		body, err := fastshot.NewClient(attempt.WebhookURL).
 			Config().SetTimeout(30*time.Second).
-			Header().Add("X-Paycrest-Signature", attempt.Signature).
+			Header().Add("X-Rails-Signature", attempt.Signature).
 			Build().POST("").
 			Body().AsJSON(attempt.Payload).
 			Send()

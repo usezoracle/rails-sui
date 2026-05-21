@@ -179,7 +179,7 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 	}
 
 	// Recipient bank info goes on-chain as an encrypted blob (message_hash).
-	// Mirrors Paycrest's EVM encryptOrderRecipient pattern: RSA-encrypt a
+	// Mirrors the EVM encryptOrderRecipient pattern: RSA-encrypt a
 	// nonced JSON payload with the aggregator's public key; on the indexer
 	// side, decryptMessageHash (sui_event_indexer.go) reverses this.
 	messageHash, err := encryptRecipient(order.Edges.Recipient)
@@ -269,7 +269,7 @@ func rateAsU64(rate decimal.Decimal) uint64 {
 	return uint64(scaled)
 }
 
-// encryptRecipient mirrors Paycrest's EVM encryptOrderRecipient. It
+// encryptRecipient mirrors the EVM encryptOrderRecipient. It
 // RSA-encrypts a nonced JSON {Nonce, AccountIdentifier, AccountName,
 // Institution, ProviderID, Memo} blob with the aggregator's public key and
 // returns the base64 ciphertext suitable to pass as the create_order

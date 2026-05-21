@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Replace Paycrest's fixed 0.5 BPS slippage tolerance (`services/priority_queue.go:291`) with a dynamic rate ceiling tied to off-chain spot prices. Prevents LPs from setting "vibes-based" rates while letting them compete inside a defined band.
+Replace the upstream fixed 0.5 BPS slippage tolerance (`services/priority_queue.go:291`) with a dynamic rate ceiling tied to off-chain spot prices. Prevents LPs from setting "vibes-based" rates while letting them compete inside a defined band.
 
 **Rule:** An LP's quoted rate for a fiat currency is acceptable only if `lp_rate ≤ spot_median × (1 + ceiling_band)`. Default `ceiling_band = 0.01` (1% above spot, per PRD).
 
@@ -49,8 +49,8 @@ Enforcement happens in the matching engine, not on-chain. The Move Gateway accep
 
 | Provider | Coverage | Polling cadence | Notes |
 |---|---|---|---|
-| **Binance P2P** | NGN, IDR, KES (limited), and most major EM currencies | 30s | Best emerging-market coverage. Pull median of top-5 ads per direction. Paycrest already polls (`tasks/tasks.go:919`). |
-| **Quidax** | NGN, KES, GHS | 30s | African corridor specialist. Paycrest already polls. |
+| **Binance P2P** | NGN, IDR, KES (limited), and most major EM currencies | 30s | Best emerging-market coverage. Pull median of top-5 ads per direction. already polling (`tasks/tasks.go:919`). |
+| **Quidax** | NGN, KES, GHS | 30s | African corridor specialist. already polling. |
 | **CoinGecko** | All major + tokens | 60s | Sanity check / fallback. Less accurate for P2P-driven EM markets. |
 | **Per-market local** | e.g. Indodax (IDR), Bitvavo (EUR) | 60s | Add per launch market. |
 

@@ -8,7 +8,7 @@
 //   2. Dispatch to the matching handler (UpdateOrderStatusSettled etc.)
 //      which translates the on-chain state change into DB state transitions.
 //
-// The handlers themselves preserve Paycrest's business logic (LockPaymentOrder
+// The handlers themselves preserve the upstream business logic (LockPaymentOrder
 // lifecycle, matching engine triggers) — see indexer.go for the surface; the
 // handler bodies are next-chunk work.
 //
@@ -179,7 +179,7 @@ func (s *SuiEventIndexer) handleOrderCreated(ctx context.Context, raw models.Sui
 	return s.createLockPaymentOrder(ctx, evt)
 }
 
-// createLockPaymentOrder is the Sui-native equivalent of Paycrest's
+// createLockPaymentOrder is the Sui-native equivalent of the upstream
 // CreateLockPaymentOrder (services/indexer.go:860 in the original). It
 // preserves the business logic — token lookup → message_hash decryption for
 // recipient → institution + currency lookup → ProvisionBucket selection →
@@ -294,7 +294,7 @@ func (s *SuiEventIndexer) createLockPaymentOrder(ctx context.Context, evt *types
 }
 
 // decryptMessageHash unwraps the base64-encoded RSA-encrypted JSON recipient
-// blob from an OrderCreated event. Mirrors Paycrest's
+// blob from an OrderCreated event. Mirrors the upstream
 // getOrderRecipientFromMessageHash (services/indexer.go:1462 in the original).
 func (s *SuiEventIndexer) decryptMessageHash(messageHash string) (*types.PaymentOrderRecipient, error) {
 	cipher, err := base64.StdEncoding.DecodeString(messageHash)
@@ -360,7 +360,7 @@ func (s *SuiEventIndexer) handleOrderRefunded(ctx context.Context, raw models.Su
 }
 
 // ----------------------------------------------------------------------------
-// DB state-transition functions — preserve Paycrest's pattern from
+// DB state-transition functions — preserve the upstream pattern from
 // /Users/mac/protocol/services/indexer.go (UpdateOrderStatusSettled +
 // UpdateOrderStatusRefunded). Adapted for Sui semantics: gateway_id is the
 // Sui Order object ID (already 0x-prefixed hex), tx_hash is the Sui digest
@@ -542,7 +542,7 @@ func (s *SuiEventIndexer) updateOrderStatusRefunded(ctx context.Context, evt *ty
 			Where(paymentorder.GatewayIDEQ(evt.OrderID)).
 			SetTxHash(evt.TxDigest).
 			SetStatus(paymentorder.StatusRefunded)
-		// Mirror Paycrest behaviour for LinkedAddress flows: clear GatewayID
+		// Mirror the legacy behaviour for LinkedAddress flows: clear GatewayID
 		// on refund so the address becomes reusable for a fresh order.
 		if po.Edges.LinkedAddress != nil {
 			poUpdate = poUpdate.SetGatewayID("")

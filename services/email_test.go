@@ -17,7 +17,7 @@ var (
 	sendGridEndpoint = "https://api.sendgrid.com/v3/mail/send"
 
 	testToken = "test-token"
-	testEmail = "test@paycrest.io"
+	testEmail = "test@usezoracle.com"
 	testFirstName = "John"
 )
 

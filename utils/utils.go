@@ -290,7 +290,7 @@ func SendPaymentOrderWebhook(ctx context.Context, paymentOrder *ent.PaymentOrder
 	// Send the webhook
 	_, err = fastshot.NewClient(profile.WebhookURL).
 		Config().SetTimeout(30*time.Second).
-		Header().Add("X-Paycrest-Signature", signature).
+		Header().Add("X-Rails-Signature", signature).
 		Header().Add("Content-Type", "application/json").
 		Build().POST("").
 		Body().AsJSON(payload).

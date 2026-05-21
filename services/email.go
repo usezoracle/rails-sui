@@ -110,7 +110,7 @@ func sendEmailViaMailgun(ctx context.Context, content types.SendEmailPayload) (t
 // sendEmailViaSendGrid performs the actions for sending an email.
 func sendEmailViaSendGrid(ctx context.Context, content types.SendEmailPayload) (types.SendEmailResponse, error) {
 	_ = ctx
-	from := mail.NewEmail("Paycrest", "<no-reply@paycrest.io>")
+	from := mail.NewEmail("Rails", "<no-reply@usezoracle.com>")
 	to := mail.NewEmail("", content.ToAddress)
 	body := mail.NewContent("text/plain", content.Body)
 	htmlBody := mail.NewContent("text/html", content.HTMLBody)
@@ -147,7 +147,7 @@ func SendTemplateEmail(content types.SendEmailPayload, templateId string) (types
 				"to": []map[string]string{
 					{
 						"email": content.ToAddress,
-						"name":  "Paycrest",
+						"name":  "Rails",
 					},
 				},
 				"dynamic_template_data": content.DynamicData,
@@ -191,7 +191,7 @@ func SendTemplateEmailWithJsonAttachment(content types.SendEmailPayload, templat
 				"to": []map[string]string{
 					{
 						"email": content.ToAddress,
-						"name":  "Paycrest",
+						"name":  "Rails",
 					},
 				},
 				"dynamic_template_data": content.DynamicData,

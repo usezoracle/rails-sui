@@ -62,7 +62,7 @@ The user pays Sui to the order's `pay_to.object_id` via the Move Gateway's `crea
 
 [4] LiFi executes          [5] BSC USDC lands   [6] Rails calls
     cross-chain swap  ───▶    in Rails hot      ───▶   createOrder on
-                              wallet on BSC          existing Paycrest
+                              wallet on BSC          existing legacy
                                                       EVM Gateway
 
 [7] Existing EVM LP        [8] EVM LP settles   [9] Rails calls
@@ -254,7 +254,7 @@ RouteAOrder
   bridge_tx_sui   string  source-chain tx hash
   bridge_tx_bsc   string  dest-chain tx hash (filled when bridge completes)
   bridge_status   enum    "pending" | "bridging" | "bridged" | "dispatching" | "settled" | "failed"
-  bsc_order_id    string  Paycrest EVM Gateway order ID (only when mode=lp)
+  bsc_order_id    string  Legacy EVM Gateway order ID (only when mode=lp)
   treasury_payout_ref string banking partner tx ref (only when mode=treasury)
   bridged_amount  decimal actual BSC USDC received
   failure_reason  string  nullable

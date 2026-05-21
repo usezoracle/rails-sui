@@ -51,7 +51,7 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build -o paycrest
+        run: go build -o rails
 
       - name: Run tests with coverage
         run: go test $(go list ./... | grep -v /ent | grep -v /config | grep -v /database | grep -v /routers)  -coverprofile=coverage.out ./...

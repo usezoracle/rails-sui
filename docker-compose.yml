@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   postgres_db:
-    container_name: paycrest_db
+    container_name: rails_db
     image: postgres:16-alpine3.17
     environment:
       - POSTGRES_USER=${DB_USER}
@@ -15,7 +15,7 @@ services:
     restart: always
 
   redis:
-    container_name: paycrest_redis
+    container_name: rails_redis
     image: redis:7.2-alpine
     environment:
       - REDIS_DB=0
@@ -28,7 +28,7 @@ services:
     restart: always
 
   server:
-    container_name: paycrest_server
+    container_name: rails_server
     build:
       context: .
       dockerfile: Dockerfile

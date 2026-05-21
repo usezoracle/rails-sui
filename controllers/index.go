@@ -708,7 +708,7 @@ func (ctrl *Controller) RequestIDVerification(ctx *gin.Context) {
 		"signature":    base64.StdEncoding.EncodeToString(h.Sum(nil)),
 		"timestamp":    timestamp,
 		"name":         "Aggregator KYC",
-		"company_name": "Paycrest",
+		"company_name": "Rails",
 		"id_types": []map[string]interface{}{
 			// Nigeria
 			{
@@ -814,7 +814,7 @@ func (ctrl *Controller) RequestIDVerification(ctx *gin.Context) {
 			// },
 		},
 		"callback_url":            fmt.Sprintf("%s/v1/kyc/webhook", serverConf.HostDomain),
-		"data_privacy_policy_url": "https://paycrest.notion.site/KYC-Policy-10e2482d45a280e191b8d47d76a8d242",
+		"data_privacy_policy_url": "https://github.com/usezoracle/rails-sui",
 		"logo_url":                "https://i.postimg.cc/Twrq0gjC/mark-2x-2.png",
 		"is_single_use":           true,
 		"user_id":                 payload.WalletAddress,

@@ -133,7 +133,7 @@ Two deposit paths supported on Route B, surfaced side-by-side in the integrator'
 
 The user has a connected Sui wallet (Sui Wallet, Suiet, Phantom, hardware bridge, or zkLogin via Tapp). They sign a Programmable Transaction Block (PTB) that atomically: (a) splits a `Coin<USDC>` from their wallet and (b) calls `rails::order::create_order(...)` on the Move Gateway with that coin. One signature, one transaction. Coin flows from user wallet → directly into the new `Order` shared object's escrow. No Rails-controlled wallet exists in the path. Fully custody-free.
 
-This is the Sui-native pattern, enabled by PTB atomicity — something EVM lacks (ERC20 transfer and contract call cannot be bundled in one user signature on EVM, which is why Paycrest's EVM design uses per-order AA smart accounts and accepts a brief custody window).
+This is the Sui-native pattern, enabled by PTB atomicity — something EVM lacks (ERC20 transfer and contract call cannot be bundled in one user signature on EVM, which is why the upstream EVM design uses per-order AA smart accounts and accepts a brief custody window).
 
 ### Path 2 — Receive address (exchange / external wallet fallback)
 
@@ -186,7 +186,7 @@ Integrator UI            Rails backend           Exchange (e.g. Bybit)     Sui c
      │                       │ on-chain settle)         │                      │
 ```
 
-**Custody window:** for the few seconds between deposit detection and `create_order` submission, the coin sits in a Rails-managed wallet. Same in-flight window Paycrest accepts on EVM with per-order AA smart accounts. Unavoidable for exchange-source payments — no settlement product has eliminated it.
+**Custody window:** for the few seconds between deposit detection and `create_order` submission, the coin sits in a Rails-managed wallet. Same in-flight window any EVM-based settlement product accepts with per-order AA smart accounts. Unavoidable for exchange-source payments — no settlement product has eliminated it.
 
 **Blast-radius minimization:**
 - Per-order keypair (compromise scope = one order's value, never a shared hot wallet)
@@ -209,7 +209,7 @@ SuiReceiveAddress
   created_at, updated_at
 ```
 
-Mirrors Paycrest's `ReceiveAddress` schema (`ent/schema/receiveaddress.go`), Sui-native fields. Service: `services/sui_receive_address.go` (generate, monitor, forward).
+Mirrors the legacy `ReceiveAddress` schema (`ent/schema/receiveaddress.go`), Sui-native fields. Service: `services/sui_receive_address.go` (generate, monitor, forward).
 
 ### Phase 1 spike — `transfer_to_object` as a possibly-custody-free Path 2
 
@@ -310,7 +310,7 @@ Integrator        Rails API           Sui Gateway       LiFi          BSC EVM Ga
 - **Route B as the core economic engine, Route A as the resilience layer.** When LP supply on a corridor is thin or rates blow past the ceiling, Route A absorbs flow. Integrators get one API regardless.
 - **Sui-native Move design (per-order shared objects).** Sui's parallel execution shines when orders don't contend on a single global table. Each order being its own object means matching, settlement, and refund operations parallelize across the LP set.
 - **Ceiling Rate off-chain.** Spot-rate oracles for emerging-market FX pairs (NGN, KES, IDR) are sparse on-chain. Off-chain median from multiple liquid venues is more accurate and faster to update. Enforcement at the matching layer means we can ship rate logic changes without redeploying the Move contract.
-- **Fork-and-strip Paycrest.** ~80% of the chain-agnostic plumbing (KYC, lifecycle, webhooks, retry, matching) is production-grade in Paycrest. Rebuilding it is wasted effort.
+- **Fork-and-strip the upstream.** ~80% of the chain-agnostic plumbing (KYC, lifecycle, webhooks, retry, matching) is production-grade in the upstream codebase. Rebuilding it is wasted effort.
 
 ---
 

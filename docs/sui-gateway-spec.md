@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Move package that custodies a sender's Sui stablecoin while an LP fulfills the corresponding fiat leg, then releases the coin to the LP on settlement (or back to the sender on refund). Functional analog of Paycrest's EVM `IGateway` (`/Users/mac/Downloads/_reference.md`), restructured for Sui's object model.
+The Move package that custodies a sender's Sui stablecoin while an LP fulfills the corresponding fiat leg, then releases the coin to the LP on settlement (or back to the sender on refund). Functional analog of the upstream EVM `IGateway` (`/Users/mac/Downloads/_reference.md`), restructured for Sui's object model.
 
 Two design decisions, locked in the plan:
 - **Each `Order` is its own shared object.** No global `Table<ID, Order>`. Settlement and refund take the order object directly, enabling parallel execution.
@@ -301,7 +301,7 @@ Adding a coin: admin calls `add_supported_coin<NEW_COIN>(&AdminCap, &mut Gateway
 
 ## Aggregator Pattern
 
-Settlement and refund are aggregator-gated, not LP-gated, to match Paycrest's model: the Rails backend (the "aggregator") submits settlement transactions on behalf of LPs after validating off-chain proof-of-fiat-transfer.
+Settlement and refund are aggregator-gated, not LP-gated, to match the upstream model: the Rails backend (the "aggregator") submits settlement transactions on behalf of LPs after validating off-chain proof-of-fiat-transfer.
 
 - `AggregatorCap` is minted by admin and held by the Rails backend's hot wallet.
 - LPs do **not** call `settle_order` directly. They report fulfillment to Rails via their existing webhook, Rails validates (`LockOrderFulfillment.validation_status = "success"`), then Rails submits `settle_order` with the LP's wallet address as recipient.
