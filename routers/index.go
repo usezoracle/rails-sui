@@ -57,6 +57,7 @@ func authRoutes(route *gin.Engine) {
 	v1 := route.Group("/v1/")
 	v1.POST("auth/register", middleware.OnlyWebMiddleware, authCtrl.Register)
 	v1.POST("auth/login", middleware.OnlyWebMiddleware, authCtrl.Login)
+	v1.POST("auth/google", middleware.OnlyWebMiddleware, authCtrl.GoogleAuth)
 	v1.POST("auth/confirm-account", middleware.OnlyWebMiddleware, authCtrl.ConfirmEmail)
 	v1.POST("auth/resend-token", middleware.OnlyWebMiddleware, authCtrl.ResendVerificationToken)
 	v1.POST("auth/refresh", middleware.OnlyWebMiddleware, authCtrl.RefreshJWT)
@@ -143,6 +144,11 @@ func cardsRoutes(route *gin.Engine) {
 
 	// Public: the tap-to-URL redirect. Anyone with a card hits this.
 	route.GET("/c/:token", cardsCtrl.Resolve)
+
+	// Cardholder: claim flow (JWT-authenticated via /v1/auth/google).
+	cardholder := route.Group("/v1/cards/")
+	cardholder.Use(middleware.JWTMiddleware)
+	cardholder.POST("link/claim", cardsCtrl.Claim)
 
 	// Admin: mint activation tokens for PoC hand-testing.
 	admin := route.Group("/v1/cards/")

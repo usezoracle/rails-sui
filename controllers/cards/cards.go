@@ -16,10 +16,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
+	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -129,6 +131,117 @@ func (ctrl *Controller) Resolve(ctx *gin.Context) {
 		target = pwa + "/cards/unavailable"
 	}
 	ctx.Redirect(http.StatusFound, target)
+}
+
+// -----------------------------------------------------------------------------
+// Cardholder: claim a freshly-issued card (PoC end-to-end).
+// -----------------------------------------------------------------------------
+
+type claimPayload struct {
+	Token string `json:"token" binding:"required"`
+}
+
+type claimResponse struct {
+	CardID string `json:"card_id"`
+	Status string `json:"status"`
+}
+
+// Claim handles POST /v1/cards/link/claim. Authenticated via the
+// shared JWTMiddleware which puts `user_id` in the gin context.
+//
+// State machine:
+//   issued                 → flip to `claimed`, bind user_id, return.
+//   claimed by this user   → idempotent, return the same card.
+//   claimed by another user → 409 card_already_claimed_by_other.
+//   anything else          → 409 with the actual status as the error code.
+//
+// Surface the structured `code` field so the PWA can branch on
+// `card_already_claimed_by_you` vs generic failure without parsing
+// human-facing copy.
+func (ctrl *Controller) Claim(ctx *gin.Context) {
+	var payload claimPayload
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Failed to validate payload", u.GetErrorData(err))
+		return
+	}
+
+	userIDStr, exists := ctx.Get("user_id")
+	if !exists {
+		u.APIResponse(ctx, http.StatusUnauthorized, "error",
+			"Not authenticated", nil)
+		return
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		u.APIResponse(ctx, http.StatusUnauthorized, "error",
+			"Invalid session", nil)
+		return
+	}
+
+	user, err := storage.Client.User.
+		Query().
+		Where(userEnt.IDEQ(userID)).
+		Only(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusUnauthorized, "error",
+			"User not found", nil)
+		return
+	}
+
+	card, err := storage.Client.TappCard.
+		Query().
+		Where(tappcard.ActivationTokenEQ(payload.Token)).
+		WithUser().
+		Only(ctx)
+	if err != nil {
+		// ent.IsNotFound included — opaque 404, no oracle.
+		u.APIResponse(ctx, http.StatusNotFound, "error",
+			"Card not recognized",
+			map[string]any{"code": "card_not_found"})
+		return
+	}
+
+	// Already claimed?
+	if card.Edges.User != nil {
+		if card.Edges.User.ID == user.ID {
+			u.APIResponse(ctx, http.StatusOK, "error",
+				"This card is already linked to your account",
+				map[string]any{
+					"code":    "card_already_claimed_by_you",
+					"card_id": card.ID.String(),
+				})
+			return
+		}
+		u.APIResponse(ctx, http.StatusConflict, "error",
+			"This card belongs to someone else",
+			map[string]any{"code": "card_already_claimed_by_other"})
+		return
+	}
+
+	if card.Status != tappcard.StatusIssued {
+		u.APIResponse(ctx, http.StatusConflict, "error",
+			"This card is not available for claiming",
+			map[string]any{"code": "card_unavailable", "status": string(card.Status)})
+		return
+	}
+
+	saved, err := card.Update().
+		SetStatus(tappcard.StatusClaimed).
+		SetUser(user).
+		Save(ctx)
+	if err != nil {
+		logger.Errorf("cards.Claim: persist: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			"Failed to claim card", nil)
+		return
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Card claimed",
+		claimResponse{
+			CardID: saved.ID.String(),
+			Status: string(saved.Status),
+		})
 }
 
 // -----------------------------------------------------------------------------

@@ -16,9 +16,10 @@ type ServerConfiguration struct {
 	Environment     string
 	SentryDSN       string
 	HostDomain      string
-	CheckoutBaseURL string
-	PWABaseURL      string
-	AdminAPIToken   string
+	CheckoutBaseURL    string
+	PWABaseURL         string
+	AdminAPIToken      string
+	GoogleOAuthClientID string
 }
 
 // ServerConfig sets the server configuration
@@ -33,19 +34,21 @@ func ServerConfig() *ServerConfiguration {
 	viper.SetDefault("CHECKOUT_BASE_URL", "https://checkout.zoracle.com")
 	viper.SetDefault("PWA_BASE_URL", "https://tapp.zoracle.com")
 	viper.SetDefault("ADMIN_API_TOKEN", "")
+	viper.SetDefault("GOOGLE_OAUTH_CLIENT_ID", "")
 
 	return &ServerConfiguration{
-		Debug:           viper.GetBool("DEBUG"),
-		Host:            viper.GetString("SERVER_HOST"),
-		Port:            viper.GetString("SERVER_PORT"),
-		Timezone:        viper.GetString("SERVER_TIMEZONE"),
-		AllowedHosts:    viper.GetString("ALLOWED_HOSTS"),
-		Environment:     viper.GetString("ENVIRONMENT"),
-		SentryDSN:       viper.GetString("SENTRY_DSN"),
-		HostDomain:      viper.GetString("HOST_DOMAIN"),
-		CheckoutBaseURL: viper.GetString("CHECKOUT_BASE_URL"),
-		PWABaseURL:      viper.GetString("PWA_BASE_URL"),
-		AdminAPIToken:   viper.GetString("ADMIN_API_TOKEN"),
+		Debug:               viper.GetBool("DEBUG"),
+		Host:                viper.GetString("SERVER_HOST"),
+		Port:                viper.GetString("SERVER_PORT"),
+		Timezone:            viper.GetString("SERVER_TIMEZONE"),
+		AllowedHosts:        viper.GetString("ALLOWED_HOSTS"),
+		Environment:         viper.GetString("ENVIRONMENT"),
+		SentryDSN:           viper.GetString("SENTRY_DSN"),
+		HostDomain:          viper.GetString("HOST_DOMAIN"),
+		CheckoutBaseURL:     viper.GetString("CHECKOUT_BASE_URL"),
+		PWABaseURL:          viper.GetString("PWA_BASE_URL"),
+		AdminAPIToken:       viper.GetString("ADMIN_API_TOKEN"),
+		GoogleOAuthClientID: viper.GetString("GOOGLE_OAUTH_CLIENT_ID"),
 	}
 }
 
