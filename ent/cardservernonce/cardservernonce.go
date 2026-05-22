@@ -32,6 +32,8 @@ const (
 	FieldExpiresAt = "expires_at"
 	// FieldConsumedAt holds the string denoting the consumed_at field in the database.
 	FieldConsumedAt = "consumed_at"
+	// FieldStepUpGrantedAt holds the string denoting the step_up_granted_at field in the database.
+	FieldStepUpGrantedAt = "step_up_granted_at"
 	// EdgeCard holds the string denoting the card edge name in mutations.
 	EdgeCard = "card"
 	// EdgeSenderProfile holds the string denoting the sender_profile edge name in mutations.
@@ -65,6 +67,7 @@ var Columns = []string{
 	FieldCurrency,
 	FieldExpiresAt,
 	FieldConsumedAt,
+	FieldStepUpGrantedAt,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "card_server_nonces"
@@ -173,6 +176,11 @@ func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
 // ByConsumedAt orders the results by the consumed_at field.
 func ByConsumedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConsumedAt, opts...).ToFunc()
+}
+
+// ByStepUpGrantedAt orders the results by the step_up_granted_at field.
+func ByStepUpGrantedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStepUpGrantedAt, opts...).ToFunc()
 }
 
 // ByCardField orders the results by card field.

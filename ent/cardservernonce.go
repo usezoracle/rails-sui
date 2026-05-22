@@ -36,6 +36,8 @@ type CardServerNonce struct {
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 	// ConsumedAt holds the value of the "consumed_at" field.
 	ConsumedAt *time.Time `json:"consumed_at,omitempty"`
+	// StepUpGrantedAt holds the value of the "step_up_granted_at" field.
+	StepUpGrantedAt *time.Time `json:"step_up_granted_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CardServerNonceQuery when eager-loading is set.
 	Edges                             CardServerNonceEdges `json:"edges"`
@@ -86,7 +88,7 @@ func (*CardServerNonce) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case cardservernonce.FieldTier, cardservernonce.FieldAmount, cardservernonce.FieldCurrency:
 			values[i] = new(sql.NullString)
-		case cardservernonce.FieldCreatedAt, cardservernonce.FieldUpdatedAt, cardservernonce.FieldExpiresAt, cardservernonce.FieldConsumedAt:
+		case cardservernonce.FieldCreatedAt, cardservernonce.FieldUpdatedAt, cardservernonce.FieldExpiresAt, cardservernonce.FieldConsumedAt, cardservernonce.FieldStepUpGrantedAt:
 			values[i] = new(sql.NullTime)
 		case cardservernonce.FieldID:
 			values[i] = new(uuid.UUID)
@@ -163,6 +165,13 @@ func (csn *CardServerNonce) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				csn.ConsumedAt = new(time.Time)
 				*csn.ConsumedAt = value.Time
+			}
+		case cardservernonce.FieldStepUpGrantedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field step_up_granted_at", values[i])
+			} else if value.Valid {
+				csn.StepUpGrantedAt = new(time.Time)
+				*csn.StepUpGrantedAt = value.Time
 			}
 		case cardservernonce.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -247,6 +256,11 @@ func (csn *CardServerNonce) String() string {
 	builder.WriteString(", ")
 	if v := csn.ConsumedAt; v != nil {
 		builder.WriteString("consumed_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := csn.StepUpGrantedAt; v != nil {
+		builder.WriteString("step_up_granted_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteByte(')')

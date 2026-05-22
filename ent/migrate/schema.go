@@ -46,6 +46,7 @@ var (
 		{Name: "currency", Type: field.TypeString, Size: 3, Default: "NGN"},
 		{Name: "expires_at", Type: field.TypeTime},
 		{Name: "consumed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "step_up_granted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "sender_profile_card_server_nonces", Type: field.TypeUUID},
 		{Name: "tapp_card_server_nonces", Type: field.TypeUUID},
 	}
@@ -57,13 +58,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "card_server_nonces_sender_profiles_card_server_nonces",
-				Columns:    []*schema.Column{CardServerNoncesColumns[9]},
+				Columns:    []*schema.Column{CardServerNoncesColumns[10]},
 				RefColumns: []*schema.Column{SenderProfilesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "card_server_nonces_tapp_cards_server_nonces",
-				Columns:    []*schema.Column{CardServerNoncesColumns[10]},
+				Columns:    []*schema.Column{CardServerNoncesColumns[11]},
 				RefColumns: []*schema.Column{TappCardsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

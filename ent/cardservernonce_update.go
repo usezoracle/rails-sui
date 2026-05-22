@@ -119,6 +119,26 @@ func (csnu *CardServerNonceUpdate) ClearConsumedAt() *CardServerNonceUpdate {
 	return csnu
 }
 
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (csnu *CardServerNonceUpdate) SetStepUpGrantedAt(t time.Time) *CardServerNonceUpdate {
+	csnu.mutation.SetStepUpGrantedAt(t)
+	return csnu
+}
+
+// SetNillableStepUpGrantedAt sets the "step_up_granted_at" field if the given value is not nil.
+func (csnu *CardServerNonceUpdate) SetNillableStepUpGrantedAt(t *time.Time) *CardServerNonceUpdate {
+	if t != nil {
+		csnu.SetStepUpGrantedAt(*t)
+	}
+	return csnu
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (csnu *CardServerNonceUpdate) ClearStepUpGrantedAt() *CardServerNonceUpdate {
+	csnu.mutation.ClearStepUpGrantedAt()
+	return csnu
+}
+
 // SetCardID sets the "card" edge to the TappCard entity by ID.
 func (csnu *CardServerNonceUpdate) SetCardID(id uuid.UUID) *CardServerNonceUpdate {
 	csnu.mutation.SetCardID(id)
@@ -260,6 +280,12 @@ func (csnu *CardServerNonceUpdate) sqlSave(ctx context.Context) (n int, err erro
 	}
 	if csnu.mutation.ConsumedAtCleared() {
 		_spec.ClearField(cardservernonce.FieldConsumedAt, field.TypeTime)
+	}
+	if value, ok := csnu.mutation.StepUpGrantedAt(); ok {
+		_spec.SetField(cardservernonce.FieldStepUpGrantedAt, field.TypeTime, value)
+	}
+	if csnu.mutation.StepUpGrantedAtCleared() {
+		_spec.ClearField(cardservernonce.FieldStepUpGrantedAt, field.TypeTime)
 	}
 	if csnu.mutation.CardCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -424,6 +450,26 @@ func (csnuo *CardServerNonceUpdateOne) SetNillableConsumedAt(t *time.Time) *Card
 // ClearConsumedAt clears the value of the "consumed_at" field.
 func (csnuo *CardServerNonceUpdateOne) ClearConsumedAt() *CardServerNonceUpdateOne {
 	csnuo.mutation.ClearConsumedAt()
+	return csnuo
+}
+
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (csnuo *CardServerNonceUpdateOne) SetStepUpGrantedAt(t time.Time) *CardServerNonceUpdateOne {
+	csnuo.mutation.SetStepUpGrantedAt(t)
+	return csnuo
+}
+
+// SetNillableStepUpGrantedAt sets the "step_up_granted_at" field if the given value is not nil.
+func (csnuo *CardServerNonceUpdateOne) SetNillableStepUpGrantedAt(t *time.Time) *CardServerNonceUpdateOne {
+	if t != nil {
+		csnuo.SetStepUpGrantedAt(*t)
+	}
+	return csnuo
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (csnuo *CardServerNonceUpdateOne) ClearStepUpGrantedAt() *CardServerNonceUpdateOne {
+	csnuo.mutation.ClearStepUpGrantedAt()
 	return csnuo
 }
 
@@ -598,6 +644,12 @@ func (csnuo *CardServerNonceUpdateOne) sqlSave(ctx context.Context) (_node *Card
 	}
 	if csnuo.mutation.ConsumedAtCleared() {
 		_spec.ClearField(cardservernonce.FieldConsumedAt, field.TypeTime)
+	}
+	if value, ok := csnuo.mutation.StepUpGrantedAt(); ok {
+		_spec.SetField(cardservernonce.FieldStepUpGrantedAt, field.TypeTime, value)
+	}
+	if csnuo.mutation.StepUpGrantedAtCleared() {
+		_spec.ClearField(cardservernonce.FieldStepUpGrantedAt, field.TypeTime)
 	}
 	if csnuo.mutation.CardCleared() {
 		edge := &sqlgraph.EdgeSpec{

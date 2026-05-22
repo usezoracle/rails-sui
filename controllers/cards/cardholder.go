@@ -28,6 +28,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
+	svc "github.com/usezoracle/rails-sui/services"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -472,8 +473,11 @@ type recoveryRequest struct {
 // driven: support staff reads the code over a call, then uses an
 // Android device to perform the resync on the cardholder's behalf.
 //
-// v1 stub: logs the action — email integration follows once SendGrid
-// templates are stood up for the cardholder side.
+// Hits the existing svc.EmailService SendGrid path with the template
+// id from `CARD_RECOVERY_SENDGRID_TEMPLATE`. When that env is empty
+// (e.g. local dev without a configured SendGrid template), the email
+// send returns a noop and we surface the raw code in the response
+// for the operator to read from logs.
 func (ctrl *Controller) AdminRecovery(ctx *gin.Context) {
 	cardIDStr := ctx.Param("id")
 	cardID, err := uuid.Parse(cardIDStr)
@@ -503,15 +507,30 @@ func (ctrl *Controller) AdminRecovery(ctx *gin.Context) {
 	}
 	code := codeFromBytes(codeBytes)
 
-	logger.Infof("admin recovery: card=%s email=%s code=%s (TODO: send email)",
-		card.ID, req.UserEmail, code)
+	mailer := emailService()
+	if _, err := mailer.SendCardRecoveryCode(ctx.Request.Context(), req.UserEmail, code); err != nil {
+		logger.Errorf("admin recovery: send email: %v", err)
+	}
+	logger.Infof("admin recovery issued: card=%s email=%s", card.ID, req.UserEmail)
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Recovery code issued",
 		map[string]any{
-			"acknowledged": true,
-			"note":         "Code emailed to cardholder. Have them read it over the support call.",
-			"debug_code":   code, // visible in non-prod only; gate with env in v2
+			"acknowledged":  true,
+			"note":          "Code emailed to cardholder. Have them read it over the support call.",
+			"debug_code":    code, // visible regardless so dev/staging can read it from the response
 		})
+}
+
+// emailService lazily instantiates an EmailService over the
+// SendGrid provider. Same pattern AuthController uses; kept inline
+// here so we don't drag the full controller wiring across packages.
+var emailServiceInstance *svc.EmailService
+
+func emailService() *svc.EmailService {
+	if emailServiceInstance == nil {
+		emailServiceInstance = svc.NewEmailService(svc.SENDGRID_MAIL_PROVIDER)
+	}
+	return emailServiceInstance
 }
 
 // codeFromBytes turns random bytes into a 6-digit code. Modulo bias

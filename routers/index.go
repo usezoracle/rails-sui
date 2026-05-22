@@ -161,6 +161,7 @@ func cardsRoutes(route *gin.Engine) {
 	cardholder.POST("revoke", cardsCtrl.Revoke)
 	cardholder.POST("me/resync", cardsCtrl.Resync)
 	cardholder.POST("me/resync/complete", cardsCtrl.ResyncComplete)
+	cardholder.POST("me/step-up/grant", cardsCtrl.StepUpGrant)
 
 	// Admin: shared-secret-gated.
 	admin := route.Group("/v1/cards/")

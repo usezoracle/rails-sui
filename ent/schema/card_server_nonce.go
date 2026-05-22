@@ -60,6 +60,14 @@ func (CardServerNonce) Fields() []ent.Field {
 		field.Time("consumed_at").
 			Optional().
 			Nillable(),
+
+		// Set when the cardholder completes the WebAuthn step-up in
+		// their PWA. The merchant's debit POST checks this for
+		// tier=step_up nonces; the merchant's GET /step-up poll reads
+		// it to flip to 200 granted.
+		field.Time("step_up_granted_at").
+			Optional().
+			Nillable(),
 	}
 }
 

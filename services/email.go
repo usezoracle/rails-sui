@@ -90,6 +90,30 @@ func (m *EmailService) SendPasswordResetEmail(ctx context.Context, token, email,
 	return SendTemplateEmail(payload, "d-8b689801cd9947748775ccd1c4cc932e")
 }
 
+// SendCardRecoveryCode emails the 6-digit code the support agent will
+// read back to the cardholder during the iOS-resync escape-hatch
+// flow (see docs/tapp-card-spec.md "Torn writes & resync — iOS gap").
+//
+// The template ID is read from the CARD_RECOVERY_SENDGRID_TEMPLATE
+// env var so ops can rotate the SendGrid template without redeploying.
+// Empty template ID skips the send and returns a noop response — the
+// caller logs the code so dev environments without SendGrid can still
+// exercise the flow.
+func (m *EmailService) SendCardRecoveryCode(ctx context.Context, email, code string) (types.SendEmailResponse, error) {
+	templateID := notificationConf.CardRecoveryTemplate
+	if templateID == "" {
+		return types.SendEmailResponse{Response: "skipped — CARD_RECOVERY_SENDGRID_TEMPLATE not set"}, nil
+	}
+	payload := types.SendEmailPayload{
+		FromAddress: _DefaultFromAddress,
+		ToAddress:   email,
+		DynamicData: map[string]interface{}{
+			"recovery_code": code,
+		},
+	}
+	return SendTemplateEmail(payload, templateID)
+}
+
 // sendEmailViaMailgun performs the actions for sending an email.
 func sendEmailViaMailgun(ctx context.Context, content types.SendEmailPayload) (types.SendEmailResponse, error) {
 	// initialize

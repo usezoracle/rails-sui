@@ -106,6 +106,20 @@ func (csnc *CardServerNonceCreate) SetNillableConsumedAt(t *time.Time) *CardServ
 	return csnc
 }
 
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (csnc *CardServerNonceCreate) SetStepUpGrantedAt(t time.Time) *CardServerNonceCreate {
+	csnc.mutation.SetStepUpGrantedAt(t)
+	return csnc
+}
+
+// SetNillableStepUpGrantedAt sets the "step_up_granted_at" field if the given value is not nil.
+func (csnc *CardServerNonceCreate) SetNillableStepUpGrantedAt(t *time.Time) *CardServerNonceCreate {
+	if t != nil {
+		csnc.SetStepUpGrantedAt(*t)
+	}
+	return csnc
+}
+
 // SetID sets the "id" field.
 func (csnc *CardServerNonceCreate) SetID(u uuid.UUID) *CardServerNonceCreate {
 	csnc.mutation.SetID(u)
@@ -312,6 +326,10 @@ func (csnc *CardServerNonceCreate) createSpec() (*CardServerNonce, *sqlgraph.Cre
 		_spec.SetField(cardservernonce.FieldConsumedAt, field.TypeTime, value)
 		_node.ConsumedAt = &value
 	}
+	if value, ok := csnc.mutation.StepUpGrantedAt(); ok {
+		_spec.SetField(cardservernonce.FieldStepUpGrantedAt, field.TypeTime, value)
+		_node.StepUpGrantedAt = &value
+	}
 	if nodes := csnc.mutation.CardIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -488,6 +506,24 @@ func (u *CardServerNonceUpsert) ClearConsumedAt() *CardServerNonceUpsert {
 	return u
 }
 
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (u *CardServerNonceUpsert) SetStepUpGrantedAt(v time.Time) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldStepUpGrantedAt, v)
+	return u
+}
+
+// UpdateStepUpGrantedAt sets the "step_up_granted_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateStepUpGrantedAt() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldStepUpGrantedAt)
+	return u
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (u *CardServerNonceUpsert) ClearStepUpGrantedAt() *CardServerNonceUpsert {
+	u.SetNull(cardservernonce.FieldStepUpGrantedAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -641,6 +677,27 @@ func (u *CardServerNonceUpsertOne) UpdateConsumedAt() *CardServerNonceUpsertOne 
 func (u *CardServerNonceUpsertOne) ClearConsumedAt() *CardServerNonceUpsertOne {
 	return u.Update(func(s *CardServerNonceUpsert) {
 		s.ClearConsumedAt()
+	})
+}
+
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertOne) SetStepUpGrantedAt(v time.Time) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetStepUpGrantedAt(v)
+	})
+}
+
+// UpdateStepUpGrantedAt sets the "step_up_granted_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateStepUpGrantedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateStepUpGrantedAt()
+	})
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertOne) ClearStepUpGrantedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.ClearStepUpGrantedAt()
 	})
 }
 
@@ -964,6 +1021,27 @@ func (u *CardServerNonceUpsertBulk) UpdateConsumedAt() *CardServerNonceUpsertBul
 func (u *CardServerNonceUpsertBulk) ClearConsumedAt() *CardServerNonceUpsertBulk {
 	return u.Update(func(s *CardServerNonceUpsert) {
 		s.ClearConsumedAt()
+	})
+}
+
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertBulk) SetStepUpGrantedAt(v time.Time) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetStepUpGrantedAt(v)
+	})
+}
+
+// UpdateStepUpGrantedAt sets the "step_up_granted_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateStepUpGrantedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateStepUpGrantedAt()
+	})
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertBulk) ClearStepUpGrantedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.ClearStepUpGrantedAt()
 	})
 }
 

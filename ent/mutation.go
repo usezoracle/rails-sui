@@ -636,6 +636,7 @@ type CardServerNonceMutation struct {
 	currency              *string
 	expires_at            *time.Time
 	consumed_at           *time.Time
+	step_up_granted_at    *time.Time
 	clearedFields         map[string]struct{}
 	card                  *uuid.UUID
 	clearedcard           bool
@@ -1051,6 +1052,55 @@ func (m *CardServerNonceMutation) ResetConsumedAt() {
 	delete(m.clearedFields, cardservernonce.FieldConsumedAt)
 }
 
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (m *CardServerNonceMutation) SetStepUpGrantedAt(t time.Time) {
+	m.step_up_granted_at = &t
+}
+
+// StepUpGrantedAt returns the value of the "step_up_granted_at" field in the mutation.
+func (m *CardServerNonceMutation) StepUpGrantedAt() (r time.Time, exists bool) {
+	v := m.step_up_granted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStepUpGrantedAt returns the old "step_up_granted_at" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldStepUpGrantedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStepUpGrantedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStepUpGrantedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStepUpGrantedAt: %w", err)
+	}
+	return oldValue.StepUpGrantedAt, nil
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (m *CardServerNonceMutation) ClearStepUpGrantedAt() {
+	m.step_up_granted_at = nil
+	m.clearedFields[cardservernonce.FieldStepUpGrantedAt] = struct{}{}
+}
+
+// StepUpGrantedAtCleared returns if the "step_up_granted_at" field was cleared in this mutation.
+func (m *CardServerNonceMutation) StepUpGrantedAtCleared() bool {
+	_, ok := m.clearedFields[cardservernonce.FieldStepUpGrantedAt]
+	return ok
+}
+
+// ResetStepUpGrantedAt resets all changes to the "step_up_granted_at" field.
+func (m *CardServerNonceMutation) ResetStepUpGrantedAt() {
+	m.step_up_granted_at = nil
+	delete(m.clearedFields, cardservernonce.FieldStepUpGrantedAt)
+}
+
 // SetCardID sets the "card" edge to the TappCard entity by id.
 func (m *CardServerNonceMutation) SetCardID(id uuid.UUID) {
 	m.card = &id
@@ -1163,7 +1213,7 @@ func (m *CardServerNonceMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CardServerNonceMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.created_at != nil {
 		fields = append(fields, cardservernonce.FieldCreatedAt)
 	}
@@ -1187,6 +1237,9 @@ func (m *CardServerNonceMutation) Fields() []string {
 	}
 	if m.consumed_at != nil {
 		fields = append(fields, cardservernonce.FieldConsumedAt)
+	}
+	if m.step_up_granted_at != nil {
+		fields = append(fields, cardservernonce.FieldStepUpGrantedAt)
 	}
 	return fields
 }
@@ -1212,6 +1265,8 @@ func (m *CardServerNonceMutation) Field(name string) (ent.Value, bool) {
 		return m.ExpiresAt()
 	case cardservernonce.FieldConsumedAt:
 		return m.ConsumedAt()
+	case cardservernonce.FieldStepUpGrantedAt:
+		return m.StepUpGrantedAt()
 	}
 	return nil, false
 }
@@ -1237,6 +1292,8 @@ func (m *CardServerNonceMutation) OldField(ctx context.Context, name string) (en
 		return m.OldExpiresAt(ctx)
 	case cardservernonce.FieldConsumedAt:
 		return m.OldConsumedAt(ctx)
+	case cardservernonce.FieldStepUpGrantedAt:
+		return m.OldStepUpGrantedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown CardServerNonce field %s", name)
 }
@@ -1302,6 +1359,13 @@ func (m *CardServerNonceMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetConsumedAt(v)
 		return nil
+	case cardservernonce.FieldStepUpGrantedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStepUpGrantedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown CardServerNonce field %s", name)
 }
@@ -1335,6 +1399,9 @@ func (m *CardServerNonceMutation) ClearedFields() []string {
 	if m.FieldCleared(cardservernonce.FieldConsumedAt) {
 		fields = append(fields, cardservernonce.FieldConsumedAt)
 	}
+	if m.FieldCleared(cardservernonce.FieldStepUpGrantedAt) {
+		fields = append(fields, cardservernonce.FieldStepUpGrantedAt)
+	}
 	return fields
 }
 
@@ -1351,6 +1418,9 @@ func (m *CardServerNonceMutation) ClearField(name string) error {
 	switch name {
 	case cardservernonce.FieldConsumedAt:
 		m.ClearConsumedAt()
+		return nil
+	case cardservernonce.FieldStepUpGrantedAt:
+		m.ClearStepUpGrantedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown CardServerNonce nullable field %s", name)
@@ -1383,6 +1453,9 @@ func (m *CardServerNonceMutation) ResetField(name string) error {
 		return nil
 	case cardservernonce.FieldConsumedAt:
 		m.ResetConsumedAt()
+		return nil
+	case cardservernonce.FieldStepUpGrantedAt:
+		m.ResetStepUpGrantedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown CardServerNonce field %s", name)

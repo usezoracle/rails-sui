@@ -292,12 +292,18 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 				map[string]any{"code": "step_up_required"})
 			return
 		}
-		// Step-up grant verification stub for v1 — full WebAuthn
-		// grant flow lives in the next chunk. The PoC trusts the
-		// token-shape match to the nonce ID.
 		if req.StepUpToken != nonceRow.ID.String() {
 			u.APIResponse(ctx, http.StatusForbidden, "error",
 				"Invalid step-up token", nil)
+			return
+		}
+		// The grant must already be recorded — cardholder completed
+		// WebAuthn in the PWA, which POSTed /v1/cards/me/step-up/grant,
+		// which flipped step_up_granted_at on this nonce row.
+		if nonceRow.StepUpGrantedAt == nil {
+			u.APIResponse(ctx, http.StatusForbidden, "error",
+				"Step-up not yet granted by cardholder",
+				map[string]any{"code": "step_up_pending"})
 			return
 		}
 	}
@@ -498,13 +504,52 @@ func (ctrl *Controller) TapCardTokenAck(ctx *gin.Context) {
 // GET /v1/sender/me/tap-card/step-up
 // -----------------------------------------------------------------------------
 
-// TapCardStepUpPoll is a stub for v1 — full WebAuthn grant flow lives
-// in the PWA + a follow-up Rails endpoint. For now we report
-// "pending" forever; the cardholder PWA flow will flip a grant flag
-// on the matching CardServerNonce row and this endpoint will return
-// 200 granted once that wiring lands.
+// TapCardStepUpPoll resolves the step-up grant state for the
+// merchant app's polling loop. Reads CardServerNonce by ID; reports:
+//   - granted  → cardholder completed WebAuthn in their PWA
+//   - expired  → nonce TTL elapsed without grant
+//   - pending  → still waiting
 func (ctrl *Controller) TapCardStepUpPoll(ctx *gin.Context) {
-	u.APIResponse(ctx, http.StatusOK, "success", "Polling step-up",
+	tokenStr := ctx.Query("token")
+	if tokenStr == "" {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"token query param required", nil)
+		return
+	}
+	nonceID, err := uuid.Parse(tokenStr)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"token must be a uuid", nil)
+		return
+	}
+	sender, ok := senderFromCtx(ctx)
+	if !ok {
+		return
+	}
+	nonceRow, err := storage.Client.CardServerNonce.
+		Query().
+		Where(
+			cardservernonce.IDEQ(nonceID),
+			cardservernonce.HasSenderProfileWith(senderprofile.IDEQ(sender.ID)),
+		).
+		Only(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusNotFound, "error",
+			"Step-up token not found", nil)
+		return
+	}
+	now := time.Now()
+	if nonceRow.StepUpGrantedAt != nil {
+		u.APIResponse(ctx, http.StatusOK, "success", "Granted",
+			map[string]any{"status": "granted"})
+		return
+	}
+	if nonceRow.ExpiresAt.Before(now) {
+		u.APIResponse(ctx, http.StatusOK, "success", "Expired",
+			map[string]any{"status": "expired"})
+		return
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "Pending",
 		map[string]any{"status": "pending"})
 }
 

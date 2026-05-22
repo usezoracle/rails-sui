@@ -91,6 +91,11 @@ func ConsumedAt(v time.Time) predicate.CardServerNonce {
 	return predicate.CardServerNonce(sql.FieldEQ(FieldConsumedAt, v))
 }
 
+// StepUpGrantedAt applies equality check predicate on the "step_up_granted_at" field. It's identical to StepUpGrantedAtEQ.
+func StepUpGrantedAt(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldEQ(FieldStepUpGrantedAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.CardServerNonce {
 	return predicate.CardServerNonce(sql.FieldEQ(FieldCreatedAt, v))
@@ -449,6 +454,56 @@ func ConsumedAtIsNil() predicate.CardServerNonce {
 // ConsumedAtNotNil applies the NotNil predicate on the "consumed_at" field.
 func ConsumedAtNotNil() predicate.CardServerNonce {
 	return predicate.CardServerNonce(sql.FieldNotNull(FieldConsumedAt))
+}
+
+// StepUpGrantedAtEQ applies the EQ predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtEQ(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldEQ(FieldStepUpGrantedAt, v))
+}
+
+// StepUpGrantedAtNEQ applies the NEQ predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtNEQ(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldNEQ(FieldStepUpGrantedAt, v))
+}
+
+// StepUpGrantedAtIn applies the In predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtIn(vs ...time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldIn(FieldStepUpGrantedAt, vs...))
+}
+
+// StepUpGrantedAtNotIn applies the NotIn predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtNotIn(vs ...time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldNotIn(FieldStepUpGrantedAt, vs...))
+}
+
+// StepUpGrantedAtGT applies the GT predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtGT(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldGT(FieldStepUpGrantedAt, v))
+}
+
+// StepUpGrantedAtGTE applies the GTE predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtGTE(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldGTE(FieldStepUpGrantedAt, v))
+}
+
+// StepUpGrantedAtLT applies the LT predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtLT(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldLT(FieldStepUpGrantedAt, v))
+}
+
+// StepUpGrantedAtLTE applies the LTE predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtLTE(v time.Time) predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldLTE(FieldStepUpGrantedAt, v))
+}
+
+// StepUpGrantedAtIsNil applies the IsNil predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtIsNil() predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldIsNull(FieldStepUpGrantedAt))
+}
+
+// StepUpGrantedAtNotNil applies the NotNil predicate on the "step_up_granted_at" field.
+func StepUpGrantedAtNotNil() predicate.CardServerNonce {
+	return predicate.CardServerNonce(sql.FieldNotNull(FieldStepUpGrantedAt))
 }
 
 // HasCard applies the HasEdge predicate on the "card" edge.
