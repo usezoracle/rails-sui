@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
@@ -24,15 +25,16 @@ import (
 // SenderProfileQuery is the builder for querying SenderProfile entities.
 type SenderProfileQuery struct {
 	config
-	ctx               *QueryContext
-	order             []senderprofile.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.SenderProfile
-	withUser          *UserQuery
-	withAPIKey        *APIKeyQuery
-	withPaymentOrders *PaymentOrderQuery
-	withOrderTokens   *SenderOrderTokenQuery
-	withFKs           bool
+	ctx                     *QueryContext
+	order                   []senderprofile.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.SenderProfile
+	withUser                *UserQuery
+	withAPIKey              *APIKeyQuery
+	withPaymentOrders       *PaymentOrderQuery
+	withOrderTokens         *SenderOrderTokenQuery
+	withMerchantBankAccount *MerchantBankAccountQuery
+	withFKs                 bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -150,6 +152,28 @@ func (spq *SenderProfileQuery) QueryOrderTokens() *SenderOrderTokenQuery {
 			sqlgraph.From(senderprofile.Table, senderprofile.FieldID, selector),
 			sqlgraph.To(senderordertoken.Table, senderordertoken.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, senderprofile.OrderTokensTable, senderprofile.OrderTokensColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(spq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMerchantBankAccount chains the current query on the "merchant_bank_account" edge.
+func (spq *SenderProfileQuery) QueryMerchantBankAccount() *MerchantBankAccountQuery {
+	query := (&MerchantBankAccountClient{config: spq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := spq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := spq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(senderprofile.Table, senderprofile.FieldID, selector),
+			sqlgraph.To(merchantbankaccount.Table, merchantbankaccount.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, senderprofile.MerchantBankAccountTable, senderprofile.MerchantBankAccountColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(spq.driver.Dialect(), step)
 		return fromU, nil
@@ -344,15 +368,16 @@ func (spq *SenderProfileQuery) Clone() *SenderProfileQuery {
 		return nil
 	}
 	return &SenderProfileQuery{
-		config:            spq.config,
-		ctx:               spq.ctx.Clone(),
-		order:             append([]senderprofile.OrderOption{}, spq.order...),
-		inters:            append([]Interceptor{}, spq.inters...),
-		predicates:        append([]predicate.SenderProfile{}, spq.predicates...),
-		withUser:          spq.withUser.Clone(),
-		withAPIKey:        spq.withAPIKey.Clone(),
-		withPaymentOrders: spq.withPaymentOrders.Clone(),
-		withOrderTokens:   spq.withOrderTokens.Clone(),
+		config:                  spq.config,
+		ctx:                     spq.ctx.Clone(),
+		order:                   append([]senderprofile.OrderOption{}, spq.order...),
+		inters:                  append([]Interceptor{}, spq.inters...),
+		predicates:              append([]predicate.SenderProfile{}, spq.predicates...),
+		withUser:                spq.withUser.Clone(),
+		withAPIKey:              spq.withAPIKey.Clone(),
+		withPaymentOrders:       spq.withPaymentOrders.Clone(),
+		withOrderTokens:         spq.withOrderTokens.Clone(),
+		withMerchantBankAccount: spq.withMerchantBankAccount.Clone(),
 		// clone intermediate query.
 		sql:  spq.sql.Clone(),
 		path: spq.path,
@@ -400,6 +425,17 @@ func (spq *SenderProfileQuery) WithOrderTokens(opts ...func(*SenderOrderTokenQue
 		opt(query)
 	}
 	spq.withOrderTokens = query
+	return spq
+}
+
+// WithMerchantBankAccount tells the query-builder to eager-load the nodes that are connected to
+// the "merchant_bank_account" edge. The optional arguments are used to configure the query builder of the edge.
+func (spq *SenderProfileQuery) WithMerchantBankAccount(opts ...func(*MerchantBankAccountQuery)) *SenderProfileQuery {
+	query := (&MerchantBankAccountClient{config: spq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	spq.withMerchantBankAccount = query
 	return spq
 }
 
@@ -482,11 +518,12 @@ func (spq *SenderProfileQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 		nodes       = []*SenderProfile{}
 		withFKs     = spq.withFKs
 		_spec       = spq.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			spq.withUser != nil,
 			spq.withAPIKey != nil,
 			spq.withPaymentOrders != nil,
 			spq.withOrderTokens != nil,
+			spq.withMerchantBankAccount != nil,
 		}
 	)
 	if spq.withUser != nil {
@@ -536,6 +573,12 @@ func (spq *SenderProfileQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 		if err := spq.loadOrderTokens(ctx, query, nodes,
 			func(n *SenderProfile) { n.Edges.OrderTokens = []*SenderOrderToken{} },
 			func(n *SenderProfile, e *SenderOrderToken) { n.Edges.OrderTokens = append(n.Edges.OrderTokens, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := spq.withMerchantBankAccount; query != nil {
+		if err := spq.loadMerchantBankAccount(ctx, query, nodes, nil,
+			func(n *SenderProfile, e *MerchantBankAccount) { n.Edges.MerchantBankAccount = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -659,6 +702,34 @@ func (spq *SenderProfileQuery) loadOrderTokens(ctx context.Context, query *Sende
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "sender_profile_order_tokens" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (spq *SenderProfileQuery) loadMerchantBankAccount(ctx context.Context, query *MerchantBankAccountQuery, nodes []*SenderProfile, init func(*SenderProfile), assign func(*SenderProfile, *MerchantBankAccount)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*SenderProfile)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	query.withFKs = true
+	query.Where(predicate.MerchantBankAccount(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(senderprofile.MerchantBankAccountColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.sender_profile_merchant_bank_account
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "sender_profile_merchant_bank_account" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "sender_profile_merchant_bank_account" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

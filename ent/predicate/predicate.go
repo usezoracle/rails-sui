@@ -24,6 +24,9 @@ type LockOrderFulfillment func(*sql.Selector)
 // LockPaymentOrder is the predicate function for lockpaymentorder builders.
 type LockPaymentOrder func(*sql.Selector)
 
+// MerchantBankAccount is the predicate function for merchantbankaccount builders.
+type MerchantBankAccount func(*sql.Selector)
+
 // Network is the predicate function for network builders.
 type Network func(*sql.Selector)
 

@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
@@ -176,6 +177,25 @@ func (spc *SenderProfileCreate) AddOrderTokens(s ...*SenderOrderToken) *SenderPr
 		ids[i] = s[i].ID
 	}
 	return spc.AddOrderTokenIDs(ids...)
+}
+
+// SetMerchantBankAccountID sets the "merchant_bank_account" edge to the MerchantBankAccount entity by ID.
+func (spc *SenderProfileCreate) SetMerchantBankAccountID(id uuid.UUID) *SenderProfileCreate {
+	spc.mutation.SetMerchantBankAccountID(id)
+	return spc
+}
+
+// SetNillableMerchantBankAccountID sets the "merchant_bank_account" edge to the MerchantBankAccount entity by ID if the given value is not nil.
+func (spc *SenderProfileCreate) SetNillableMerchantBankAccountID(id *uuid.UUID) *SenderProfileCreate {
+	if id != nil {
+		spc = spc.SetMerchantBankAccountID(*id)
+	}
+	return spc
+}
+
+// SetMerchantBankAccount sets the "merchant_bank_account" edge to the MerchantBankAccount entity.
+func (spc *SenderProfileCreate) SetMerchantBankAccount(m *MerchantBankAccount) *SenderProfileCreate {
+	return spc.SetMerchantBankAccountID(m.ID)
 }
 
 // Mutation returns the SenderProfileMutation object of the builder.
@@ -370,6 +390,22 @@ func (spc *SenderProfileCreate) createSpec() (*SenderProfile, *sqlgraph.CreateSp
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(senderordertoken.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := spc.mutation.MerchantBankAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   senderprofile.MerchantBankAccountTable,
+			Columns: []string{senderprofile.MerchantBankAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

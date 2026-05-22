@@ -177,6 +177,39 @@ var (
 			},
 		},
 	}
+	// MerchantBankAccountsColumns holds the columns for the "merchant_bank_accounts" table.
+	MerchantBankAccountsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "currency", Type: field.TypeString, Size: 3},
+		{Name: "bank_code", Type: field.TypeString},
+		{Name: "account_number", Type: field.TypeString},
+		{Name: "account_name", Type: field.TypeString},
+		{Name: "verified_at", Type: field.TypeTime, Nullable: true},
+		{Name: "sender_profile_merchant_bank_account", Type: field.TypeUUID, Unique: true},
+	}
+	// MerchantBankAccountsTable holds the schema information for the "merchant_bank_accounts" table.
+	MerchantBankAccountsTable = &schema.Table{
+		Name:       "merchant_bank_accounts",
+		Columns:    MerchantBankAccountsColumns,
+		PrimaryKey: []*schema.Column{MerchantBankAccountsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "merchant_bank_accounts_sender_profiles_merchant_bank_account",
+				Columns:    []*schema.Column{MerchantBankAccountsColumns[8]},
+				RefColumns: []*schema.Column{SenderProfilesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "merchantbankaccount_sender_profile_merchant_bank_account",
+				Unique:  true,
+				Columns: []*schema.Column{MerchantBankAccountsColumns[8]},
+			},
+		},
+	}
 	// NetworksColumns holds the columns for the "networks" table.
 	NetworksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -693,6 +726,7 @@ var (
 		InstitutionsTable,
 		LockOrderFulfillmentsTable,
 		LockPaymentOrdersTable,
+		MerchantBankAccountsTable,
 		NetworksTable,
 		PaymentOrdersTable,
 		PaymentOrderRecipientsTable,
@@ -722,6 +756,7 @@ func init() {
 	LockPaymentOrdersTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	LockPaymentOrdersTable.ForeignKeys[1].RefTable = ProvisionBucketsTable
 	LockPaymentOrdersTable.ForeignKeys[2].RefTable = TokensTable
+	MerchantBankAccountsTable.ForeignKeys[0].RefTable = SenderProfilesTable
 	PaymentOrdersTable.ForeignKeys[0].RefTable = APIKeysTable
 	PaymentOrdersTable.ForeignKeys[1].RefTable = SenderProfilesTable
 	PaymentOrdersTable.ForeignKeys[2].RefTable = TokensTable

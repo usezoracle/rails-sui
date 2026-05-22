@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/user"
 )
@@ -50,9 +51,11 @@ type SenderProfileEdges struct {
 	PaymentOrders []*PaymentOrder `json:"payment_orders,omitempty"`
 	// OrderTokens holds the value of the order_tokens edge.
 	OrderTokens []*SenderOrderToken `json:"order_tokens,omitempty"`
+	// MerchantBankAccount holds the value of the merchant_bank_account edge.
+	MerchantBankAccount *MerchantBankAccount `json:"merchant_bank_account,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -93,6 +96,17 @@ func (e SenderProfileEdges) OrderTokensOrErr() ([]*SenderOrderToken, error) {
 		return e.OrderTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "order_tokens"}
+}
+
+// MerchantBankAccountOrErr returns the MerchantBankAccount value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e SenderProfileEdges) MerchantBankAccountOrErr() (*MerchantBankAccount, error) {
+	if e.MerchantBankAccount != nil {
+		return e.MerchantBankAccount, nil
+	} else if e.loadedTypes[4] {
+		return nil, &NotFoundError{label: merchantbankaccount.Label}
+	}
+	return nil, &NotLoadedError{edge: "merchant_bank_account"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -209,6 +223,11 @@ func (sp *SenderProfile) QueryPaymentOrders() *PaymentOrderQuery {
 // QueryOrderTokens queries the "order_tokens" edge of the SenderProfile entity.
 func (sp *SenderProfile) QueryOrderTokens() *SenderOrderTokenQuery {
 	return NewSenderProfileClient(sp.config).QueryOrderTokens(sp)
+}
+
+// QueryMerchantBankAccount queries the "merchant_bank_account" edge of the SenderProfile entity.
+func (sp *SenderProfile) QueryMerchantBankAccount() *MerchantBankAccountQuery {
+	return NewSenderProfileClient(sp.config).QueryMerchantBankAccount(sp)
 }
 
 // Update returns a builder for updating this SenderProfile.

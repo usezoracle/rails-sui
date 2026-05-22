@@ -383,6 +383,29 @@ func HasOrderTokensWith(preds ...predicate.SenderOrderToken) predicate.SenderPro
 	})
 }
 
+// HasMerchantBankAccount applies the HasEdge predicate on the "merchant_bank_account" edge.
+func HasMerchantBankAccount() predicate.SenderProfile {
+	return predicate.SenderProfile(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, MerchantBankAccountTable, MerchantBankAccountColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMerchantBankAccountWith applies the HasEdge predicate on the "merchant_bank_account" edge with a given conditions (other predicates).
+func HasMerchantBankAccountWith(preds ...predicate.MerchantBankAccount) predicate.SenderProfile {
+	return predicate.SenderProfile(func(s *sql.Selector) {
+		step := newMerchantBankAccountStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.SenderProfile) predicate.SenderProfile {
 	return predicate.SenderProfile(sql.AndPredicates(predicates...))

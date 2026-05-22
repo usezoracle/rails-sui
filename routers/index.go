@@ -105,6 +105,14 @@ func senderRoutes(route *gin.Engine) {
 	v1.GET("orders/:id", senderCtrl.GetPaymentOrderByID)
 	v1.GET("orders", senderCtrl.GetPaymentOrders)
 	v1.GET("stats", senderCtrl.Stats)
+
+	// Tapp Merchant — mobile-first merchant API.
+	me := v1.Group("me/")
+	me.POST("bank-account", senderCtrl.SaveMerchantBankAccount)
+	me.GET("bank-account", senderCtrl.GetMerchantBankAccount)
+	me.POST("tap", senderCtrl.InitiateTapPayment)
+	me.POST("tap-card", senderCtrl.InitiateTapCardPayment)
+	me.GET("payments/stream", senderCtrl.StreamPayments)
 }
 
 func providerRoutes(route *gin.Engine) {

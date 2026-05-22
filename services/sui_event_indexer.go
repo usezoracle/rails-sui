@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
@@ -207,7 +208,29 @@ func (s *SuiEventIndexer) handleOrderCreated(ctx context.Context, raw models.Sui
 		}
 	}
 
-	return s.createLockPaymentOrderWithRecipient(ctx, evt, recipient)
+	if err := s.createLockPaymentOrderWithRecipient(ctx, evt, recipient); err != nil {
+		return err
+	}
+
+	// Publish a "deposited" event to any SSE subscriber. We resolve back to
+	// the originating PaymentOrder via Reference (set to PaymentOrder.ID
+	// for sender-initiated orders — see InitiateTapPayment).
+	if recipient.Reference != "" {
+		if refUUID, parseErr := uuid.Parse(recipient.Reference); parseErr == nil {
+			po, lookupErr := db.Client.PaymentOrder.
+				Query().
+				Where(paymentorder.IDEQ(refUUID)).
+				WithSenderProfile().
+				Only(ctx)
+			if lookupErr == nil && po.Edges.SenderProfile != nil {
+				Bus().Publish(po.Edges.SenderProfile.ID, "payment.deposited", map[string]any{
+					"order_id":    po.ID.String(),
+					"sui_tx_hash": evt.TxDigest,
+				})
+			}
+		}
+	}
+	return nil
 }
 
 // handleRouteAIfApplicable checks whether the OrderCreated event belongs to
@@ -537,6 +560,16 @@ func (s *SuiEventIndexer) updateOrderStatusSettled(ctx context.Context, evt *typ
 			// retry happens via the WebhookRetryAttempt cron.
 			logger.Errorf("OrderSettled: webhook: %v", err)
 		}
+		// Fan out to the in-process SSE bus — the Tapp Merchant app's
+		// broadcast screen subscribes on the sender ID.
+		if po.Edges.SenderProfile != nil {
+			Bus().Publish(po.Edges.SenderProfile.ID, "payment.settled", map[string]any{
+				"order_id":   po.ID.String(),
+				"amount":     po.Amount.String(),
+				"tx_hash":    evt.TxDigest,
+				"settled_at": time.Now().UTC().Format(time.RFC3339),
+			})
+		}
 	}
 	return nil
 }
@@ -627,6 +660,13 @@ func (s *SuiEventIndexer) updateOrderStatusRefunded(ctx context.Context, evt *ty
 		po.TxHash = evt.TxDigest
 		if err := utils.SendPaymentOrderWebhook(ctx, po); err != nil {
 			logger.Errorf("OrderRefunded: webhook: %v", err)
+		}
+		if po.Edges.SenderProfile != nil {
+			Bus().Publish(po.Edges.SenderProfile.ID, "payment.refunded", map[string]any{
+				"order_id":        po.ID.String(),
+				"amount_refunded": evt.AmountRefunded,
+				"tx_hash":         evt.TxDigest,
+			})
 		}
 	}
 	return nil

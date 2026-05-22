@@ -24,6 +24,8 @@ type Tx struct {
 	LockOrderFulfillment *LockOrderFulfillmentClient
 	// LockPaymentOrder is the client for interacting with the LockPaymentOrder builders.
 	LockPaymentOrder *LockPaymentOrderClient
+	// MerchantBankAccount is the client for interacting with the MerchantBankAccount builders.
+	MerchantBankAccount *MerchantBankAccountClient
 	// Network is the client for interacting with the Network builders.
 	Network *NetworkClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
@@ -195,6 +197,7 @@ func (tx *Tx) init() {
 	tx.Institution = NewInstitutionClient(tx.config)
 	tx.LockOrderFulfillment = NewLockOrderFulfillmentClient(tx.config)
 	tx.LockPaymentOrder = NewLockPaymentOrderClient(tx.config)
+	tx.MerchantBankAccount = NewMerchantBankAccountClient(tx.config)
 	tx.Network = NewNetworkClient(tx.config)
 	tx.PaymentOrder = NewPaymentOrderClient(tx.config)
 	tx.PaymentOrderRecipient = NewPaymentOrderRecipientClient(tx.config)

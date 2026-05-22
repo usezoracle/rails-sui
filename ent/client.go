@@ -22,6 +22,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/paymentorderrecipient"
@@ -58,6 +59,8 @@ type Client struct {
 	LockOrderFulfillment *LockOrderFulfillmentClient
 	// LockPaymentOrder is the client for interacting with the LockPaymentOrder builders.
 	LockPaymentOrder *LockPaymentOrderClient
+	// MerchantBankAccount is the client for interacting with the MerchantBankAccount builders.
+	MerchantBankAccount *MerchantBankAccountClient
 	// Network is the client for interacting with the Network builders.
 	Network *NetworkClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
@@ -109,6 +112,7 @@ func (c *Client) init() {
 	c.Institution = NewInstitutionClient(c.config)
 	c.LockOrderFulfillment = NewLockOrderFulfillmentClient(c.config)
 	c.LockPaymentOrder = NewLockPaymentOrderClient(c.config)
+	c.MerchantBankAccount = NewMerchantBankAccountClient(c.config)
 	c.Network = NewNetworkClient(c.config)
 	c.PaymentOrder = NewPaymentOrderClient(c.config)
 	c.PaymentOrderRecipient = NewPaymentOrderRecipientClient(c.config)
@@ -224,6 +228,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Institution:                 NewInstitutionClient(cfg),
 		LockOrderFulfillment:        NewLockOrderFulfillmentClient(cfg),
 		LockPaymentOrder:            NewLockPaymentOrderClient(cfg),
+		MerchantBankAccount:         NewMerchantBankAccountClient(cfg),
 		Network:                     NewNetworkClient(cfg),
 		PaymentOrder:                NewPaymentOrderClient(cfg),
 		PaymentOrderRecipient:       NewPaymentOrderRecipientClient(cfg),
@@ -266,6 +271,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Institution:                 NewInstitutionClient(cfg),
 		LockOrderFulfillment:        NewLockOrderFulfillmentClient(cfg),
 		LockPaymentOrder:            NewLockPaymentOrderClient(cfg),
+		MerchantBankAccount:         NewMerchantBankAccountClient(cfg),
 		Network:                     NewNetworkClient(cfg),
 		PaymentOrder:                NewPaymentOrderClient(cfg),
 		PaymentOrderRecipient:       NewPaymentOrderRecipientClient(cfg),
@@ -313,11 +319,11 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.FiatCurrency, c.IdentityVerificationRequest, c.Institution,
-		c.LockOrderFulfillment, c.LockPaymentOrder, c.Network, c.PaymentOrder,
-		c.PaymentOrderRecipient, c.ProviderOrderToken, c.ProviderProfile,
-		c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress, c.RouteAOrder,
-		c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress, c.Token,
-		c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
+		c.LockOrderFulfillment, c.LockPaymentOrder, c.MerchantBankAccount, c.Network,
+		c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
+		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
+		c.RouteAOrder, c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress,
+		c.Token, c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Use(hooks...)
 	}
@@ -328,11 +334,11 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.FiatCurrency, c.IdentityVerificationRequest, c.Institution,
-		c.LockOrderFulfillment, c.LockPaymentOrder, c.Network, c.PaymentOrder,
-		c.PaymentOrderRecipient, c.ProviderOrderToken, c.ProviderProfile,
-		c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress, c.RouteAOrder,
-		c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress, c.Token,
-		c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
+		c.LockOrderFulfillment, c.LockPaymentOrder, c.MerchantBankAccount, c.Network,
+		c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
+		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
+		c.RouteAOrder, c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress,
+		c.Token, c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -353,6 +359,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.LockOrderFulfillment.mutate(ctx, m)
 	case *LockPaymentOrderMutation:
 		return c.LockPaymentOrder.mutate(ctx, m)
+	case *MerchantBankAccountMutation:
+		return c.MerchantBankAccount.mutate(ctx, m)
 	case *NetworkMutation:
 		return c.Network.mutate(ctx, m)
 	case *PaymentOrderMutation:
@@ -1395,6 +1403,155 @@ func (c *LockPaymentOrderClient) mutate(ctx context.Context, m *LockPaymentOrder
 		return (&LockPaymentOrderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown LockPaymentOrder mutation op: %q", m.Op())
+	}
+}
+
+// MerchantBankAccountClient is a client for the MerchantBankAccount schema.
+type MerchantBankAccountClient struct {
+	config
+}
+
+// NewMerchantBankAccountClient returns a client for the MerchantBankAccount from the given config.
+func NewMerchantBankAccountClient(c config) *MerchantBankAccountClient {
+	return &MerchantBankAccountClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `merchantbankaccount.Hooks(f(g(h())))`.
+func (c *MerchantBankAccountClient) Use(hooks ...Hook) {
+	c.hooks.MerchantBankAccount = append(c.hooks.MerchantBankAccount, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `merchantbankaccount.Intercept(f(g(h())))`.
+func (c *MerchantBankAccountClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MerchantBankAccount = append(c.inters.MerchantBankAccount, interceptors...)
+}
+
+// Create returns a builder for creating a MerchantBankAccount entity.
+func (c *MerchantBankAccountClient) Create() *MerchantBankAccountCreate {
+	mutation := newMerchantBankAccountMutation(c.config, OpCreate)
+	return &MerchantBankAccountCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MerchantBankAccount entities.
+func (c *MerchantBankAccountClient) CreateBulk(builders ...*MerchantBankAccountCreate) *MerchantBankAccountCreateBulk {
+	return &MerchantBankAccountCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MerchantBankAccountClient) MapCreateBulk(slice any, setFunc func(*MerchantBankAccountCreate, int)) *MerchantBankAccountCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MerchantBankAccountCreateBulk{err: fmt.Errorf("calling to MerchantBankAccountClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MerchantBankAccountCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MerchantBankAccountCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MerchantBankAccount.
+func (c *MerchantBankAccountClient) Update() *MerchantBankAccountUpdate {
+	mutation := newMerchantBankAccountMutation(c.config, OpUpdate)
+	return &MerchantBankAccountUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MerchantBankAccountClient) UpdateOne(mba *MerchantBankAccount) *MerchantBankAccountUpdateOne {
+	mutation := newMerchantBankAccountMutation(c.config, OpUpdateOne, withMerchantBankAccount(mba))
+	return &MerchantBankAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MerchantBankAccountClient) UpdateOneID(id uuid.UUID) *MerchantBankAccountUpdateOne {
+	mutation := newMerchantBankAccountMutation(c.config, OpUpdateOne, withMerchantBankAccountID(id))
+	return &MerchantBankAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MerchantBankAccount.
+func (c *MerchantBankAccountClient) Delete() *MerchantBankAccountDelete {
+	mutation := newMerchantBankAccountMutation(c.config, OpDelete)
+	return &MerchantBankAccountDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MerchantBankAccountClient) DeleteOne(mba *MerchantBankAccount) *MerchantBankAccountDeleteOne {
+	return c.DeleteOneID(mba.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MerchantBankAccountClient) DeleteOneID(id uuid.UUID) *MerchantBankAccountDeleteOne {
+	builder := c.Delete().Where(merchantbankaccount.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MerchantBankAccountDeleteOne{builder}
+}
+
+// Query returns a query builder for MerchantBankAccount.
+func (c *MerchantBankAccountClient) Query() *MerchantBankAccountQuery {
+	return &MerchantBankAccountQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMerchantBankAccount},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MerchantBankAccount entity by its id.
+func (c *MerchantBankAccountClient) Get(ctx context.Context, id uuid.UUID) (*MerchantBankAccount, error) {
+	return c.Query().Where(merchantbankaccount.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MerchantBankAccountClient) GetX(ctx context.Context, id uuid.UUID) *MerchantBankAccount {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySenderProfile queries the sender_profile edge of a MerchantBankAccount.
+func (c *MerchantBankAccountClient) QuerySenderProfile(mba *MerchantBankAccount) *SenderProfileQuery {
+	query := (&SenderProfileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := mba.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(merchantbankaccount.Table, merchantbankaccount.FieldID, id),
+			sqlgraph.To(senderprofile.Table, senderprofile.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, merchantbankaccount.SenderProfileTable, merchantbankaccount.SenderProfileColumn),
+		)
+		fromV = sqlgraph.Neighbors(mba.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MerchantBankAccountClient) Hooks() []Hook {
+	return c.hooks.MerchantBankAccount
+}
+
+// Interceptors returns the client interceptors.
+func (c *MerchantBankAccountClient) Interceptors() []Interceptor {
+	return c.inters.MerchantBankAccount
+}
+
+func (c *MerchantBankAccountClient) mutate(ctx context.Context, m *MerchantBankAccountMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MerchantBankAccountCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MerchantBankAccountUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MerchantBankAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MerchantBankAccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MerchantBankAccount mutation op: %q", m.Op())
 	}
 }
 
@@ -3300,6 +3457,22 @@ func (c *SenderProfileClient) QueryOrderTokens(sp *SenderProfile) *SenderOrderTo
 	return query
 }
 
+// QueryMerchantBankAccount queries the merchant_bank_account edge of a SenderProfile.
+func (c *SenderProfileClient) QueryMerchantBankAccount(sp *SenderProfile) *MerchantBankAccountQuery {
+	query := (&MerchantBankAccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sp.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(senderprofile.Table, senderprofile.FieldID, id),
+			sqlgraph.To(merchantbankaccount.Table, merchantbankaccount.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, senderprofile.MerchantBankAccountTable, senderprofile.MerchantBankAccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(sp.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SenderProfileClient) Hooks() []Hook {
 	return c.hooks.SenderProfile
@@ -4273,18 +4446,18 @@ func (c *WebhookRetryAttemptClient) mutate(ctx context.Context, m *WebhookRetryA
 type (
 	hooks struct {
 		APIKey, FiatCurrency, IdentityVerificationRequest, Institution,
-		LockOrderFulfillment, LockPaymentOrder, Network, PaymentOrder,
-		PaymentOrderRecipient, ProviderOrderToken, ProviderProfile, ProviderRating,
-		ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken, SenderProfile,
-		SuiReceiveAddress, Token, TransactionLog, User, VerificationToken,
-		WebhookRetryAttempt []ent.Hook
+		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
+		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
+		ProviderRating, ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken,
+		SenderProfile, SuiReceiveAddress, Token, TransactionLog, User,
+		VerificationToken, WebhookRetryAttempt []ent.Hook
 	}
 	inters struct {
 		APIKey, FiatCurrency, IdentityVerificationRequest, Institution,
-		LockOrderFulfillment, LockPaymentOrder, Network, PaymentOrder,
-		PaymentOrderRecipient, ProviderOrderToken, ProviderProfile, ProviderRating,
-		ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken, SenderProfile,
-		SuiReceiveAddress, Token, TransactionLog, User, VerificationToken,
-		WebhookRetryAttempt []ent.Interceptor
+		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
+		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
+		ProviderRating, ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken,
+		SenderProfile, SuiReceiveAddress, Token, TransactionLog, User,
+		VerificationToken, WebhookRetryAttempt []ent.Interceptor
 	}
 )

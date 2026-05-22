@@ -35,6 +35,8 @@ const (
 	EdgePaymentOrders = "payment_orders"
 	// EdgeOrderTokens holds the string denoting the order_tokens edge name in mutations.
 	EdgeOrderTokens = "order_tokens"
+	// EdgeMerchantBankAccount holds the string denoting the merchant_bank_account edge name in mutations.
+	EdgeMerchantBankAccount = "merchant_bank_account"
 	// Table holds the table name of the senderprofile in the database.
 	Table = "sender_profiles"
 	// UserTable is the table that holds the user relation/edge.
@@ -65,6 +67,13 @@ const (
 	OrderTokensInverseTable = "sender_order_tokens"
 	// OrderTokensColumn is the table column denoting the order_tokens relation/edge.
 	OrderTokensColumn = "sender_profile_order_tokens"
+	// MerchantBankAccountTable is the table that holds the merchant_bank_account relation/edge.
+	MerchantBankAccountTable = "merchant_bank_accounts"
+	// MerchantBankAccountInverseTable is the table name for the MerchantBankAccount entity.
+	// It exists in this package in order to avoid circular dependency with the "merchantbankaccount" package.
+	MerchantBankAccountInverseTable = "merchant_bank_accounts"
+	// MerchantBankAccountColumn is the table column denoting the merchant_bank_account relation/edge.
+	MerchantBankAccountColumn = "sender_profile_merchant_bank_account"
 )
 
 // Columns holds all SQL columns for senderprofile fields.
@@ -188,6 +197,13 @@ func ByOrderTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newOrderTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByMerchantBankAccountField orders the results by merchant_bank_account field.
+func ByMerchantBankAccountField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMerchantBankAccountStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -214,5 +230,12 @@ func newOrderTokensStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrderTokensInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, OrderTokensTable, OrderTokensColumn),
+	)
+}
+func newMerchantBankAccountStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MerchantBankAccountInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, MerchantBankAccountTable, MerchantBankAccountColumn),
 	)
 }

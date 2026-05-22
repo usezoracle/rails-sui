@@ -12,6 +12,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/providerordertoken"
@@ -157,6 +158,55 @@ func init() {
 	lockpaymentorderDescID := lockpaymentorderFields[0].Descriptor()
 	// lockpaymentorder.DefaultID holds the default value on creation for the id field.
 	lockpaymentorder.DefaultID = lockpaymentorderDescID.Default.(func() uuid.UUID)
+	merchantbankaccountMixin := schema.MerchantBankAccount{}.Mixin()
+	merchantbankaccountMixinFields0 := merchantbankaccountMixin[0].Fields()
+	_ = merchantbankaccountMixinFields0
+	merchantbankaccountFields := schema.MerchantBankAccount{}.Fields()
+	_ = merchantbankaccountFields
+	// merchantbankaccountDescCreatedAt is the schema descriptor for created_at field.
+	merchantbankaccountDescCreatedAt := merchantbankaccountMixinFields0[0].Descriptor()
+	// merchantbankaccount.DefaultCreatedAt holds the default value on creation for the created_at field.
+	merchantbankaccount.DefaultCreatedAt = merchantbankaccountDescCreatedAt.Default.(func() time.Time)
+	// merchantbankaccountDescUpdatedAt is the schema descriptor for updated_at field.
+	merchantbankaccountDescUpdatedAt := merchantbankaccountMixinFields0[1].Descriptor()
+	// merchantbankaccount.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	merchantbankaccount.DefaultUpdatedAt = merchantbankaccountDescUpdatedAt.Default.(func() time.Time)
+	// merchantbankaccount.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	merchantbankaccount.UpdateDefaultUpdatedAt = merchantbankaccountDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// merchantbankaccountDescCurrency is the schema descriptor for currency field.
+	merchantbankaccountDescCurrency := merchantbankaccountFields[1].Descriptor()
+	// merchantbankaccount.CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
+	merchantbankaccount.CurrencyValidator = func() func(string) error {
+		validators := merchantbankaccountDescCurrency.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(currency string) error {
+			for _, fn := range fns {
+				if err := fn(currency); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// merchantbankaccountDescBankCode is the schema descriptor for bank_code field.
+	merchantbankaccountDescBankCode := merchantbankaccountFields[2].Descriptor()
+	// merchantbankaccount.BankCodeValidator is a validator for the "bank_code" field. It is called by the builders before save.
+	merchantbankaccount.BankCodeValidator = merchantbankaccountDescBankCode.Validators[0].(func(string) error)
+	// merchantbankaccountDescAccountNumber is the schema descriptor for account_number field.
+	merchantbankaccountDescAccountNumber := merchantbankaccountFields[3].Descriptor()
+	// merchantbankaccount.AccountNumberValidator is a validator for the "account_number" field. It is called by the builders before save.
+	merchantbankaccount.AccountNumberValidator = merchantbankaccountDescAccountNumber.Validators[0].(func(string) error)
+	// merchantbankaccountDescAccountName is the schema descriptor for account_name field.
+	merchantbankaccountDescAccountName := merchantbankaccountFields[4].Descriptor()
+	// merchantbankaccount.AccountNameValidator is a validator for the "account_name" field. It is called by the builders before save.
+	merchantbankaccount.AccountNameValidator = merchantbankaccountDescAccountName.Validators[0].(func(string) error)
+	// merchantbankaccountDescID is the schema descriptor for id field.
+	merchantbankaccountDescID := merchantbankaccountFields[0].Descriptor()
+	// merchantbankaccount.DefaultID holds the default value on creation for the id field.
+	merchantbankaccount.DefaultID = merchantbankaccountDescID.Default.(func() uuid.UUID)
 	networkMixin := schema.Network{}.Mixin()
 	networkMixinFields0 := networkMixin[0].Fields()
 	_ = networkMixinFields0

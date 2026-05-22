@@ -8,14 +8,15 @@ import (
 
 // ServerConfiguration type defines the server configurations
 type ServerConfiguration struct {
-	Debug        bool
-	Host         string
-	Port         string
-	Timezone     string
-	AllowedHosts string
-	Environment  string
-	SentryDSN    string
-	HostDomain   string
+	Debug           bool
+	Host            string
+	Port            string
+	Timezone        string
+	AllowedHosts    string
+	Environment     string
+	SentryDSN       string
+	HostDomain      string
+	CheckoutBaseURL string
 }
 
 // ServerConfig sets the server configuration
@@ -27,16 +28,18 @@ func ServerConfig() *ServerConfiguration {
 	viper.SetDefault("ALLOWED_HOSTS", "*")
 	viper.SetDefault("ENVIRONMENT", "local")
 	viper.SetDefault("SENTRY_DSN", "")
+	viper.SetDefault("CHECKOUT_BASE_URL", "https://checkout.zoracle.com")
 
 	return &ServerConfiguration{
-		Debug:        viper.GetBool("DEBUG"),
-		Host:         viper.GetString("SERVER_HOST"),
-		Port:         viper.GetString("SERVER_PORT"),
-		Timezone:     viper.GetString("SERVER_TIMEZONE"),
-		AllowedHosts: viper.GetString("ALLOWED_HOSTS"),
-		Environment:  viper.GetString("ENVIRONMENT"),
-		SentryDSN:    viper.GetString("SENTRY_DSN"),
-		HostDomain:   viper.GetString("HOST_DOMAIN"),
+		Debug:           viper.GetBool("DEBUG"),
+		Host:            viper.GetString("SERVER_HOST"),
+		Port:            viper.GetString("SERVER_PORT"),
+		Timezone:        viper.GetString("SERVER_TIMEZONE"),
+		AllowedHosts:    viper.GetString("ALLOWED_HOSTS"),
+		Environment:     viper.GetString("ENVIRONMENT"),
+		SentryDSN:       viper.GetString("SENTRY_DSN"),
+		HostDomain:      viper.GetString("HOST_DOMAIN"),
+		CheckoutBaseURL: viper.GetString("CHECKOUT_BASE_URL"),
 	}
 }
 

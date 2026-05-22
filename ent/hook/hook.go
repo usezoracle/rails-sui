@@ -81,6 +81,18 @@ func (f LockPaymentOrderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LockPaymentOrderMutation", m)
 }
 
+// The MerchantBankAccountFunc type is an adapter to allow the use of ordinary
+// function as MerchantBankAccount mutator.
+type MerchantBankAccountFunc func(context.Context, *ent.MerchantBankAccountMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MerchantBankAccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MerchantBankAccountMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MerchantBankAccountMutation", m)
+}
+
 // The NetworkFunc type is an adapter to allow the use of ordinary
 // function as Network mutator.
 type NetworkFunc func(context.Context, *ent.NetworkMutation) (ent.Value, error)

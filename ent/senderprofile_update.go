@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
@@ -168,6 +169,25 @@ func (spu *SenderProfileUpdate) AddOrderTokens(s ...*SenderOrderToken) *SenderPr
 	return spu.AddOrderTokenIDs(ids...)
 }
 
+// SetMerchantBankAccountID sets the "merchant_bank_account" edge to the MerchantBankAccount entity by ID.
+func (spu *SenderProfileUpdate) SetMerchantBankAccountID(id uuid.UUID) *SenderProfileUpdate {
+	spu.mutation.SetMerchantBankAccountID(id)
+	return spu
+}
+
+// SetNillableMerchantBankAccountID sets the "merchant_bank_account" edge to the MerchantBankAccount entity by ID if the given value is not nil.
+func (spu *SenderProfileUpdate) SetNillableMerchantBankAccountID(id *uuid.UUID) *SenderProfileUpdate {
+	if id != nil {
+		spu = spu.SetMerchantBankAccountID(*id)
+	}
+	return spu
+}
+
+// SetMerchantBankAccount sets the "merchant_bank_account" edge to the MerchantBankAccount entity.
+func (spu *SenderProfileUpdate) SetMerchantBankAccount(m *MerchantBankAccount) *SenderProfileUpdate {
+	return spu.SetMerchantBankAccountID(m.ID)
+}
+
 // Mutation returns the SenderProfileMutation object of the builder.
 func (spu *SenderProfileUpdate) Mutation() *SenderProfileMutation {
 	return spu.mutation
@@ -219,6 +239,12 @@ func (spu *SenderProfileUpdate) RemoveOrderTokens(s ...*SenderOrderToken) *Sende
 		ids[i] = s[i].ID
 	}
 	return spu.RemoveOrderTokenIDs(ids...)
+}
+
+// ClearMerchantBankAccount clears the "merchant_bank_account" edge to the MerchantBankAccount entity.
+func (spu *SenderProfileUpdate) ClearMerchantBankAccount() *SenderProfileUpdate {
+	spu.mutation.ClearMerchantBankAccount()
+	return spu
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -425,6 +451,35 @@ func (spu *SenderProfileUpdate) sqlSave(ctx context.Context) (n int, err error) 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if spu.mutation.MerchantBankAccountCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   senderprofile.MerchantBankAccountTable,
+			Columns: []string{senderprofile.MerchantBankAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spu.mutation.MerchantBankAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   senderprofile.MerchantBankAccountTable,
+			Columns: []string{senderprofile.MerchantBankAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, spu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{senderprofile.Label}
@@ -580,6 +635,25 @@ func (spuo *SenderProfileUpdateOne) AddOrderTokens(s ...*SenderOrderToken) *Send
 	return spuo.AddOrderTokenIDs(ids...)
 }
 
+// SetMerchantBankAccountID sets the "merchant_bank_account" edge to the MerchantBankAccount entity by ID.
+func (spuo *SenderProfileUpdateOne) SetMerchantBankAccountID(id uuid.UUID) *SenderProfileUpdateOne {
+	spuo.mutation.SetMerchantBankAccountID(id)
+	return spuo
+}
+
+// SetNillableMerchantBankAccountID sets the "merchant_bank_account" edge to the MerchantBankAccount entity by ID if the given value is not nil.
+func (spuo *SenderProfileUpdateOne) SetNillableMerchantBankAccountID(id *uuid.UUID) *SenderProfileUpdateOne {
+	if id != nil {
+		spuo = spuo.SetMerchantBankAccountID(*id)
+	}
+	return spuo
+}
+
+// SetMerchantBankAccount sets the "merchant_bank_account" edge to the MerchantBankAccount entity.
+func (spuo *SenderProfileUpdateOne) SetMerchantBankAccount(m *MerchantBankAccount) *SenderProfileUpdateOne {
+	return spuo.SetMerchantBankAccountID(m.ID)
+}
+
 // Mutation returns the SenderProfileMutation object of the builder.
 func (spuo *SenderProfileUpdateOne) Mutation() *SenderProfileMutation {
 	return spuo.mutation
@@ -631,6 +705,12 @@ func (spuo *SenderProfileUpdateOne) RemoveOrderTokens(s ...*SenderOrderToken) *S
 		ids[i] = s[i].ID
 	}
 	return spuo.RemoveOrderTokenIDs(ids...)
+}
+
+// ClearMerchantBankAccount clears the "merchant_bank_account" edge to the MerchantBankAccount entity.
+func (spuo *SenderProfileUpdateOne) ClearMerchantBankAccount() *SenderProfileUpdateOne {
+	spuo.mutation.ClearMerchantBankAccount()
+	return spuo
 }
 
 // Where appends a list predicates to the SenderProfileUpdate builder.
@@ -860,6 +940,35 @@ func (spuo *SenderProfileUpdateOne) sqlSave(ctx context.Context) (_node *SenderP
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(senderordertoken.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if spuo.mutation.MerchantBankAccountCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   senderprofile.MerchantBankAccountTable,
+			Columns: []string{senderprofile.MerchantBankAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spuo.mutation.MerchantBankAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   senderprofile.MerchantBankAccountTable,
+			Columns: []string{senderprofile.MerchantBankAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
