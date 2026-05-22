@@ -53,9 +53,11 @@ type SenderProfileEdges struct {
 	OrderTokens []*SenderOrderToken `json:"order_tokens,omitempty"`
 	// MerchantBankAccount holds the value of the merchant_bank_account edge.
 	MerchantBankAccount *MerchantBankAccount `json:"merchant_bank_account,omitempty"`
+	// CardServerNonces holds the value of the card_server_nonces edge.
+	CardServerNonces []*CardServerNonce `json:"card_server_nonces,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -107,6 +109,15 @@ func (e SenderProfileEdges) MerchantBankAccountOrErr() (*MerchantBankAccount, er
 		return nil, &NotFoundError{label: merchantbankaccount.Label}
 	}
 	return nil, &NotLoadedError{edge: "merchant_bank_account"}
+}
+
+// CardServerNoncesOrErr returns the CardServerNonces value or an error if the edge
+// was not loaded in eager-loading.
+func (e SenderProfileEdges) CardServerNoncesOrErr() ([]*CardServerNonce, error) {
+	if e.loadedTypes[5] {
+		return e.CardServerNonces, nil
+	}
+	return nil, &NotLoadedError{edge: "card_server_nonces"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -228,6 +239,11 @@ func (sp *SenderProfile) QueryOrderTokens() *SenderOrderTokenQuery {
 // QueryMerchantBankAccount queries the "merchant_bank_account" edge of the SenderProfile entity.
 func (sp *SenderProfile) QueryMerchantBankAccount() *MerchantBankAccountQuery {
 	return NewSenderProfileClient(sp.config).QueryMerchantBankAccount(sp)
+}
+
+// QueryCardServerNonces queries the "card_server_nonces" edge of the SenderProfile entity.
+func (sp *SenderProfile) QueryCardServerNonces() *CardServerNonceQuery {
+	return NewSenderProfileClient(sp.config).QueryCardServerNonces(sp)
 }
 
 // Update returns a builder for updating this SenderProfile.

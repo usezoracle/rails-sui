@@ -37,6 +37,8 @@ const (
 	EdgeOrderTokens = "order_tokens"
 	// EdgeMerchantBankAccount holds the string denoting the merchant_bank_account edge name in mutations.
 	EdgeMerchantBankAccount = "merchant_bank_account"
+	// EdgeCardServerNonces holds the string denoting the card_server_nonces edge name in mutations.
+	EdgeCardServerNonces = "card_server_nonces"
 	// Table holds the table name of the senderprofile in the database.
 	Table = "sender_profiles"
 	// UserTable is the table that holds the user relation/edge.
@@ -74,6 +76,13 @@ const (
 	MerchantBankAccountInverseTable = "merchant_bank_accounts"
 	// MerchantBankAccountColumn is the table column denoting the merchant_bank_account relation/edge.
 	MerchantBankAccountColumn = "sender_profile_merchant_bank_account"
+	// CardServerNoncesTable is the table that holds the card_server_nonces relation/edge.
+	CardServerNoncesTable = "card_server_nonces"
+	// CardServerNoncesInverseTable is the table name for the CardServerNonce entity.
+	// It exists in this package in order to avoid circular dependency with the "cardservernonce" package.
+	CardServerNoncesInverseTable = "card_server_nonces"
+	// CardServerNoncesColumn is the table column denoting the card_server_nonces relation/edge.
+	CardServerNoncesColumn = "sender_profile_card_server_nonces"
 )
 
 // Columns holds all SQL columns for senderprofile fields.
@@ -204,6 +213,20 @@ func ByMerchantBankAccountField(field string, opts ...sql.OrderTermOption) Order
 		sqlgraph.OrderByNeighborTerms(s, newMerchantBankAccountStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByCardServerNoncesCount orders the results by card_server_nonces count.
+func ByCardServerNoncesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCardServerNoncesStep(), opts...)
+	}
+}
+
+// ByCardServerNonces orders the results by card_server_nonces terms.
+func ByCardServerNonces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCardServerNoncesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -237,5 +260,12 @@ func newMerchantBankAccountStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MerchantBankAccountInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, MerchantBankAccountTable, MerchantBankAccountColumn),
+	)
+}
+func newCardServerNoncesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CardServerNoncesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CardServerNoncesTable, CardServerNoncesColumn),
 	)
 }

@@ -71,6 +71,91 @@ func ActivationToken(v string) predicate.TappCard {
 	return predicate.TappCard(sql.FieldEQ(FieldActivationToken, v))
 }
 
+// CardUIDHash applies equality check predicate on the "card_uid_hash" field. It's identical to CardUIDHashEQ.
+func CardUIDHash(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCardUIDHash, v))
+}
+
+// CapObjectID applies equality check predicate on the "cap_object_id" field. It's identical to CapObjectIDEQ.
+func CapObjectID(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCapObjectID, v))
+}
+
+// CoinType applies equality check predicate on the "coin_type" field. It's identical to CoinTypeEQ.
+func CoinType(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCoinType, v))
+}
+
+// LinkingProof applies equality check predicate on the "linking_proof" field. It's identical to LinkingProofEQ.
+func LinkingProof(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldLinkingProof, v))
+}
+
+// PinVerifier applies equality check predicate on the "pin_verifier" field. It's identical to PinVerifierEQ.
+func PinVerifier(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldPinVerifier, v))
+}
+
+// PinAttemptsRemaining applies equality check predicate on the "pin_attempts_remaining" field. It's identical to PinAttemptsRemainingEQ.
+func PinAttemptsRemaining(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldPinAttemptsRemaining, v))
+}
+
+// LockedUntil applies equality check predicate on the "locked_until" field. It's identical to LockedUntilEQ.
+func LockedUntil(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldLockedUntil, v))
+}
+
+// CardPassword applies equality check predicate on the "card_password" field. It's identical to CardPasswordEQ.
+func CardPassword(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCardPassword, v))
+}
+
+// CurrentTokenCiphertext applies equality check predicate on the "current_token_ciphertext" field. It's identical to CurrentTokenCiphertextEQ.
+func CurrentTokenCiphertext(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCurrentTokenCiphertext, v))
+}
+
+// TokenRotatedAt applies equality check predicate on the "token_rotated_at" field. It's identical to TokenRotatedAtEQ.
+func TokenRotatedAt(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldTokenRotatedAt, v))
+}
+
+// TokenMismatchCount applies equality check predicate on the "token_mismatch_count" field. It's identical to TokenMismatchCountEQ.
+func TokenMismatchCount(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldTokenMismatchCount, v))
+}
+
+// DailyLimitSubunit applies equality check predicate on the "daily_limit_subunit" field. It's identical to DailyLimitSubunitEQ.
+func DailyLimitSubunit(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldDailyLimitSubunit, v))
+}
+
+// PerTapLimitSubunit applies equality check predicate on the "per_tap_limit_subunit" field. It's identical to PerTapLimitSubunitEQ.
+func PerTapLimitSubunit(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldPerTapLimitSubunit, v))
+}
+
+// StepUpThresholdSubunit applies equality check predicate on the "step_up_threshold_subunit" field. It's identical to StepUpThresholdSubunitEQ.
+func StepUpThresholdSubunit(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldStepUpThresholdSubunit, v))
+}
+
+// SpentTodaySubunit applies equality check predicate on the "spent_today_subunit" field. It's identical to SpentTodaySubunitEQ.
+func SpentTodaySubunit(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldSpentTodaySubunit, v))
+}
+
+// DayIndex applies equality check predicate on the "day_index" field. It's identical to DayIndexEQ.
+func DayIndex(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldDayIndex, v))
+}
+
+// NeedsResync applies equality check predicate on the "needs_resync" field. It's identical to NeedsResyncEQ.
+func NeedsResync(v bool) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldNeedsResync, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.TappCard {
 	return predicate.TappCard(sql.FieldEQ(FieldCreatedAt, v))
@@ -236,6 +321,796 @@ func StatusNotIn(vs ...Status) predicate.TappCard {
 	return predicate.TappCard(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// CardUIDHashEQ applies the EQ predicate on the "card_uid_hash" field.
+func CardUIDHashEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCardUIDHash, v))
+}
+
+// CardUIDHashNEQ applies the NEQ predicate on the "card_uid_hash" field.
+func CardUIDHashNEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldCardUIDHash, v))
+}
+
+// CardUIDHashIn applies the In predicate on the "card_uid_hash" field.
+func CardUIDHashIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldCardUIDHash, vs...))
+}
+
+// CardUIDHashNotIn applies the NotIn predicate on the "card_uid_hash" field.
+func CardUIDHashNotIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldCardUIDHash, vs...))
+}
+
+// CardUIDHashGT applies the GT predicate on the "card_uid_hash" field.
+func CardUIDHashGT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldCardUIDHash, v))
+}
+
+// CardUIDHashGTE applies the GTE predicate on the "card_uid_hash" field.
+func CardUIDHashGTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldCardUIDHash, v))
+}
+
+// CardUIDHashLT applies the LT predicate on the "card_uid_hash" field.
+func CardUIDHashLT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldCardUIDHash, v))
+}
+
+// CardUIDHashLTE applies the LTE predicate on the "card_uid_hash" field.
+func CardUIDHashLTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldCardUIDHash, v))
+}
+
+// CardUIDHashIsNil applies the IsNil predicate on the "card_uid_hash" field.
+func CardUIDHashIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldCardUIDHash))
+}
+
+// CardUIDHashNotNil applies the NotNil predicate on the "card_uid_hash" field.
+func CardUIDHashNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldCardUIDHash))
+}
+
+// CapObjectIDEQ applies the EQ predicate on the "cap_object_id" field.
+func CapObjectIDEQ(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCapObjectID, v))
+}
+
+// CapObjectIDNEQ applies the NEQ predicate on the "cap_object_id" field.
+func CapObjectIDNEQ(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldCapObjectID, v))
+}
+
+// CapObjectIDIn applies the In predicate on the "cap_object_id" field.
+func CapObjectIDIn(vs ...string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldCapObjectID, vs...))
+}
+
+// CapObjectIDNotIn applies the NotIn predicate on the "cap_object_id" field.
+func CapObjectIDNotIn(vs ...string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldCapObjectID, vs...))
+}
+
+// CapObjectIDGT applies the GT predicate on the "cap_object_id" field.
+func CapObjectIDGT(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldCapObjectID, v))
+}
+
+// CapObjectIDGTE applies the GTE predicate on the "cap_object_id" field.
+func CapObjectIDGTE(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldCapObjectID, v))
+}
+
+// CapObjectIDLT applies the LT predicate on the "cap_object_id" field.
+func CapObjectIDLT(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldCapObjectID, v))
+}
+
+// CapObjectIDLTE applies the LTE predicate on the "cap_object_id" field.
+func CapObjectIDLTE(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldCapObjectID, v))
+}
+
+// CapObjectIDContains applies the Contains predicate on the "cap_object_id" field.
+func CapObjectIDContains(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldContains(FieldCapObjectID, v))
+}
+
+// CapObjectIDHasPrefix applies the HasPrefix predicate on the "cap_object_id" field.
+func CapObjectIDHasPrefix(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldHasPrefix(FieldCapObjectID, v))
+}
+
+// CapObjectIDHasSuffix applies the HasSuffix predicate on the "cap_object_id" field.
+func CapObjectIDHasSuffix(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldHasSuffix(FieldCapObjectID, v))
+}
+
+// CapObjectIDIsNil applies the IsNil predicate on the "cap_object_id" field.
+func CapObjectIDIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldCapObjectID))
+}
+
+// CapObjectIDNotNil applies the NotNil predicate on the "cap_object_id" field.
+func CapObjectIDNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldCapObjectID))
+}
+
+// CapObjectIDEqualFold applies the EqualFold predicate on the "cap_object_id" field.
+func CapObjectIDEqualFold(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEqualFold(FieldCapObjectID, v))
+}
+
+// CapObjectIDContainsFold applies the ContainsFold predicate on the "cap_object_id" field.
+func CapObjectIDContainsFold(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldContainsFold(FieldCapObjectID, v))
+}
+
+// CoinTypeEQ applies the EQ predicate on the "coin_type" field.
+func CoinTypeEQ(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCoinType, v))
+}
+
+// CoinTypeNEQ applies the NEQ predicate on the "coin_type" field.
+func CoinTypeNEQ(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldCoinType, v))
+}
+
+// CoinTypeIn applies the In predicate on the "coin_type" field.
+func CoinTypeIn(vs ...string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldCoinType, vs...))
+}
+
+// CoinTypeNotIn applies the NotIn predicate on the "coin_type" field.
+func CoinTypeNotIn(vs ...string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldCoinType, vs...))
+}
+
+// CoinTypeGT applies the GT predicate on the "coin_type" field.
+func CoinTypeGT(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldCoinType, v))
+}
+
+// CoinTypeGTE applies the GTE predicate on the "coin_type" field.
+func CoinTypeGTE(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldCoinType, v))
+}
+
+// CoinTypeLT applies the LT predicate on the "coin_type" field.
+func CoinTypeLT(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldCoinType, v))
+}
+
+// CoinTypeLTE applies the LTE predicate on the "coin_type" field.
+func CoinTypeLTE(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldCoinType, v))
+}
+
+// CoinTypeContains applies the Contains predicate on the "coin_type" field.
+func CoinTypeContains(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldContains(FieldCoinType, v))
+}
+
+// CoinTypeHasPrefix applies the HasPrefix predicate on the "coin_type" field.
+func CoinTypeHasPrefix(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldHasPrefix(FieldCoinType, v))
+}
+
+// CoinTypeHasSuffix applies the HasSuffix predicate on the "coin_type" field.
+func CoinTypeHasSuffix(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldHasSuffix(FieldCoinType, v))
+}
+
+// CoinTypeIsNil applies the IsNil predicate on the "coin_type" field.
+func CoinTypeIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldCoinType))
+}
+
+// CoinTypeNotNil applies the NotNil predicate on the "coin_type" field.
+func CoinTypeNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldCoinType))
+}
+
+// CoinTypeEqualFold applies the EqualFold predicate on the "coin_type" field.
+func CoinTypeEqualFold(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEqualFold(FieldCoinType, v))
+}
+
+// CoinTypeContainsFold applies the ContainsFold predicate on the "coin_type" field.
+func CoinTypeContainsFold(v string) predicate.TappCard {
+	return predicate.TappCard(sql.FieldContainsFold(FieldCoinType, v))
+}
+
+// LinkingProofEQ applies the EQ predicate on the "linking_proof" field.
+func LinkingProofEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldLinkingProof, v))
+}
+
+// LinkingProofNEQ applies the NEQ predicate on the "linking_proof" field.
+func LinkingProofNEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldLinkingProof, v))
+}
+
+// LinkingProofIn applies the In predicate on the "linking_proof" field.
+func LinkingProofIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldLinkingProof, vs...))
+}
+
+// LinkingProofNotIn applies the NotIn predicate on the "linking_proof" field.
+func LinkingProofNotIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldLinkingProof, vs...))
+}
+
+// LinkingProofGT applies the GT predicate on the "linking_proof" field.
+func LinkingProofGT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldLinkingProof, v))
+}
+
+// LinkingProofGTE applies the GTE predicate on the "linking_proof" field.
+func LinkingProofGTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldLinkingProof, v))
+}
+
+// LinkingProofLT applies the LT predicate on the "linking_proof" field.
+func LinkingProofLT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldLinkingProof, v))
+}
+
+// LinkingProofLTE applies the LTE predicate on the "linking_proof" field.
+func LinkingProofLTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldLinkingProof, v))
+}
+
+// LinkingProofIsNil applies the IsNil predicate on the "linking_proof" field.
+func LinkingProofIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldLinkingProof))
+}
+
+// LinkingProofNotNil applies the NotNil predicate on the "linking_proof" field.
+func LinkingProofNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldLinkingProof))
+}
+
+// PinVerifierEQ applies the EQ predicate on the "pin_verifier" field.
+func PinVerifierEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldPinVerifier, v))
+}
+
+// PinVerifierNEQ applies the NEQ predicate on the "pin_verifier" field.
+func PinVerifierNEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldPinVerifier, v))
+}
+
+// PinVerifierIn applies the In predicate on the "pin_verifier" field.
+func PinVerifierIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldPinVerifier, vs...))
+}
+
+// PinVerifierNotIn applies the NotIn predicate on the "pin_verifier" field.
+func PinVerifierNotIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldPinVerifier, vs...))
+}
+
+// PinVerifierGT applies the GT predicate on the "pin_verifier" field.
+func PinVerifierGT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldPinVerifier, v))
+}
+
+// PinVerifierGTE applies the GTE predicate on the "pin_verifier" field.
+func PinVerifierGTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldPinVerifier, v))
+}
+
+// PinVerifierLT applies the LT predicate on the "pin_verifier" field.
+func PinVerifierLT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldPinVerifier, v))
+}
+
+// PinVerifierLTE applies the LTE predicate on the "pin_verifier" field.
+func PinVerifierLTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldPinVerifier, v))
+}
+
+// PinVerifierIsNil applies the IsNil predicate on the "pin_verifier" field.
+func PinVerifierIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldPinVerifier))
+}
+
+// PinVerifierNotNil applies the NotNil predicate on the "pin_verifier" field.
+func PinVerifierNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldPinVerifier))
+}
+
+// PinAttemptsRemainingEQ applies the EQ predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingEQ(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldPinAttemptsRemaining, v))
+}
+
+// PinAttemptsRemainingNEQ applies the NEQ predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingNEQ(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldPinAttemptsRemaining, v))
+}
+
+// PinAttemptsRemainingIn applies the In predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingIn(vs ...int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldPinAttemptsRemaining, vs...))
+}
+
+// PinAttemptsRemainingNotIn applies the NotIn predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingNotIn(vs ...int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldPinAttemptsRemaining, vs...))
+}
+
+// PinAttemptsRemainingGT applies the GT predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingGT(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldPinAttemptsRemaining, v))
+}
+
+// PinAttemptsRemainingGTE applies the GTE predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingGTE(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldPinAttemptsRemaining, v))
+}
+
+// PinAttemptsRemainingLT applies the LT predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingLT(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldPinAttemptsRemaining, v))
+}
+
+// PinAttemptsRemainingLTE applies the LTE predicate on the "pin_attempts_remaining" field.
+func PinAttemptsRemainingLTE(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldPinAttemptsRemaining, v))
+}
+
+// LockedUntilEQ applies the EQ predicate on the "locked_until" field.
+func LockedUntilEQ(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldLockedUntil, v))
+}
+
+// LockedUntilNEQ applies the NEQ predicate on the "locked_until" field.
+func LockedUntilNEQ(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldLockedUntil, v))
+}
+
+// LockedUntilIn applies the In predicate on the "locked_until" field.
+func LockedUntilIn(vs ...time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldLockedUntil, vs...))
+}
+
+// LockedUntilNotIn applies the NotIn predicate on the "locked_until" field.
+func LockedUntilNotIn(vs ...time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldLockedUntil, vs...))
+}
+
+// LockedUntilGT applies the GT predicate on the "locked_until" field.
+func LockedUntilGT(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldLockedUntil, v))
+}
+
+// LockedUntilGTE applies the GTE predicate on the "locked_until" field.
+func LockedUntilGTE(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldLockedUntil, v))
+}
+
+// LockedUntilLT applies the LT predicate on the "locked_until" field.
+func LockedUntilLT(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldLockedUntil, v))
+}
+
+// LockedUntilLTE applies the LTE predicate on the "locked_until" field.
+func LockedUntilLTE(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldLockedUntil, v))
+}
+
+// LockedUntilIsNil applies the IsNil predicate on the "locked_until" field.
+func LockedUntilIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldLockedUntil))
+}
+
+// LockedUntilNotNil applies the NotNil predicate on the "locked_until" field.
+func LockedUntilNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldLockedUntil))
+}
+
+// CardPasswordEQ applies the EQ predicate on the "card_password" field.
+func CardPasswordEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCardPassword, v))
+}
+
+// CardPasswordNEQ applies the NEQ predicate on the "card_password" field.
+func CardPasswordNEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldCardPassword, v))
+}
+
+// CardPasswordIn applies the In predicate on the "card_password" field.
+func CardPasswordIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldCardPassword, vs...))
+}
+
+// CardPasswordNotIn applies the NotIn predicate on the "card_password" field.
+func CardPasswordNotIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldCardPassword, vs...))
+}
+
+// CardPasswordGT applies the GT predicate on the "card_password" field.
+func CardPasswordGT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldCardPassword, v))
+}
+
+// CardPasswordGTE applies the GTE predicate on the "card_password" field.
+func CardPasswordGTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldCardPassword, v))
+}
+
+// CardPasswordLT applies the LT predicate on the "card_password" field.
+func CardPasswordLT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldCardPassword, v))
+}
+
+// CardPasswordLTE applies the LTE predicate on the "card_password" field.
+func CardPasswordLTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldCardPassword, v))
+}
+
+// CardPasswordIsNil applies the IsNil predicate on the "card_password" field.
+func CardPasswordIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldCardPassword))
+}
+
+// CardPasswordNotNil applies the NotNil predicate on the "card_password" field.
+func CardPasswordNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldCardPassword))
+}
+
+// CurrentTokenCiphertextEQ applies the EQ predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldCurrentTokenCiphertext, v))
+}
+
+// CurrentTokenCiphertextNEQ applies the NEQ predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextNEQ(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldCurrentTokenCiphertext, v))
+}
+
+// CurrentTokenCiphertextIn applies the In predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldCurrentTokenCiphertext, vs...))
+}
+
+// CurrentTokenCiphertextNotIn applies the NotIn predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextNotIn(vs ...[]byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldCurrentTokenCiphertext, vs...))
+}
+
+// CurrentTokenCiphertextGT applies the GT predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextGT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldCurrentTokenCiphertext, v))
+}
+
+// CurrentTokenCiphertextGTE applies the GTE predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextGTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldCurrentTokenCiphertext, v))
+}
+
+// CurrentTokenCiphertextLT applies the LT predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextLT(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldCurrentTokenCiphertext, v))
+}
+
+// CurrentTokenCiphertextLTE applies the LTE predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextLTE(v []byte) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldCurrentTokenCiphertext, v))
+}
+
+// CurrentTokenCiphertextIsNil applies the IsNil predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldCurrentTokenCiphertext))
+}
+
+// CurrentTokenCiphertextNotNil applies the NotNil predicate on the "current_token_ciphertext" field.
+func CurrentTokenCiphertextNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldCurrentTokenCiphertext))
+}
+
+// TokenRotatedAtEQ applies the EQ predicate on the "token_rotated_at" field.
+func TokenRotatedAtEQ(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldTokenRotatedAt, v))
+}
+
+// TokenRotatedAtNEQ applies the NEQ predicate on the "token_rotated_at" field.
+func TokenRotatedAtNEQ(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldTokenRotatedAt, v))
+}
+
+// TokenRotatedAtIn applies the In predicate on the "token_rotated_at" field.
+func TokenRotatedAtIn(vs ...time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldTokenRotatedAt, vs...))
+}
+
+// TokenRotatedAtNotIn applies the NotIn predicate on the "token_rotated_at" field.
+func TokenRotatedAtNotIn(vs ...time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldTokenRotatedAt, vs...))
+}
+
+// TokenRotatedAtGT applies the GT predicate on the "token_rotated_at" field.
+func TokenRotatedAtGT(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldTokenRotatedAt, v))
+}
+
+// TokenRotatedAtGTE applies the GTE predicate on the "token_rotated_at" field.
+func TokenRotatedAtGTE(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldTokenRotatedAt, v))
+}
+
+// TokenRotatedAtLT applies the LT predicate on the "token_rotated_at" field.
+func TokenRotatedAtLT(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldTokenRotatedAt, v))
+}
+
+// TokenRotatedAtLTE applies the LTE predicate on the "token_rotated_at" field.
+func TokenRotatedAtLTE(v time.Time) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldTokenRotatedAt, v))
+}
+
+// TokenRotatedAtIsNil applies the IsNil predicate on the "token_rotated_at" field.
+func TokenRotatedAtIsNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldIsNull(FieldTokenRotatedAt))
+}
+
+// TokenRotatedAtNotNil applies the NotNil predicate on the "token_rotated_at" field.
+func TokenRotatedAtNotNil() predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotNull(FieldTokenRotatedAt))
+}
+
+// TokenMismatchCountEQ applies the EQ predicate on the "token_mismatch_count" field.
+func TokenMismatchCountEQ(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldTokenMismatchCount, v))
+}
+
+// TokenMismatchCountNEQ applies the NEQ predicate on the "token_mismatch_count" field.
+func TokenMismatchCountNEQ(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldTokenMismatchCount, v))
+}
+
+// TokenMismatchCountIn applies the In predicate on the "token_mismatch_count" field.
+func TokenMismatchCountIn(vs ...int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldTokenMismatchCount, vs...))
+}
+
+// TokenMismatchCountNotIn applies the NotIn predicate on the "token_mismatch_count" field.
+func TokenMismatchCountNotIn(vs ...int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldTokenMismatchCount, vs...))
+}
+
+// TokenMismatchCountGT applies the GT predicate on the "token_mismatch_count" field.
+func TokenMismatchCountGT(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldTokenMismatchCount, v))
+}
+
+// TokenMismatchCountGTE applies the GTE predicate on the "token_mismatch_count" field.
+func TokenMismatchCountGTE(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldTokenMismatchCount, v))
+}
+
+// TokenMismatchCountLT applies the LT predicate on the "token_mismatch_count" field.
+func TokenMismatchCountLT(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldTokenMismatchCount, v))
+}
+
+// TokenMismatchCountLTE applies the LTE predicate on the "token_mismatch_count" field.
+func TokenMismatchCountLTE(v int) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldTokenMismatchCount, v))
+}
+
+// DailyLimitSubunitEQ applies the EQ predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldDailyLimitSubunit, v))
+}
+
+// DailyLimitSubunitNEQ applies the NEQ predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitNEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldDailyLimitSubunit, v))
+}
+
+// DailyLimitSubunitIn applies the In predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldDailyLimitSubunit, vs...))
+}
+
+// DailyLimitSubunitNotIn applies the NotIn predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitNotIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldDailyLimitSubunit, vs...))
+}
+
+// DailyLimitSubunitGT applies the GT predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitGT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldDailyLimitSubunit, v))
+}
+
+// DailyLimitSubunitGTE applies the GTE predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitGTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldDailyLimitSubunit, v))
+}
+
+// DailyLimitSubunitLT applies the LT predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitLT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldDailyLimitSubunit, v))
+}
+
+// DailyLimitSubunitLTE applies the LTE predicate on the "daily_limit_subunit" field.
+func DailyLimitSubunitLTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldDailyLimitSubunit, v))
+}
+
+// PerTapLimitSubunitEQ applies the EQ predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldPerTapLimitSubunit, v))
+}
+
+// PerTapLimitSubunitNEQ applies the NEQ predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitNEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldPerTapLimitSubunit, v))
+}
+
+// PerTapLimitSubunitIn applies the In predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldPerTapLimitSubunit, vs...))
+}
+
+// PerTapLimitSubunitNotIn applies the NotIn predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitNotIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldPerTapLimitSubunit, vs...))
+}
+
+// PerTapLimitSubunitGT applies the GT predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitGT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldPerTapLimitSubunit, v))
+}
+
+// PerTapLimitSubunitGTE applies the GTE predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitGTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldPerTapLimitSubunit, v))
+}
+
+// PerTapLimitSubunitLT applies the LT predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitLT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldPerTapLimitSubunit, v))
+}
+
+// PerTapLimitSubunitLTE applies the LTE predicate on the "per_tap_limit_subunit" field.
+func PerTapLimitSubunitLTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldPerTapLimitSubunit, v))
+}
+
+// StepUpThresholdSubunitEQ applies the EQ predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldStepUpThresholdSubunit, v))
+}
+
+// StepUpThresholdSubunitNEQ applies the NEQ predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitNEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldStepUpThresholdSubunit, v))
+}
+
+// StepUpThresholdSubunitIn applies the In predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldStepUpThresholdSubunit, vs...))
+}
+
+// StepUpThresholdSubunitNotIn applies the NotIn predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitNotIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldStepUpThresholdSubunit, vs...))
+}
+
+// StepUpThresholdSubunitGT applies the GT predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitGT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldStepUpThresholdSubunit, v))
+}
+
+// StepUpThresholdSubunitGTE applies the GTE predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitGTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldStepUpThresholdSubunit, v))
+}
+
+// StepUpThresholdSubunitLT applies the LT predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitLT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldStepUpThresholdSubunit, v))
+}
+
+// StepUpThresholdSubunitLTE applies the LTE predicate on the "step_up_threshold_subunit" field.
+func StepUpThresholdSubunitLTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldStepUpThresholdSubunit, v))
+}
+
+// SpentTodaySubunitEQ applies the EQ predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldSpentTodaySubunit, v))
+}
+
+// SpentTodaySubunitNEQ applies the NEQ predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitNEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldSpentTodaySubunit, v))
+}
+
+// SpentTodaySubunitIn applies the In predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldSpentTodaySubunit, vs...))
+}
+
+// SpentTodaySubunitNotIn applies the NotIn predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitNotIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldSpentTodaySubunit, vs...))
+}
+
+// SpentTodaySubunitGT applies the GT predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitGT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldSpentTodaySubunit, v))
+}
+
+// SpentTodaySubunitGTE applies the GTE predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitGTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldSpentTodaySubunit, v))
+}
+
+// SpentTodaySubunitLT applies the LT predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitLT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldSpentTodaySubunit, v))
+}
+
+// SpentTodaySubunitLTE applies the LTE predicate on the "spent_today_subunit" field.
+func SpentTodaySubunitLTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldSpentTodaySubunit, v))
+}
+
+// DayIndexEQ applies the EQ predicate on the "day_index" field.
+func DayIndexEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldDayIndex, v))
+}
+
+// DayIndexNEQ applies the NEQ predicate on the "day_index" field.
+func DayIndexNEQ(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldDayIndex, v))
+}
+
+// DayIndexIn applies the In predicate on the "day_index" field.
+func DayIndexIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldIn(FieldDayIndex, vs...))
+}
+
+// DayIndexNotIn applies the NotIn predicate on the "day_index" field.
+func DayIndexNotIn(vs ...uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNotIn(FieldDayIndex, vs...))
+}
+
+// DayIndexGT applies the GT predicate on the "day_index" field.
+func DayIndexGT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGT(FieldDayIndex, v))
+}
+
+// DayIndexGTE applies the GTE predicate on the "day_index" field.
+func DayIndexGTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldGTE(FieldDayIndex, v))
+}
+
+// DayIndexLT applies the LT predicate on the "day_index" field.
+func DayIndexLT(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLT(FieldDayIndex, v))
+}
+
+// DayIndexLTE applies the LTE predicate on the "day_index" field.
+func DayIndexLTE(v uint64) predicate.TappCard {
+	return predicate.TappCard(sql.FieldLTE(FieldDayIndex, v))
+}
+
+// NeedsResyncEQ applies the EQ predicate on the "needs_resync" field.
+func NeedsResyncEQ(v bool) predicate.TappCard {
+	return predicate.TappCard(sql.FieldEQ(FieldNeedsResync, v))
+}
+
+// NeedsResyncNEQ applies the NEQ predicate on the "needs_resync" field.
+func NeedsResyncNEQ(v bool) predicate.TappCard {
+	return predicate.TappCard(sql.FieldNEQ(FieldNeedsResync, v))
+}
+
 // HasUser applies the HasEdge predicate on the "user" edge.
 func HasUser() predicate.TappCard {
 	return predicate.TappCard(func(s *sql.Selector) {
@@ -251,6 +1126,29 @@ func HasUser() predicate.TappCard {
 func HasUserWith(preds ...predicate.User) predicate.TappCard {
 	return predicate.TappCard(func(s *sql.Selector) {
 		step := newUserStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasServerNonces applies the HasEdge predicate on the "server_nonces" edge.
+func HasServerNonces() predicate.TappCard {
+	return predicate.TappCard(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ServerNoncesTable, ServerNoncesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasServerNoncesWith applies the HasEdge predicate on the "server_nonces" edge with a given conditions (other predicates).
+func HasServerNoncesWith(preds ...predicate.CardServerNonce) predicate.TappCard {
+	return predicate.TappCard(func(s *sql.Selector) {
+		step := newServerNoncesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

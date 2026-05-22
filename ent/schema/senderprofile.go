@@ -51,5 +51,7 @@ func (SenderProfile) Edges() []ent.Edge {
 		edge.To("merchant_bank_account", MerchantBankAccount.Type).
 			Unique().
 			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("card_server_nonces", CardServerNonce.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }

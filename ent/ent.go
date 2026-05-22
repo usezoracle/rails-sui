@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/institution"
@@ -98,6 +99,7 @@ func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			apikey.Table:                      apikey.ValidColumn,
+			cardservernonce.Table:             cardservernonce.ValidColumn,
 			fiatcurrency.Table:                fiatcurrency.ValidColumn,
 			identityverificationrequest.Table: identityverificationrequest.ValidColumn,
 			institution.Table:                 institution.ValidColumn,

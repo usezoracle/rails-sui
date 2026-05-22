@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/institution"
@@ -47,6 +48,39 @@ func init() {
 	apikeyDescID := apikeyFields[0].Descriptor()
 	// apikey.DefaultID holds the default value on creation for the id field.
 	apikey.DefaultID = apikeyDescID.Default.(func() uuid.UUID)
+	cardservernonceMixin := schema.CardServerNonce{}.Mixin()
+	cardservernonceMixinFields0 := cardservernonceMixin[0].Fields()
+	_ = cardservernonceMixinFields0
+	cardservernonceFields := schema.CardServerNonce{}.Fields()
+	_ = cardservernonceFields
+	// cardservernonceDescCreatedAt is the schema descriptor for created_at field.
+	cardservernonceDescCreatedAt := cardservernonceMixinFields0[0].Descriptor()
+	// cardservernonce.DefaultCreatedAt holds the default value on creation for the created_at field.
+	cardservernonce.DefaultCreatedAt = cardservernonceDescCreatedAt.Default.(func() time.Time)
+	// cardservernonceDescUpdatedAt is the schema descriptor for updated_at field.
+	cardservernonceDescUpdatedAt := cardservernonceMixinFields0[1].Descriptor()
+	// cardservernonce.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	cardservernonce.DefaultUpdatedAt = cardservernonceDescUpdatedAt.Default.(func() time.Time)
+	// cardservernonce.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	cardservernonce.UpdateDefaultUpdatedAt = cardservernonceDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// cardservernonceDescNonce is the schema descriptor for nonce field.
+	cardservernonceDescNonce := cardservernonceFields[1].Descriptor()
+	// cardservernonce.NonceValidator is a validator for the "nonce" field. It is called by the builders before save.
+	cardservernonce.NonceValidator = cardservernonceDescNonce.Validators[0].(func([]byte) error)
+	// cardservernonceDescAmount is the schema descriptor for amount field.
+	cardservernonceDescAmount := cardservernonceFields[3].Descriptor()
+	// cardservernonce.AmountValidator is a validator for the "amount" field. It is called by the builders before save.
+	cardservernonce.AmountValidator = cardservernonceDescAmount.Validators[0].(func(string) error)
+	// cardservernonceDescCurrency is the schema descriptor for currency field.
+	cardservernonceDescCurrency := cardservernonceFields[4].Descriptor()
+	// cardservernonce.DefaultCurrency holds the default value on creation for the currency field.
+	cardservernonce.DefaultCurrency = cardservernonceDescCurrency.Default.(string)
+	// cardservernonce.CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
+	cardservernonce.CurrencyValidator = cardservernonceDescCurrency.Validators[0].(func(string) error)
+	// cardservernonceDescID is the schema descriptor for id field.
+	cardservernonceDescID := cardservernonceFields[0].Descriptor()
+	// cardservernonce.DefaultID holds the default value on creation for the id field.
+	cardservernonce.DefaultID = cardservernonceDescID.Default.(func() uuid.UUID)
 	fiatcurrencyMixin := schema.FiatCurrency{}.Mixin()
 	fiatcurrencyMixinFields0 := fiatcurrencyMixin[0].Fields()
 	_ = fiatcurrencyMixinFields0
@@ -453,6 +487,58 @@ func init() {
 	tappcardDescActivationToken := tappcardFields[1].Descriptor()
 	// tappcard.ActivationTokenValidator is a validator for the "activation_token" field. It is called by the builders before save.
 	tappcard.ActivationTokenValidator = tappcardDescActivationToken.Validators[0].(func(string) error)
+	// tappcardDescCardUIDHash is the schema descriptor for card_uid_hash field.
+	tappcardDescCardUIDHash := tappcardFields[3].Descriptor()
+	// tappcard.CardUIDHashValidator is a validator for the "card_uid_hash" field. It is called by the builders before save.
+	tappcard.CardUIDHashValidator = tappcardDescCardUIDHash.Validators[0].(func([]byte) error)
+	// tappcardDescLinkingProof is the schema descriptor for linking_proof field.
+	tappcardDescLinkingProof := tappcardFields[6].Descriptor()
+	// tappcard.LinkingProofValidator is a validator for the "linking_proof" field. It is called by the builders before save.
+	tappcard.LinkingProofValidator = tappcardDescLinkingProof.Validators[0].(func([]byte) error)
+	// tappcardDescPinVerifier is the schema descriptor for pin_verifier field.
+	tappcardDescPinVerifier := tappcardFields[7].Descriptor()
+	// tappcard.PinVerifierValidator is a validator for the "pin_verifier" field. It is called by the builders before save.
+	tappcard.PinVerifierValidator = tappcardDescPinVerifier.Validators[0].(func([]byte) error)
+	// tappcardDescPinAttemptsRemaining is the schema descriptor for pin_attempts_remaining field.
+	tappcardDescPinAttemptsRemaining := tappcardFields[8].Descriptor()
+	// tappcard.DefaultPinAttemptsRemaining holds the default value on creation for the pin_attempts_remaining field.
+	tappcard.DefaultPinAttemptsRemaining = tappcardDescPinAttemptsRemaining.Default.(int)
+	// tappcard.PinAttemptsRemainingValidator is a validator for the "pin_attempts_remaining" field. It is called by the builders before save.
+	tappcard.PinAttemptsRemainingValidator = tappcardDescPinAttemptsRemaining.Validators[0].(func(int) error)
+	// tappcardDescCardPassword is the schema descriptor for card_password field.
+	tappcardDescCardPassword := tappcardFields[10].Descriptor()
+	// tappcard.CardPasswordValidator is a validator for the "card_password" field. It is called by the builders before save.
+	tappcard.CardPasswordValidator = tappcardDescCardPassword.Validators[0].(func([]byte) error)
+	// tappcardDescTokenMismatchCount is the schema descriptor for token_mismatch_count field.
+	tappcardDescTokenMismatchCount := tappcardFields[13].Descriptor()
+	// tappcard.DefaultTokenMismatchCount holds the default value on creation for the token_mismatch_count field.
+	tappcard.DefaultTokenMismatchCount = tappcardDescTokenMismatchCount.Default.(int)
+	// tappcard.TokenMismatchCountValidator is a validator for the "token_mismatch_count" field. It is called by the builders before save.
+	tappcard.TokenMismatchCountValidator = tappcardDescTokenMismatchCount.Validators[0].(func(int) error)
+	// tappcardDescDailyLimitSubunit is the schema descriptor for daily_limit_subunit field.
+	tappcardDescDailyLimitSubunit := tappcardFields[14].Descriptor()
+	// tappcard.DefaultDailyLimitSubunit holds the default value on creation for the daily_limit_subunit field.
+	tappcard.DefaultDailyLimitSubunit = tappcardDescDailyLimitSubunit.Default.(uint64)
+	// tappcardDescPerTapLimitSubunit is the schema descriptor for per_tap_limit_subunit field.
+	tappcardDescPerTapLimitSubunit := tappcardFields[15].Descriptor()
+	// tappcard.DefaultPerTapLimitSubunit holds the default value on creation for the per_tap_limit_subunit field.
+	tappcard.DefaultPerTapLimitSubunit = tappcardDescPerTapLimitSubunit.Default.(uint64)
+	// tappcardDescStepUpThresholdSubunit is the schema descriptor for step_up_threshold_subunit field.
+	tappcardDescStepUpThresholdSubunit := tappcardFields[16].Descriptor()
+	// tappcard.DefaultStepUpThresholdSubunit holds the default value on creation for the step_up_threshold_subunit field.
+	tappcard.DefaultStepUpThresholdSubunit = tappcardDescStepUpThresholdSubunit.Default.(uint64)
+	// tappcardDescSpentTodaySubunit is the schema descriptor for spent_today_subunit field.
+	tappcardDescSpentTodaySubunit := tappcardFields[17].Descriptor()
+	// tappcard.DefaultSpentTodaySubunit holds the default value on creation for the spent_today_subunit field.
+	tappcard.DefaultSpentTodaySubunit = tappcardDescSpentTodaySubunit.Default.(uint64)
+	// tappcardDescDayIndex is the schema descriptor for day_index field.
+	tappcardDescDayIndex := tappcardFields[18].Descriptor()
+	// tappcard.DefaultDayIndex holds the default value on creation for the day_index field.
+	tappcard.DefaultDayIndex = tappcardDescDayIndex.Default.(uint64)
+	// tappcardDescNeedsResync is the schema descriptor for needs_resync field.
+	tappcardDescNeedsResync := tappcardFields[19].Descriptor()
+	// tappcard.DefaultNeedsResync holds the default value on creation for the needs_resync field.
+	tappcard.DefaultNeedsResync = tappcardDescNeedsResync.Default.(bool)
 	// tappcardDescID is the schema descriptor for id field.
 	tappcardDescID := tappcardFields[0].Descriptor()
 	// tappcard.DefaultID holds the default value on creation for the id field.

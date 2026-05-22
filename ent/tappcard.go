@@ -27,6 +27,40 @@ type TappCard struct {
 	ActivationToken string `json:"activation_token,omitempty"`
 	// Status holds the value of the "status" field.
 	Status tappcard.Status `json:"status,omitempty"`
+	// CardUIDHash holds the value of the "card_uid_hash" field.
+	CardUIDHash *[]byte `json:"card_uid_hash,omitempty"`
+	// CapObjectID holds the value of the "cap_object_id" field.
+	CapObjectID *string `json:"cap_object_id,omitempty"`
+	// CoinType holds the value of the "coin_type" field.
+	CoinType *string `json:"coin_type,omitempty"`
+	// LinkingProof holds the value of the "linking_proof" field.
+	LinkingProof *[]byte `json:"linking_proof,omitempty"`
+	// PinVerifier holds the value of the "pin_verifier" field.
+	PinVerifier *[]byte `json:"pin_verifier,omitempty"`
+	// PinAttemptsRemaining holds the value of the "pin_attempts_remaining" field.
+	PinAttemptsRemaining int `json:"pin_attempts_remaining,omitempty"`
+	// LockedUntil holds the value of the "locked_until" field.
+	LockedUntil *time.Time `json:"locked_until,omitempty"`
+	// CardPassword holds the value of the "card_password" field.
+	CardPassword *[]byte `json:"card_password,omitempty"`
+	// CurrentTokenCiphertext holds the value of the "current_token_ciphertext" field.
+	CurrentTokenCiphertext *[]byte `json:"current_token_ciphertext,omitempty"`
+	// TokenRotatedAt holds the value of the "token_rotated_at" field.
+	TokenRotatedAt *time.Time `json:"token_rotated_at,omitempty"`
+	// TokenMismatchCount holds the value of the "token_mismatch_count" field.
+	TokenMismatchCount int `json:"token_mismatch_count,omitempty"`
+	// DailyLimitSubunit holds the value of the "daily_limit_subunit" field.
+	DailyLimitSubunit uint64 `json:"daily_limit_subunit,omitempty"`
+	// PerTapLimitSubunit holds the value of the "per_tap_limit_subunit" field.
+	PerTapLimitSubunit uint64 `json:"per_tap_limit_subunit,omitempty"`
+	// StepUpThresholdSubunit holds the value of the "step_up_threshold_subunit" field.
+	StepUpThresholdSubunit uint64 `json:"step_up_threshold_subunit,omitempty"`
+	// SpentTodaySubunit holds the value of the "spent_today_subunit" field.
+	SpentTodaySubunit uint64 `json:"spent_today_subunit,omitempty"`
+	// DayIndex holds the value of the "day_index" field.
+	DayIndex uint64 `json:"day_index,omitempty"`
+	// NeedsResync holds the value of the "needs_resync" field.
+	NeedsResync bool `json:"needs_resync,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TappCardQuery when eager-loading is set.
 	Edges           TappCardEdges `json:"edges"`
@@ -38,9 +72,11 @@ type TappCard struct {
 type TappCardEdges struct {
 	// User holds the value of the user edge.
 	User *User `json:"user,omitempty"`
+	// ServerNonces holds the value of the server_nonces edge.
+	ServerNonces []*CardServerNonce `json:"server_nonces,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -54,14 +90,29 @@ func (e TappCardEdges) UserOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "user"}
 }
 
+// ServerNoncesOrErr returns the ServerNonces value or an error if the edge
+// was not loaded in eager-loading.
+func (e TappCardEdges) ServerNoncesOrErr() ([]*CardServerNonce, error) {
+	if e.loadedTypes[1] {
+		return e.ServerNonces, nil
+	}
+	return nil, &NotLoadedError{edge: "server_nonces"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*TappCard) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case tappcard.FieldActivationToken, tappcard.FieldStatus:
+		case tappcard.FieldCardUIDHash, tappcard.FieldLinkingProof, tappcard.FieldPinVerifier, tappcard.FieldCardPassword, tappcard.FieldCurrentTokenCiphertext:
+			values[i] = new([]byte)
+		case tappcard.FieldNeedsResync:
+			values[i] = new(sql.NullBool)
+		case tappcard.FieldPinAttemptsRemaining, tappcard.FieldTokenMismatchCount, tappcard.FieldDailyLimitSubunit, tappcard.FieldPerTapLimitSubunit, tappcard.FieldStepUpThresholdSubunit, tappcard.FieldSpentTodaySubunit, tappcard.FieldDayIndex:
+			values[i] = new(sql.NullInt64)
+		case tappcard.FieldActivationToken, tappcard.FieldStatus, tappcard.FieldCapObjectID, tappcard.FieldCoinType:
 			values[i] = new(sql.NullString)
-		case tappcard.FieldCreatedAt, tappcard.FieldUpdatedAt:
+		case tappcard.FieldCreatedAt, tappcard.FieldUpdatedAt, tappcard.FieldLockedUntil, tappcard.FieldTokenRotatedAt:
 			values[i] = new(sql.NullTime)
 		case tappcard.FieldID:
 			values[i] = new(uuid.UUID)
@@ -112,6 +163,112 @@ func (tc *TappCard) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				tc.Status = tappcard.Status(value.String)
 			}
+		case tappcard.FieldCardUIDHash:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field card_uid_hash", values[i])
+			} else if value != nil {
+				tc.CardUIDHash = value
+			}
+		case tappcard.FieldCapObjectID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field cap_object_id", values[i])
+			} else if value.Valid {
+				tc.CapObjectID = new(string)
+				*tc.CapObjectID = value.String
+			}
+		case tappcard.FieldCoinType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field coin_type", values[i])
+			} else if value.Valid {
+				tc.CoinType = new(string)
+				*tc.CoinType = value.String
+			}
+		case tappcard.FieldLinkingProof:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field linking_proof", values[i])
+			} else if value != nil {
+				tc.LinkingProof = value
+			}
+		case tappcard.FieldPinVerifier:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field pin_verifier", values[i])
+			} else if value != nil {
+				tc.PinVerifier = value
+			}
+		case tappcard.FieldPinAttemptsRemaining:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field pin_attempts_remaining", values[i])
+			} else if value.Valid {
+				tc.PinAttemptsRemaining = int(value.Int64)
+			}
+		case tappcard.FieldLockedUntil:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field locked_until", values[i])
+			} else if value.Valid {
+				tc.LockedUntil = new(time.Time)
+				*tc.LockedUntil = value.Time
+			}
+		case tappcard.FieldCardPassword:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field card_password", values[i])
+			} else if value != nil {
+				tc.CardPassword = value
+			}
+		case tappcard.FieldCurrentTokenCiphertext:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field current_token_ciphertext", values[i])
+			} else if value != nil {
+				tc.CurrentTokenCiphertext = value
+			}
+		case tappcard.FieldTokenRotatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field token_rotated_at", values[i])
+			} else if value.Valid {
+				tc.TokenRotatedAt = new(time.Time)
+				*tc.TokenRotatedAt = value.Time
+			}
+		case tappcard.FieldTokenMismatchCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field token_mismatch_count", values[i])
+			} else if value.Valid {
+				tc.TokenMismatchCount = int(value.Int64)
+			}
+		case tappcard.FieldDailyLimitSubunit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field daily_limit_subunit", values[i])
+			} else if value.Valid {
+				tc.DailyLimitSubunit = uint64(value.Int64)
+			}
+		case tappcard.FieldPerTapLimitSubunit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field per_tap_limit_subunit", values[i])
+			} else if value.Valid {
+				tc.PerTapLimitSubunit = uint64(value.Int64)
+			}
+		case tappcard.FieldStepUpThresholdSubunit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field step_up_threshold_subunit", values[i])
+			} else if value.Valid {
+				tc.StepUpThresholdSubunit = uint64(value.Int64)
+			}
+		case tappcard.FieldSpentTodaySubunit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field spent_today_subunit", values[i])
+			} else if value.Valid {
+				tc.SpentTodaySubunit = uint64(value.Int64)
+			}
+		case tappcard.FieldDayIndex:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field day_index", values[i])
+			} else if value.Valid {
+				tc.DayIndex = uint64(value.Int64)
+			}
+		case tappcard.FieldNeedsResync:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field needs_resync", values[i])
+			} else if value.Valid {
+				tc.NeedsResync = value.Bool
+			}
 		case tappcard.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field user_tapp_cards", values[i])
@@ -135,6 +292,11 @@ func (tc *TappCard) Value(name string) (ent.Value, error) {
 // QueryUser queries the "user" edge of the TappCard entity.
 func (tc *TappCard) QueryUser() *UserQuery {
 	return NewTappCardClient(tc.config).QueryUser(tc)
+}
+
+// QueryServerNonces queries the "server_nonces" edge of the TappCard entity.
+func (tc *TappCard) QueryServerNonces() *CardServerNonceQuery {
+	return NewTappCardClient(tc.config).QueryServerNonces(tc)
 }
 
 // Update returns a builder for updating this TappCard.
@@ -171,6 +333,75 @@ func (tc *TappCard) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", tc.Status))
+	builder.WriteString(", ")
+	if v := tc.CardUIDHash; v != nil {
+		builder.WriteString("card_uid_hash=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := tc.CapObjectID; v != nil {
+		builder.WriteString("cap_object_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := tc.CoinType; v != nil {
+		builder.WriteString("coin_type=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := tc.LinkingProof; v != nil {
+		builder.WriteString("linking_proof=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := tc.PinVerifier; v != nil {
+		builder.WriteString("pin_verifier=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("pin_attempts_remaining=")
+	builder.WriteString(fmt.Sprintf("%v", tc.PinAttemptsRemaining))
+	builder.WriteString(", ")
+	if v := tc.LockedUntil; v != nil {
+		builder.WriteString("locked_until=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := tc.CardPassword; v != nil {
+		builder.WriteString("card_password=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := tc.CurrentTokenCiphertext; v != nil {
+		builder.WriteString("current_token_ciphertext=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := tc.TokenRotatedAt; v != nil {
+		builder.WriteString("token_rotated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("token_mismatch_count=")
+	builder.WriteString(fmt.Sprintf("%v", tc.TokenMismatchCount))
+	builder.WriteString(", ")
+	builder.WriteString("daily_limit_subunit=")
+	builder.WriteString(fmt.Sprintf("%v", tc.DailyLimitSubunit))
+	builder.WriteString(", ")
+	builder.WriteString("per_tap_limit_subunit=")
+	builder.WriteString(fmt.Sprintf("%v", tc.PerTapLimitSubunit))
+	builder.WriteString(", ")
+	builder.WriteString("step_up_threshold_subunit=")
+	builder.WriteString(fmt.Sprintf("%v", tc.StepUpThresholdSubunit))
+	builder.WriteString(", ")
+	builder.WriteString("spent_today_subunit=")
+	builder.WriteString(fmt.Sprintf("%v", tc.SpentTodaySubunit))
+	builder.WriteString(", ")
+	builder.WriteString("day_index=")
+	builder.WriteString(fmt.Sprintf("%v", tc.DayIndex))
+	builder.WriteString(", ")
+	builder.WriteString("needs_resync=")
+	builder.WriteString(fmt.Sprintf("%v", tc.NeedsResync))
 	builder.WriteByte(')')
 	return builder.String()
 }

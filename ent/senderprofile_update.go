@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/predicate"
@@ -188,6 +189,21 @@ func (spu *SenderProfileUpdate) SetMerchantBankAccount(m *MerchantBankAccount) *
 	return spu.SetMerchantBankAccountID(m.ID)
 }
 
+// AddCardServerNonceIDs adds the "card_server_nonces" edge to the CardServerNonce entity by IDs.
+func (spu *SenderProfileUpdate) AddCardServerNonceIDs(ids ...uuid.UUID) *SenderProfileUpdate {
+	spu.mutation.AddCardServerNonceIDs(ids...)
+	return spu
+}
+
+// AddCardServerNonces adds the "card_server_nonces" edges to the CardServerNonce entity.
+func (spu *SenderProfileUpdate) AddCardServerNonces(c ...*CardServerNonce) *SenderProfileUpdate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return spu.AddCardServerNonceIDs(ids...)
+}
+
 // Mutation returns the SenderProfileMutation object of the builder.
 func (spu *SenderProfileUpdate) Mutation() *SenderProfileMutation {
 	return spu.mutation
@@ -245,6 +261,27 @@ func (spu *SenderProfileUpdate) RemoveOrderTokens(s ...*SenderOrderToken) *Sende
 func (spu *SenderProfileUpdate) ClearMerchantBankAccount() *SenderProfileUpdate {
 	spu.mutation.ClearMerchantBankAccount()
 	return spu
+}
+
+// ClearCardServerNonces clears all "card_server_nonces" edges to the CardServerNonce entity.
+func (spu *SenderProfileUpdate) ClearCardServerNonces() *SenderProfileUpdate {
+	spu.mutation.ClearCardServerNonces()
+	return spu
+}
+
+// RemoveCardServerNonceIDs removes the "card_server_nonces" edge to CardServerNonce entities by IDs.
+func (spu *SenderProfileUpdate) RemoveCardServerNonceIDs(ids ...uuid.UUID) *SenderProfileUpdate {
+	spu.mutation.RemoveCardServerNonceIDs(ids...)
+	return spu
+}
+
+// RemoveCardServerNonces removes "card_server_nonces" edges to CardServerNonce entities.
+func (spu *SenderProfileUpdate) RemoveCardServerNonces(c ...*CardServerNonce) *SenderProfileUpdate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return spu.RemoveCardServerNonceIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -480,6 +517,51 @@ func (spu *SenderProfileUpdate) sqlSave(ctx context.Context) (n int, err error) 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if spu.mutation.CardServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spu.mutation.RemovedCardServerNoncesIDs(); len(nodes) > 0 && !spu.mutation.CardServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spu.mutation.CardServerNoncesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, spu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{senderprofile.Label}
@@ -654,6 +736,21 @@ func (spuo *SenderProfileUpdateOne) SetMerchantBankAccount(m *MerchantBankAccoun
 	return spuo.SetMerchantBankAccountID(m.ID)
 }
 
+// AddCardServerNonceIDs adds the "card_server_nonces" edge to the CardServerNonce entity by IDs.
+func (spuo *SenderProfileUpdateOne) AddCardServerNonceIDs(ids ...uuid.UUID) *SenderProfileUpdateOne {
+	spuo.mutation.AddCardServerNonceIDs(ids...)
+	return spuo
+}
+
+// AddCardServerNonces adds the "card_server_nonces" edges to the CardServerNonce entity.
+func (spuo *SenderProfileUpdateOne) AddCardServerNonces(c ...*CardServerNonce) *SenderProfileUpdateOne {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return spuo.AddCardServerNonceIDs(ids...)
+}
+
 // Mutation returns the SenderProfileMutation object of the builder.
 func (spuo *SenderProfileUpdateOne) Mutation() *SenderProfileMutation {
 	return spuo.mutation
@@ -711,6 +808,27 @@ func (spuo *SenderProfileUpdateOne) RemoveOrderTokens(s ...*SenderOrderToken) *S
 func (spuo *SenderProfileUpdateOne) ClearMerchantBankAccount() *SenderProfileUpdateOne {
 	spuo.mutation.ClearMerchantBankAccount()
 	return spuo
+}
+
+// ClearCardServerNonces clears all "card_server_nonces" edges to the CardServerNonce entity.
+func (spuo *SenderProfileUpdateOne) ClearCardServerNonces() *SenderProfileUpdateOne {
+	spuo.mutation.ClearCardServerNonces()
+	return spuo
+}
+
+// RemoveCardServerNonceIDs removes the "card_server_nonces" edge to CardServerNonce entities by IDs.
+func (spuo *SenderProfileUpdateOne) RemoveCardServerNonceIDs(ids ...uuid.UUID) *SenderProfileUpdateOne {
+	spuo.mutation.RemoveCardServerNonceIDs(ids...)
+	return spuo
+}
+
+// RemoveCardServerNonces removes "card_server_nonces" edges to CardServerNonce entities.
+func (spuo *SenderProfileUpdateOne) RemoveCardServerNonces(c ...*CardServerNonce) *SenderProfileUpdateOne {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return spuo.RemoveCardServerNonceIDs(ids...)
 }
 
 // Where appends a list predicates to the SenderProfileUpdate builder.
@@ -969,6 +1087,51 @@ func (spuo *SenderProfileUpdateOne) sqlSave(ctx context.Context) (_node *SenderP
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if spuo.mutation.CardServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spuo.mutation.RemovedCardServerNoncesIDs(); len(nodes) > 0 && !spuo.mutation.CardServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := spuo.mutation.CardServerNoncesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/predicate"
@@ -34,6 +35,7 @@ type SenderProfileQuery struct {
 	withPaymentOrders       *PaymentOrderQuery
 	withOrderTokens         *SenderOrderTokenQuery
 	withMerchantBankAccount *MerchantBankAccountQuery
+	withCardServerNonces    *CardServerNonceQuery
 	withFKs                 bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -174,6 +176,28 @@ func (spq *SenderProfileQuery) QueryMerchantBankAccount() *MerchantBankAccountQu
 			sqlgraph.From(senderprofile.Table, senderprofile.FieldID, selector),
 			sqlgraph.To(merchantbankaccount.Table, merchantbankaccount.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, senderprofile.MerchantBankAccountTable, senderprofile.MerchantBankAccountColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(spq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCardServerNonces chains the current query on the "card_server_nonces" edge.
+func (spq *SenderProfileQuery) QueryCardServerNonces() *CardServerNonceQuery {
+	query := (&CardServerNonceClient{config: spq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := spq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := spq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(senderprofile.Table, senderprofile.FieldID, selector),
+			sqlgraph.To(cardservernonce.Table, cardservernonce.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, senderprofile.CardServerNoncesTable, senderprofile.CardServerNoncesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(spq.driver.Dialect(), step)
 		return fromU, nil
@@ -378,6 +402,7 @@ func (spq *SenderProfileQuery) Clone() *SenderProfileQuery {
 		withPaymentOrders:       spq.withPaymentOrders.Clone(),
 		withOrderTokens:         spq.withOrderTokens.Clone(),
 		withMerchantBankAccount: spq.withMerchantBankAccount.Clone(),
+		withCardServerNonces:    spq.withCardServerNonces.Clone(),
 		// clone intermediate query.
 		sql:  spq.sql.Clone(),
 		path: spq.path,
@@ -436,6 +461,17 @@ func (spq *SenderProfileQuery) WithMerchantBankAccount(opts ...func(*MerchantBan
 		opt(query)
 	}
 	spq.withMerchantBankAccount = query
+	return spq
+}
+
+// WithCardServerNonces tells the query-builder to eager-load the nodes that are connected to
+// the "card_server_nonces" edge. The optional arguments are used to configure the query builder of the edge.
+func (spq *SenderProfileQuery) WithCardServerNonces(opts ...func(*CardServerNonceQuery)) *SenderProfileQuery {
+	query := (&CardServerNonceClient{config: spq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	spq.withCardServerNonces = query
 	return spq
 }
 
@@ -518,12 +554,13 @@ func (spq *SenderProfileQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 		nodes       = []*SenderProfile{}
 		withFKs     = spq.withFKs
 		_spec       = spq.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			spq.withUser != nil,
 			spq.withAPIKey != nil,
 			spq.withPaymentOrders != nil,
 			spq.withOrderTokens != nil,
 			spq.withMerchantBankAccount != nil,
+			spq.withCardServerNonces != nil,
 		}
 	)
 	if spq.withUser != nil {
@@ -579,6 +616,15 @@ func (spq *SenderProfileQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 	if query := spq.withMerchantBankAccount; query != nil {
 		if err := spq.loadMerchantBankAccount(ctx, query, nodes, nil,
 			func(n *SenderProfile, e *MerchantBankAccount) { n.Edges.MerchantBankAccount = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := spq.withCardServerNonces; query != nil {
+		if err := spq.loadCardServerNonces(ctx, query, nodes,
+			func(n *SenderProfile) { n.Edges.CardServerNonces = []*CardServerNonce{} },
+			func(n *SenderProfile, e *CardServerNonce) {
+				n.Edges.CardServerNonces = append(n.Edges.CardServerNonces, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -730,6 +776,37 @@ func (spq *SenderProfileQuery) loadMerchantBankAccount(ctx context.Context, quer
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "sender_profile_merchant_bank_account" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (spq *SenderProfileQuery) loadCardServerNonces(ctx context.Context, query *CardServerNonceQuery, nodes []*SenderProfile, init func(*SenderProfile), assign func(*SenderProfile, *CardServerNonce)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*SenderProfile)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.CardServerNonce(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(senderprofile.CardServerNoncesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.sender_profile_card_server_nonces
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "sender_profile_card_server_nonces" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "sender_profile_card_server_nonces" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

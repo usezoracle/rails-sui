@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
 )
@@ -73,6 +74,204 @@ func (tcc *TappCardCreate) SetNillableStatus(t *tappcard.Status) *TappCardCreate
 	return tcc
 }
 
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (tcc *TappCardCreate) SetCardUIDHash(b []byte) *TappCardCreate {
+	tcc.mutation.SetCardUIDHash(b)
+	return tcc
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (tcc *TappCardCreate) SetCapObjectID(s string) *TappCardCreate {
+	tcc.mutation.SetCapObjectID(s)
+	return tcc
+}
+
+// SetNillableCapObjectID sets the "cap_object_id" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableCapObjectID(s *string) *TappCardCreate {
+	if s != nil {
+		tcc.SetCapObjectID(*s)
+	}
+	return tcc
+}
+
+// SetCoinType sets the "coin_type" field.
+func (tcc *TappCardCreate) SetCoinType(s string) *TappCardCreate {
+	tcc.mutation.SetCoinType(s)
+	return tcc
+}
+
+// SetNillableCoinType sets the "coin_type" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableCoinType(s *string) *TappCardCreate {
+	if s != nil {
+		tcc.SetCoinType(*s)
+	}
+	return tcc
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (tcc *TappCardCreate) SetLinkingProof(b []byte) *TappCardCreate {
+	tcc.mutation.SetLinkingProof(b)
+	return tcc
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (tcc *TappCardCreate) SetPinVerifier(b []byte) *TappCardCreate {
+	tcc.mutation.SetPinVerifier(b)
+	return tcc
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (tcc *TappCardCreate) SetPinAttemptsRemaining(i int) *TappCardCreate {
+	tcc.mutation.SetPinAttemptsRemaining(i)
+	return tcc
+}
+
+// SetNillablePinAttemptsRemaining sets the "pin_attempts_remaining" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillablePinAttemptsRemaining(i *int) *TappCardCreate {
+	if i != nil {
+		tcc.SetPinAttemptsRemaining(*i)
+	}
+	return tcc
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (tcc *TappCardCreate) SetLockedUntil(t time.Time) *TappCardCreate {
+	tcc.mutation.SetLockedUntil(t)
+	return tcc
+}
+
+// SetNillableLockedUntil sets the "locked_until" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableLockedUntil(t *time.Time) *TappCardCreate {
+	if t != nil {
+		tcc.SetLockedUntil(*t)
+	}
+	return tcc
+}
+
+// SetCardPassword sets the "card_password" field.
+func (tcc *TappCardCreate) SetCardPassword(b []byte) *TappCardCreate {
+	tcc.mutation.SetCardPassword(b)
+	return tcc
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (tcc *TappCardCreate) SetCurrentTokenCiphertext(b []byte) *TappCardCreate {
+	tcc.mutation.SetCurrentTokenCiphertext(b)
+	return tcc
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (tcc *TappCardCreate) SetTokenRotatedAt(t time.Time) *TappCardCreate {
+	tcc.mutation.SetTokenRotatedAt(t)
+	return tcc
+}
+
+// SetNillableTokenRotatedAt sets the "token_rotated_at" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableTokenRotatedAt(t *time.Time) *TappCardCreate {
+	if t != nil {
+		tcc.SetTokenRotatedAt(*t)
+	}
+	return tcc
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (tcc *TappCardCreate) SetTokenMismatchCount(i int) *TappCardCreate {
+	tcc.mutation.SetTokenMismatchCount(i)
+	return tcc
+}
+
+// SetNillableTokenMismatchCount sets the "token_mismatch_count" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableTokenMismatchCount(i *int) *TappCardCreate {
+	if i != nil {
+		tcc.SetTokenMismatchCount(*i)
+	}
+	return tcc
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (tcc *TappCardCreate) SetDailyLimitSubunit(u uint64) *TappCardCreate {
+	tcc.mutation.SetDailyLimitSubunit(u)
+	return tcc
+}
+
+// SetNillableDailyLimitSubunit sets the "daily_limit_subunit" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableDailyLimitSubunit(u *uint64) *TappCardCreate {
+	if u != nil {
+		tcc.SetDailyLimitSubunit(*u)
+	}
+	return tcc
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (tcc *TappCardCreate) SetPerTapLimitSubunit(u uint64) *TappCardCreate {
+	tcc.mutation.SetPerTapLimitSubunit(u)
+	return tcc
+}
+
+// SetNillablePerTapLimitSubunit sets the "per_tap_limit_subunit" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillablePerTapLimitSubunit(u *uint64) *TappCardCreate {
+	if u != nil {
+		tcc.SetPerTapLimitSubunit(*u)
+	}
+	return tcc
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (tcc *TappCardCreate) SetStepUpThresholdSubunit(u uint64) *TappCardCreate {
+	tcc.mutation.SetStepUpThresholdSubunit(u)
+	return tcc
+}
+
+// SetNillableStepUpThresholdSubunit sets the "step_up_threshold_subunit" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableStepUpThresholdSubunit(u *uint64) *TappCardCreate {
+	if u != nil {
+		tcc.SetStepUpThresholdSubunit(*u)
+	}
+	return tcc
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (tcc *TappCardCreate) SetSpentTodaySubunit(u uint64) *TappCardCreate {
+	tcc.mutation.SetSpentTodaySubunit(u)
+	return tcc
+}
+
+// SetNillableSpentTodaySubunit sets the "spent_today_subunit" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableSpentTodaySubunit(u *uint64) *TappCardCreate {
+	if u != nil {
+		tcc.SetSpentTodaySubunit(*u)
+	}
+	return tcc
+}
+
+// SetDayIndex sets the "day_index" field.
+func (tcc *TappCardCreate) SetDayIndex(u uint64) *TappCardCreate {
+	tcc.mutation.SetDayIndex(u)
+	return tcc
+}
+
+// SetNillableDayIndex sets the "day_index" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableDayIndex(u *uint64) *TappCardCreate {
+	if u != nil {
+		tcc.SetDayIndex(*u)
+	}
+	return tcc
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (tcc *TappCardCreate) SetNeedsResync(b bool) *TappCardCreate {
+	tcc.mutation.SetNeedsResync(b)
+	return tcc
+}
+
+// SetNillableNeedsResync sets the "needs_resync" field if the given value is not nil.
+func (tcc *TappCardCreate) SetNillableNeedsResync(b *bool) *TappCardCreate {
+	if b != nil {
+		tcc.SetNeedsResync(*b)
+	}
+	return tcc
+}
+
 // SetID sets the "id" field.
 func (tcc *TappCardCreate) SetID(u uuid.UUID) *TappCardCreate {
 	tcc.mutation.SetID(u)
@@ -104,6 +303,21 @@ func (tcc *TappCardCreate) SetNillableUserID(id *uuid.UUID) *TappCardCreate {
 // SetUser sets the "user" edge to the User entity.
 func (tcc *TappCardCreate) SetUser(u *User) *TappCardCreate {
 	return tcc.SetUserID(u.ID)
+}
+
+// AddServerNonceIDs adds the "server_nonces" edge to the CardServerNonce entity by IDs.
+func (tcc *TappCardCreate) AddServerNonceIDs(ids ...uuid.UUID) *TappCardCreate {
+	tcc.mutation.AddServerNonceIDs(ids...)
+	return tcc
+}
+
+// AddServerNonces adds the "server_nonces" edges to the CardServerNonce entity.
+func (tcc *TappCardCreate) AddServerNonces(c ...*CardServerNonce) *TappCardCreate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return tcc.AddServerNonceIDs(ids...)
 }
 
 // Mutation returns the TappCardMutation object of the builder.
@@ -153,6 +367,38 @@ func (tcc *TappCardCreate) defaults() {
 		v := tappcard.DefaultStatus
 		tcc.mutation.SetStatus(v)
 	}
+	if _, ok := tcc.mutation.PinAttemptsRemaining(); !ok {
+		v := tappcard.DefaultPinAttemptsRemaining
+		tcc.mutation.SetPinAttemptsRemaining(v)
+	}
+	if _, ok := tcc.mutation.TokenMismatchCount(); !ok {
+		v := tappcard.DefaultTokenMismatchCount
+		tcc.mutation.SetTokenMismatchCount(v)
+	}
+	if _, ok := tcc.mutation.DailyLimitSubunit(); !ok {
+		v := tappcard.DefaultDailyLimitSubunit
+		tcc.mutation.SetDailyLimitSubunit(v)
+	}
+	if _, ok := tcc.mutation.PerTapLimitSubunit(); !ok {
+		v := tappcard.DefaultPerTapLimitSubunit
+		tcc.mutation.SetPerTapLimitSubunit(v)
+	}
+	if _, ok := tcc.mutation.StepUpThresholdSubunit(); !ok {
+		v := tappcard.DefaultStepUpThresholdSubunit
+		tcc.mutation.SetStepUpThresholdSubunit(v)
+	}
+	if _, ok := tcc.mutation.SpentTodaySubunit(); !ok {
+		v := tappcard.DefaultSpentTodaySubunit
+		tcc.mutation.SetSpentTodaySubunit(v)
+	}
+	if _, ok := tcc.mutation.DayIndex(); !ok {
+		v := tappcard.DefaultDayIndex
+		tcc.mutation.SetDayIndex(v)
+	}
+	if _, ok := tcc.mutation.NeedsResync(); !ok {
+		v := tappcard.DefaultNeedsResync
+		tcc.mutation.SetNeedsResync(v)
+	}
 	if _, ok := tcc.mutation.ID(); !ok {
 		v := tappcard.DefaultID()
 		tcc.mutation.SetID(v)
@@ -182,6 +428,60 @@ func (tcc *TappCardCreate) check() error {
 		if err := tappcard.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "TappCard.status": %w`, err)}
 		}
+	}
+	if v, ok := tcc.mutation.CardUIDHash(); ok {
+		if err := tappcard.CardUIDHashValidator(v); err != nil {
+			return &ValidationError{Name: "card_uid_hash", err: fmt.Errorf(`ent: validator failed for field "TappCard.card_uid_hash": %w`, err)}
+		}
+	}
+	if v, ok := tcc.mutation.LinkingProof(); ok {
+		if err := tappcard.LinkingProofValidator(v); err != nil {
+			return &ValidationError{Name: "linking_proof", err: fmt.Errorf(`ent: validator failed for field "TappCard.linking_proof": %w`, err)}
+		}
+	}
+	if v, ok := tcc.mutation.PinVerifier(); ok {
+		if err := tappcard.PinVerifierValidator(v); err != nil {
+			return &ValidationError{Name: "pin_verifier", err: fmt.Errorf(`ent: validator failed for field "TappCard.pin_verifier": %w`, err)}
+		}
+	}
+	if _, ok := tcc.mutation.PinAttemptsRemaining(); !ok {
+		return &ValidationError{Name: "pin_attempts_remaining", err: errors.New(`ent: missing required field "TappCard.pin_attempts_remaining"`)}
+	}
+	if v, ok := tcc.mutation.PinAttemptsRemaining(); ok {
+		if err := tappcard.PinAttemptsRemainingValidator(v); err != nil {
+			return &ValidationError{Name: "pin_attempts_remaining", err: fmt.Errorf(`ent: validator failed for field "TappCard.pin_attempts_remaining": %w`, err)}
+		}
+	}
+	if v, ok := tcc.mutation.CardPassword(); ok {
+		if err := tappcard.CardPasswordValidator(v); err != nil {
+			return &ValidationError{Name: "card_password", err: fmt.Errorf(`ent: validator failed for field "TappCard.card_password": %w`, err)}
+		}
+	}
+	if _, ok := tcc.mutation.TokenMismatchCount(); !ok {
+		return &ValidationError{Name: "token_mismatch_count", err: errors.New(`ent: missing required field "TappCard.token_mismatch_count"`)}
+	}
+	if v, ok := tcc.mutation.TokenMismatchCount(); ok {
+		if err := tappcard.TokenMismatchCountValidator(v); err != nil {
+			return &ValidationError{Name: "token_mismatch_count", err: fmt.Errorf(`ent: validator failed for field "TappCard.token_mismatch_count": %w`, err)}
+		}
+	}
+	if _, ok := tcc.mutation.DailyLimitSubunit(); !ok {
+		return &ValidationError{Name: "daily_limit_subunit", err: errors.New(`ent: missing required field "TappCard.daily_limit_subunit"`)}
+	}
+	if _, ok := tcc.mutation.PerTapLimitSubunit(); !ok {
+		return &ValidationError{Name: "per_tap_limit_subunit", err: errors.New(`ent: missing required field "TappCard.per_tap_limit_subunit"`)}
+	}
+	if _, ok := tcc.mutation.StepUpThresholdSubunit(); !ok {
+		return &ValidationError{Name: "step_up_threshold_subunit", err: errors.New(`ent: missing required field "TappCard.step_up_threshold_subunit"`)}
+	}
+	if _, ok := tcc.mutation.SpentTodaySubunit(); !ok {
+		return &ValidationError{Name: "spent_today_subunit", err: errors.New(`ent: missing required field "TappCard.spent_today_subunit"`)}
+	}
+	if _, ok := tcc.mutation.DayIndex(); !ok {
+		return &ValidationError{Name: "day_index", err: errors.New(`ent: missing required field "TappCard.day_index"`)}
+	}
+	if _, ok := tcc.mutation.NeedsResync(); !ok {
+		return &ValidationError{Name: "needs_resync", err: errors.New(`ent: missing required field "TappCard.needs_resync"`)}
 	}
 	return nil
 }
@@ -235,6 +535,74 @@ func (tcc *TappCardCreate) createSpec() (*TappCard, *sqlgraph.CreateSpec) {
 		_spec.SetField(tappcard.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
 	}
+	if value, ok := tcc.mutation.CardUIDHash(); ok {
+		_spec.SetField(tappcard.FieldCardUIDHash, field.TypeBytes, value)
+		_node.CardUIDHash = &value
+	}
+	if value, ok := tcc.mutation.CapObjectID(); ok {
+		_spec.SetField(tappcard.FieldCapObjectID, field.TypeString, value)
+		_node.CapObjectID = &value
+	}
+	if value, ok := tcc.mutation.CoinType(); ok {
+		_spec.SetField(tappcard.FieldCoinType, field.TypeString, value)
+		_node.CoinType = &value
+	}
+	if value, ok := tcc.mutation.LinkingProof(); ok {
+		_spec.SetField(tappcard.FieldLinkingProof, field.TypeBytes, value)
+		_node.LinkingProof = &value
+	}
+	if value, ok := tcc.mutation.PinVerifier(); ok {
+		_spec.SetField(tappcard.FieldPinVerifier, field.TypeBytes, value)
+		_node.PinVerifier = &value
+	}
+	if value, ok := tcc.mutation.PinAttemptsRemaining(); ok {
+		_spec.SetField(tappcard.FieldPinAttemptsRemaining, field.TypeInt, value)
+		_node.PinAttemptsRemaining = value
+	}
+	if value, ok := tcc.mutation.LockedUntil(); ok {
+		_spec.SetField(tappcard.FieldLockedUntil, field.TypeTime, value)
+		_node.LockedUntil = &value
+	}
+	if value, ok := tcc.mutation.CardPassword(); ok {
+		_spec.SetField(tappcard.FieldCardPassword, field.TypeBytes, value)
+		_node.CardPassword = &value
+	}
+	if value, ok := tcc.mutation.CurrentTokenCiphertext(); ok {
+		_spec.SetField(tappcard.FieldCurrentTokenCiphertext, field.TypeBytes, value)
+		_node.CurrentTokenCiphertext = &value
+	}
+	if value, ok := tcc.mutation.TokenRotatedAt(); ok {
+		_spec.SetField(tappcard.FieldTokenRotatedAt, field.TypeTime, value)
+		_node.TokenRotatedAt = &value
+	}
+	if value, ok := tcc.mutation.TokenMismatchCount(); ok {
+		_spec.SetField(tappcard.FieldTokenMismatchCount, field.TypeInt, value)
+		_node.TokenMismatchCount = value
+	}
+	if value, ok := tcc.mutation.DailyLimitSubunit(); ok {
+		_spec.SetField(tappcard.FieldDailyLimitSubunit, field.TypeUint64, value)
+		_node.DailyLimitSubunit = value
+	}
+	if value, ok := tcc.mutation.PerTapLimitSubunit(); ok {
+		_spec.SetField(tappcard.FieldPerTapLimitSubunit, field.TypeUint64, value)
+		_node.PerTapLimitSubunit = value
+	}
+	if value, ok := tcc.mutation.StepUpThresholdSubunit(); ok {
+		_spec.SetField(tappcard.FieldStepUpThresholdSubunit, field.TypeUint64, value)
+		_node.StepUpThresholdSubunit = value
+	}
+	if value, ok := tcc.mutation.SpentTodaySubunit(); ok {
+		_spec.SetField(tappcard.FieldSpentTodaySubunit, field.TypeUint64, value)
+		_node.SpentTodaySubunit = value
+	}
+	if value, ok := tcc.mutation.DayIndex(); ok {
+		_spec.SetField(tappcard.FieldDayIndex, field.TypeUint64, value)
+		_node.DayIndex = value
+	}
+	if value, ok := tcc.mutation.NeedsResync(); ok {
+		_spec.SetField(tappcard.FieldNeedsResync, field.TypeBool, value)
+		_node.NeedsResync = value
+	}
 	if nodes := tcc.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -250,6 +618,22 @@ func (tcc *TappCardCreate) createSpec() (*TappCard, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.user_tapp_cards = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := tcc.mutation.ServerNoncesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -337,6 +721,306 @@ func (u *TappCardUpsert) SetStatus(v tappcard.Status) *TappCardUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *TappCardUpsert) UpdateStatus() *TappCardUpsert {
 	u.SetExcluded(tappcard.FieldStatus)
+	return u
+}
+
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (u *TappCardUpsert) SetCardUIDHash(v []byte) *TappCardUpsert {
+	u.Set(tappcard.FieldCardUIDHash, v)
+	return u
+}
+
+// UpdateCardUIDHash sets the "card_uid_hash" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateCardUIDHash() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldCardUIDHash)
+	return u
+}
+
+// ClearCardUIDHash clears the value of the "card_uid_hash" field.
+func (u *TappCardUpsert) ClearCardUIDHash() *TappCardUpsert {
+	u.SetNull(tappcard.FieldCardUIDHash)
+	return u
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (u *TappCardUpsert) SetCapObjectID(v string) *TappCardUpsert {
+	u.Set(tappcard.FieldCapObjectID, v)
+	return u
+}
+
+// UpdateCapObjectID sets the "cap_object_id" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateCapObjectID() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldCapObjectID)
+	return u
+}
+
+// ClearCapObjectID clears the value of the "cap_object_id" field.
+func (u *TappCardUpsert) ClearCapObjectID() *TappCardUpsert {
+	u.SetNull(tappcard.FieldCapObjectID)
+	return u
+}
+
+// SetCoinType sets the "coin_type" field.
+func (u *TappCardUpsert) SetCoinType(v string) *TappCardUpsert {
+	u.Set(tappcard.FieldCoinType, v)
+	return u
+}
+
+// UpdateCoinType sets the "coin_type" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateCoinType() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldCoinType)
+	return u
+}
+
+// ClearCoinType clears the value of the "coin_type" field.
+func (u *TappCardUpsert) ClearCoinType() *TappCardUpsert {
+	u.SetNull(tappcard.FieldCoinType)
+	return u
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (u *TappCardUpsert) SetLinkingProof(v []byte) *TappCardUpsert {
+	u.Set(tappcard.FieldLinkingProof, v)
+	return u
+}
+
+// UpdateLinkingProof sets the "linking_proof" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateLinkingProof() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldLinkingProof)
+	return u
+}
+
+// ClearLinkingProof clears the value of the "linking_proof" field.
+func (u *TappCardUpsert) ClearLinkingProof() *TappCardUpsert {
+	u.SetNull(tappcard.FieldLinkingProof)
+	return u
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (u *TappCardUpsert) SetPinVerifier(v []byte) *TappCardUpsert {
+	u.Set(tappcard.FieldPinVerifier, v)
+	return u
+}
+
+// UpdatePinVerifier sets the "pin_verifier" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdatePinVerifier() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldPinVerifier)
+	return u
+}
+
+// ClearPinVerifier clears the value of the "pin_verifier" field.
+func (u *TappCardUpsert) ClearPinVerifier() *TappCardUpsert {
+	u.SetNull(tappcard.FieldPinVerifier)
+	return u
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (u *TappCardUpsert) SetPinAttemptsRemaining(v int) *TappCardUpsert {
+	u.Set(tappcard.FieldPinAttemptsRemaining, v)
+	return u
+}
+
+// UpdatePinAttemptsRemaining sets the "pin_attempts_remaining" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdatePinAttemptsRemaining() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldPinAttemptsRemaining)
+	return u
+}
+
+// AddPinAttemptsRemaining adds v to the "pin_attempts_remaining" field.
+func (u *TappCardUpsert) AddPinAttemptsRemaining(v int) *TappCardUpsert {
+	u.Add(tappcard.FieldPinAttemptsRemaining, v)
+	return u
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (u *TappCardUpsert) SetLockedUntil(v time.Time) *TappCardUpsert {
+	u.Set(tappcard.FieldLockedUntil, v)
+	return u
+}
+
+// UpdateLockedUntil sets the "locked_until" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateLockedUntil() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldLockedUntil)
+	return u
+}
+
+// ClearLockedUntil clears the value of the "locked_until" field.
+func (u *TappCardUpsert) ClearLockedUntil() *TappCardUpsert {
+	u.SetNull(tappcard.FieldLockedUntil)
+	return u
+}
+
+// SetCardPassword sets the "card_password" field.
+func (u *TappCardUpsert) SetCardPassword(v []byte) *TappCardUpsert {
+	u.Set(tappcard.FieldCardPassword, v)
+	return u
+}
+
+// UpdateCardPassword sets the "card_password" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateCardPassword() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldCardPassword)
+	return u
+}
+
+// ClearCardPassword clears the value of the "card_password" field.
+func (u *TappCardUpsert) ClearCardPassword() *TappCardUpsert {
+	u.SetNull(tappcard.FieldCardPassword)
+	return u
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (u *TappCardUpsert) SetCurrentTokenCiphertext(v []byte) *TappCardUpsert {
+	u.Set(tappcard.FieldCurrentTokenCiphertext, v)
+	return u
+}
+
+// UpdateCurrentTokenCiphertext sets the "current_token_ciphertext" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateCurrentTokenCiphertext() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldCurrentTokenCiphertext)
+	return u
+}
+
+// ClearCurrentTokenCiphertext clears the value of the "current_token_ciphertext" field.
+func (u *TappCardUpsert) ClearCurrentTokenCiphertext() *TappCardUpsert {
+	u.SetNull(tappcard.FieldCurrentTokenCiphertext)
+	return u
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (u *TappCardUpsert) SetTokenRotatedAt(v time.Time) *TappCardUpsert {
+	u.Set(tappcard.FieldTokenRotatedAt, v)
+	return u
+}
+
+// UpdateTokenRotatedAt sets the "token_rotated_at" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateTokenRotatedAt() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldTokenRotatedAt)
+	return u
+}
+
+// ClearTokenRotatedAt clears the value of the "token_rotated_at" field.
+func (u *TappCardUpsert) ClearTokenRotatedAt() *TappCardUpsert {
+	u.SetNull(tappcard.FieldTokenRotatedAt)
+	return u
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (u *TappCardUpsert) SetTokenMismatchCount(v int) *TappCardUpsert {
+	u.Set(tappcard.FieldTokenMismatchCount, v)
+	return u
+}
+
+// UpdateTokenMismatchCount sets the "token_mismatch_count" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateTokenMismatchCount() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldTokenMismatchCount)
+	return u
+}
+
+// AddTokenMismatchCount adds v to the "token_mismatch_count" field.
+func (u *TappCardUpsert) AddTokenMismatchCount(v int) *TappCardUpsert {
+	u.Add(tappcard.FieldTokenMismatchCount, v)
+	return u
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (u *TappCardUpsert) SetDailyLimitSubunit(v uint64) *TappCardUpsert {
+	u.Set(tappcard.FieldDailyLimitSubunit, v)
+	return u
+}
+
+// UpdateDailyLimitSubunit sets the "daily_limit_subunit" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateDailyLimitSubunit() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldDailyLimitSubunit)
+	return u
+}
+
+// AddDailyLimitSubunit adds v to the "daily_limit_subunit" field.
+func (u *TappCardUpsert) AddDailyLimitSubunit(v uint64) *TappCardUpsert {
+	u.Add(tappcard.FieldDailyLimitSubunit, v)
+	return u
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (u *TappCardUpsert) SetPerTapLimitSubunit(v uint64) *TappCardUpsert {
+	u.Set(tappcard.FieldPerTapLimitSubunit, v)
+	return u
+}
+
+// UpdatePerTapLimitSubunit sets the "per_tap_limit_subunit" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdatePerTapLimitSubunit() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldPerTapLimitSubunit)
+	return u
+}
+
+// AddPerTapLimitSubunit adds v to the "per_tap_limit_subunit" field.
+func (u *TappCardUpsert) AddPerTapLimitSubunit(v uint64) *TappCardUpsert {
+	u.Add(tappcard.FieldPerTapLimitSubunit, v)
+	return u
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (u *TappCardUpsert) SetStepUpThresholdSubunit(v uint64) *TappCardUpsert {
+	u.Set(tappcard.FieldStepUpThresholdSubunit, v)
+	return u
+}
+
+// UpdateStepUpThresholdSubunit sets the "step_up_threshold_subunit" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateStepUpThresholdSubunit() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldStepUpThresholdSubunit)
+	return u
+}
+
+// AddStepUpThresholdSubunit adds v to the "step_up_threshold_subunit" field.
+func (u *TappCardUpsert) AddStepUpThresholdSubunit(v uint64) *TappCardUpsert {
+	u.Add(tappcard.FieldStepUpThresholdSubunit, v)
+	return u
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (u *TappCardUpsert) SetSpentTodaySubunit(v uint64) *TappCardUpsert {
+	u.Set(tappcard.FieldSpentTodaySubunit, v)
+	return u
+}
+
+// UpdateSpentTodaySubunit sets the "spent_today_subunit" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateSpentTodaySubunit() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldSpentTodaySubunit)
+	return u
+}
+
+// AddSpentTodaySubunit adds v to the "spent_today_subunit" field.
+func (u *TappCardUpsert) AddSpentTodaySubunit(v uint64) *TappCardUpsert {
+	u.Add(tappcard.FieldSpentTodaySubunit, v)
+	return u
+}
+
+// SetDayIndex sets the "day_index" field.
+func (u *TappCardUpsert) SetDayIndex(v uint64) *TappCardUpsert {
+	u.Set(tappcard.FieldDayIndex, v)
+	return u
+}
+
+// UpdateDayIndex sets the "day_index" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateDayIndex() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldDayIndex)
+	return u
+}
+
+// AddDayIndex adds v to the "day_index" field.
+func (u *TappCardUpsert) AddDayIndex(v uint64) *TappCardUpsert {
+	u.Add(tappcard.FieldDayIndex, v)
+	return u
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (u *TappCardUpsert) SetNeedsResync(v bool) *TappCardUpsert {
+	u.Set(tappcard.FieldNeedsResync, v)
+	return u
+}
+
+// UpdateNeedsResync sets the "needs_resync" field to the value that was provided on create.
+func (u *TappCardUpsert) UpdateNeedsResync() *TappCardUpsert {
+	u.SetExcluded(tappcard.FieldNeedsResync)
 	return u
 }
 
@@ -430,6 +1114,356 @@ func (u *TappCardUpsertOne) SetStatus(v tappcard.Status) *TappCardUpsertOne {
 func (u *TappCardUpsertOne) UpdateStatus() *TappCardUpsertOne {
 	return u.Update(func(s *TappCardUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (u *TappCardUpsertOne) SetCardUIDHash(v []byte) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCardUIDHash(v)
+	})
+}
+
+// UpdateCardUIDHash sets the "card_uid_hash" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateCardUIDHash() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCardUIDHash()
+	})
+}
+
+// ClearCardUIDHash clears the value of the "card_uid_hash" field.
+func (u *TappCardUpsertOne) ClearCardUIDHash() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCardUIDHash()
+	})
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (u *TappCardUpsertOne) SetCapObjectID(v string) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCapObjectID(v)
+	})
+}
+
+// UpdateCapObjectID sets the "cap_object_id" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateCapObjectID() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCapObjectID()
+	})
+}
+
+// ClearCapObjectID clears the value of the "cap_object_id" field.
+func (u *TappCardUpsertOne) ClearCapObjectID() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCapObjectID()
+	})
+}
+
+// SetCoinType sets the "coin_type" field.
+func (u *TappCardUpsertOne) SetCoinType(v string) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCoinType(v)
+	})
+}
+
+// UpdateCoinType sets the "coin_type" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateCoinType() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCoinType()
+	})
+}
+
+// ClearCoinType clears the value of the "coin_type" field.
+func (u *TappCardUpsertOne) ClearCoinType() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCoinType()
+	})
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (u *TappCardUpsertOne) SetLinkingProof(v []byte) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetLinkingProof(v)
+	})
+}
+
+// UpdateLinkingProof sets the "linking_proof" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateLinkingProof() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateLinkingProof()
+	})
+}
+
+// ClearLinkingProof clears the value of the "linking_proof" field.
+func (u *TappCardUpsertOne) ClearLinkingProof() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearLinkingProof()
+	})
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (u *TappCardUpsertOne) SetPinVerifier(v []byte) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetPinVerifier(v)
+	})
+}
+
+// UpdatePinVerifier sets the "pin_verifier" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdatePinVerifier() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdatePinVerifier()
+	})
+}
+
+// ClearPinVerifier clears the value of the "pin_verifier" field.
+func (u *TappCardUpsertOne) ClearPinVerifier() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearPinVerifier()
+	})
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (u *TappCardUpsertOne) SetPinAttemptsRemaining(v int) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetPinAttemptsRemaining(v)
+	})
+}
+
+// AddPinAttemptsRemaining adds v to the "pin_attempts_remaining" field.
+func (u *TappCardUpsertOne) AddPinAttemptsRemaining(v int) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddPinAttemptsRemaining(v)
+	})
+}
+
+// UpdatePinAttemptsRemaining sets the "pin_attempts_remaining" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdatePinAttemptsRemaining() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdatePinAttemptsRemaining()
+	})
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (u *TappCardUpsertOne) SetLockedUntil(v time.Time) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetLockedUntil(v)
+	})
+}
+
+// UpdateLockedUntil sets the "locked_until" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateLockedUntil() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateLockedUntil()
+	})
+}
+
+// ClearLockedUntil clears the value of the "locked_until" field.
+func (u *TappCardUpsertOne) ClearLockedUntil() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearLockedUntil()
+	})
+}
+
+// SetCardPassword sets the "card_password" field.
+func (u *TappCardUpsertOne) SetCardPassword(v []byte) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCardPassword(v)
+	})
+}
+
+// UpdateCardPassword sets the "card_password" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateCardPassword() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCardPassword()
+	})
+}
+
+// ClearCardPassword clears the value of the "card_password" field.
+func (u *TappCardUpsertOne) ClearCardPassword() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCardPassword()
+	})
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (u *TappCardUpsertOne) SetCurrentTokenCiphertext(v []byte) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCurrentTokenCiphertext(v)
+	})
+}
+
+// UpdateCurrentTokenCiphertext sets the "current_token_ciphertext" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateCurrentTokenCiphertext() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCurrentTokenCiphertext()
+	})
+}
+
+// ClearCurrentTokenCiphertext clears the value of the "current_token_ciphertext" field.
+func (u *TappCardUpsertOne) ClearCurrentTokenCiphertext() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCurrentTokenCiphertext()
+	})
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (u *TappCardUpsertOne) SetTokenRotatedAt(v time.Time) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetTokenRotatedAt(v)
+	})
+}
+
+// UpdateTokenRotatedAt sets the "token_rotated_at" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateTokenRotatedAt() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateTokenRotatedAt()
+	})
+}
+
+// ClearTokenRotatedAt clears the value of the "token_rotated_at" field.
+func (u *TappCardUpsertOne) ClearTokenRotatedAt() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearTokenRotatedAt()
+	})
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (u *TappCardUpsertOne) SetTokenMismatchCount(v int) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetTokenMismatchCount(v)
+	})
+}
+
+// AddTokenMismatchCount adds v to the "token_mismatch_count" field.
+func (u *TappCardUpsertOne) AddTokenMismatchCount(v int) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddTokenMismatchCount(v)
+	})
+}
+
+// UpdateTokenMismatchCount sets the "token_mismatch_count" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateTokenMismatchCount() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateTokenMismatchCount()
+	})
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (u *TappCardUpsertOne) SetDailyLimitSubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetDailyLimitSubunit(v)
+	})
+}
+
+// AddDailyLimitSubunit adds v to the "daily_limit_subunit" field.
+func (u *TappCardUpsertOne) AddDailyLimitSubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddDailyLimitSubunit(v)
+	})
+}
+
+// UpdateDailyLimitSubunit sets the "daily_limit_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateDailyLimitSubunit() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateDailyLimitSubunit()
+	})
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (u *TappCardUpsertOne) SetPerTapLimitSubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetPerTapLimitSubunit(v)
+	})
+}
+
+// AddPerTapLimitSubunit adds v to the "per_tap_limit_subunit" field.
+func (u *TappCardUpsertOne) AddPerTapLimitSubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddPerTapLimitSubunit(v)
+	})
+}
+
+// UpdatePerTapLimitSubunit sets the "per_tap_limit_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdatePerTapLimitSubunit() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdatePerTapLimitSubunit()
+	})
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (u *TappCardUpsertOne) SetStepUpThresholdSubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetStepUpThresholdSubunit(v)
+	})
+}
+
+// AddStepUpThresholdSubunit adds v to the "step_up_threshold_subunit" field.
+func (u *TappCardUpsertOne) AddStepUpThresholdSubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddStepUpThresholdSubunit(v)
+	})
+}
+
+// UpdateStepUpThresholdSubunit sets the "step_up_threshold_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateStepUpThresholdSubunit() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateStepUpThresholdSubunit()
+	})
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (u *TappCardUpsertOne) SetSpentTodaySubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetSpentTodaySubunit(v)
+	})
+}
+
+// AddSpentTodaySubunit adds v to the "spent_today_subunit" field.
+func (u *TappCardUpsertOne) AddSpentTodaySubunit(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddSpentTodaySubunit(v)
+	})
+}
+
+// UpdateSpentTodaySubunit sets the "spent_today_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateSpentTodaySubunit() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateSpentTodaySubunit()
+	})
+}
+
+// SetDayIndex sets the "day_index" field.
+func (u *TappCardUpsertOne) SetDayIndex(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetDayIndex(v)
+	})
+}
+
+// AddDayIndex adds v to the "day_index" field.
+func (u *TappCardUpsertOne) AddDayIndex(v uint64) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddDayIndex(v)
+	})
+}
+
+// UpdateDayIndex sets the "day_index" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateDayIndex() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateDayIndex()
+	})
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (u *TappCardUpsertOne) SetNeedsResync(v bool) *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetNeedsResync(v)
+	})
+}
+
+// UpdateNeedsResync sets the "needs_resync" field to the value that was provided on create.
+func (u *TappCardUpsertOne) UpdateNeedsResync() *TappCardUpsertOne {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateNeedsResync()
 	})
 }
 
@@ -690,6 +1724,356 @@ func (u *TappCardUpsertBulk) SetStatus(v tappcard.Status) *TappCardUpsertBulk {
 func (u *TappCardUpsertBulk) UpdateStatus() *TappCardUpsertBulk {
 	return u.Update(func(s *TappCardUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (u *TappCardUpsertBulk) SetCardUIDHash(v []byte) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCardUIDHash(v)
+	})
+}
+
+// UpdateCardUIDHash sets the "card_uid_hash" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateCardUIDHash() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCardUIDHash()
+	})
+}
+
+// ClearCardUIDHash clears the value of the "card_uid_hash" field.
+func (u *TappCardUpsertBulk) ClearCardUIDHash() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCardUIDHash()
+	})
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (u *TappCardUpsertBulk) SetCapObjectID(v string) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCapObjectID(v)
+	})
+}
+
+// UpdateCapObjectID sets the "cap_object_id" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateCapObjectID() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCapObjectID()
+	})
+}
+
+// ClearCapObjectID clears the value of the "cap_object_id" field.
+func (u *TappCardUpsertBulk) ClearCapObjectID() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCapObjectID()
+	})
+}
+
+// SetCoinType sets the "coin_type" field.
+func (u *TappCardUpsertBulk) SetCoinType(v string) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCoinType(v)
+	})
+}
+
+// UpdateCoinType sets the "coin_type" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateCoinType() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCoinType()
+	})
+}
+
+// ClearCoinType clears the value of the "coin_type" field.
+func (u *TappCardUpsertBulk) ClearCoinType() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCoinType()
+	})
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (u *TappCardUpsertBulk) SetLinkingProof(v []byte) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetLinkingProof(v)
+	})
+}
+
+// UpdateLinkingProof sets the "linking_proof" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateLinkingProof() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateLinkingProof()
+	})
+}
+
+// ClearLinkingProof clears the value of the "linking_proof" field.
+func (u *TappCardUpsertBulk) ClearLinkingProof() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearLinkingProof()
+	})
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (u *TappCardUpsertBulk) SetPinVerifier(v []byte) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetPinVerifier(v)
+	})
+}
+
+// UpdatePinVerifier sets the "pin_verifier" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdatePinVerifier() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdatePinVerifier()
+	})
+}
+
+// ClearPinVerifier clears the value of the "pin_verifier" field.
+func (u *TappCardUpsertBulk) ClearPinVerifier() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearPinVerifier()
+	})
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (u *TappCardUpsertBulk) SetPinAttemptsRemaining(v int) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetPinAttemptsRemaining(v)
+	})
+}
+
+// AddPinAttemptsRemaining adds v to the "pin_attempts_remaining" field.
+func (u *TappCardUpsertBulk) AddPinAttemptsRemaining(v int) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddPinAttemptsRemaining(v)
+	})
+}
+
+// UpdatePinAttemptsRemaining sets the "pin_attempts_remaining" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdatePinAttemptsRemaining() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdatePinAttemptsRemaining()
+	})
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (u *TappCardUpsertBulk) SetLockedUntil(v time.Time) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetLockedUntil(v)
+	})
+}
+
+// UpdateLockedUntil sets the "locked_until" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateLockedUntil() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateLockedUntil()
+	})
+}
+
+// ClearLockedUntil clears the value of the "locked_until" field.
+func (u *TappCardUpsertBulk) ClearLockedUntil() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearLockedUntil()
+	})
+}
+
+// SetCardPassword sets the "card_password" field.
+func (u *TappCardUpsertBulk) SetCardPassword(v []byte) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCardPassword(v)
+	})
+}
+
+// UpdateCardPassword sets the "card_password" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateCardPassword() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCardPassword()
+	})
+}
+
+// ClearCardPassword clears the value of the "card_password" field.
+func (u *TappCardUpsertBulk) ClearCardPassword() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCardPassword()
+	})
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (u *TappCardUpsertBulk) SetCurrentTokenCiphertext(v []byte) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetCurrentTokenCiphertext(v)
+	})
+}
+
+// UpdateCurrentTokenCiphertext sets the "current_token_ciphertext" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateCurrentTokenCiphertext() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateCurrentTokenCiphertext()
+	})
+}
+
+// ClearCurrentTokenCiphertext clears the value of the "current_token_ciphertext" field.
+func (u *TappCardUpsertBulk) ClearCurrentTokenCiphertext() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearCurrentTokenCiphertext()
+	})
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (u *TappCardUpsertBulk) SetTokenRotatedAt(v time.Time) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetTokenRotatedAt(v)
+	})
+}
+
+// UpdateTokenRotatedAt sets the "token_rotated_at" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateTokenRotatedAt() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateTokenRotatedAt()
+	})
+}
+
+// ClearTokenRotatedAt clears the value of the "token_rotated_at" field.
+func (u *TappCardUpsertBulk) ClearTokenRotatedAt() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.ClearTokenRotatedAt()
+	})
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (u *TappCardUpsertBulk) SetTokenMismatchCount(v int) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetTokenMismatchCount(v)
+	})
+}
+
+// AddTokenMismatchCount adds v to the "token_mismatch_count" field.
+func (u *TappCardUpsertBulk) AddTokenMismatchCount(v int) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddTokenMismatchCount(v)
+	})
+}
+
+// UpdateTokenMismatchCount sets the "token_mismatch_count" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateTokenMismatchCount() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateTokenMismatchCount()
+	})
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (u *TappCardUpsertBulk) SetDailyLimitSubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetDailyLimitSubunit(v)
+	})
+}
+
+// AddDailyLimitSubunit adds v to the "daily_limit_subunit" field.
+func (u *TappCardUpsertBulk) AddDailyLimitSubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddDailyLimitSubunit(v)
+	})
+}
+
+// UpdateDailyLimitSubunit sets the "daily_limit_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateDailyLimitSubunit() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateDailyLimitSubunit()
+	})
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (u *TappCardUpsertBulk) SetPerTapLimitSubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetPerTapLimitSubunit(v)
+	})
+}
+
+// AddPerTapLimitSubunit adds v to the "per_tap_limit_subunit" field.
+func (u *TappCardUpsertBulk) AddPerTapLimitSubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddPerTapLimitSubunit(v)
+	})
+}
+
+// UpdatePerTapLimitSubunit sets the "per_tap_limit_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdatePerTapLimitSubunit() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdatePerTapLimitSubunit()
+	})
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (u *TappCardUpsertBulk) SetStepUpThresholdSubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetStepUpThresholdSubunit(v)
+	})
+}
+
+// AddStepUpThresholdSubunit adds v to the "step_up_threshold_subunit" field.
+func (u *TappCardUpsertBulk) AddStepUpThresholdSubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddStepUpThresholdSubunit(v)
+	})
+}
+
+// UpdateStepUpThresholdSubunit sets the "step_up_threshold_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateStepUpThresholdSubunit() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateStepUpThresholdSubunit()
+	})
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (u *TappCardUpsertBulk) SetSpentTodaySubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetSpentTodaySubunit(v)
+	})
+}
+
+// AddSpentTodaySubunit adds v to the "spent_today_subunit" field.
+func (u *TappCardUpsertBulk) AddSpentTodaySubunit(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddSpentTodaySubunit(v)
+	})
+}
+
+// UpdateSpentTodaySubunit sets the "spent_today_subunit" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateSpentTodaySubunit() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateSpentTodaySubunit()
+	})
+}
+
+// SetDayIndex sets the "day_index" field.
+func (u *TappCardUpsertBulk) SetDayIndex(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetDayIndex(v)
+	})
+}
+
+// AddDayIndex adds v to the "day_index" field.
+func (u *TappCardUpsertBulk) AddDayIndex(v uint64) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.AddDayIndex(v)
+	})
+}
+
+// UpdateDayIndex sets the "day_index" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateDayIndex() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateDayIndex()
+	})
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (u *TappCardUpsertBulk) SetNeedsResync(v bool) *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.SetNeedsResync(v)
+	})
+}
+
+// UpdateNeedsResync sets the "needs_resync" field to the value that was provided on create.
+func (u *TappCardUpsertBulk) UpdateNeedsResync() *TappCardUpsertBulk {
+	return u.Update(func(s *TappCardUpsert) {
+		s.UpdateNeedsResync()
 	})
 }
 

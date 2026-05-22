@@ -17,6 +17,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/institution"
@@ -50,6 +51,8 @@ type Client struct {
 	Schema *migrate.Schema
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// CardServerNonce is the client for interacting with the CardServerNonce builders.
+	CardServerNonce *CardServerNonceClient
 	// FiatCurrency is the client for interacting with the FiatCurrency builders.
 	FiatCurrency *FiatCurrencyClient
 	// IdentityVerificationRequest is the client for interacting with the IdentityVerificationRequest builders.
@@ -110,6 +113,7 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
+	c.CardServerNonce = NewCardServerNonceClient(c.config)
 	c.FiatCurrency = NewFiatCurrencyClient(c.config)
 	c.IdentityVerificationRequest = NewIdentityVerificationRequestClient(c.config)
 	c.Institution = NewInstitutionClient(c.config)
@@ -227,6 +231,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                         ctx,
 		config:                      cfg,
 		APIKey:                      NewAPIKeyClient(cfg),
+		CardServerNonce:             NewCardServerNonceClient(cfg),
 		FiatCurrency:                NewFiatCurrencyClient(cfg),
 		IdentityVerificationRequest: NewIdentityVerificationRequestClient(cfg),
 		Institution:                 NewInstitutionClient(cfg),
@@ -271,6 +276,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                         ctx,
 		config:                      cfg,
 		APIKey:                      NewAPIKeyClient(cfg),
+		CardServerNonce:             NewCardServerNonceClient(cfg),
 		FiatCurrency:                NewFiatCurrencyClient(cfg),
 		IdentityVerificationRequest: NewIdentityVerificationRequestClient(cfg),
 		Institution:                 NewInstitutionClient(cfg),
@@ -324,13 +330,13 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.FiatCurrency, c.IdentityVerificationRequest, c.Institution,
-		c.LockOrderFulfillment, c.LockPaymentOrder, c.MerchantBankAccount, c.Network,
-		c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
-		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
-		c.RouteAOrder, c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress,
-		c.TappCard, c.Token, c.TransactionLog, c.User, c.VerificationToken,
-		c.WebhookRetryAttempt,
+		c.APIKey, c.CardServerNonce, c.FiatCurrency, c.IdentityVerificationRequest,
+		c.Institution, c.LockOrderFulfillment, c.LockPaymentOrder,
+		c.MerchantBankAccount, c.Network, c.PaymentOrder, c.PaymentOrderRecipient,
+		c.ProviderOrderToken, c.ProviderProfile, c.ProviderRating, c.ProvisionBucket,
+		c.ReceiveAddress, c.RouteAOrder, c.SenderOrderToken, c.SenderProfile,
+		c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog, c.User,
+		c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Use(hooks...)
 	}
@@ -340,13 +346,13 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.FiatCurrency, c.IdentityVerificationRequest, c.Institution,
-		c.LockOrderFulfillment, c.LockPaymentOrder, c.MerchantBankAccount, c.Network,
-		c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
-		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
-		c.RouteAOrder, c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress,
-		c.TappCard, c.Token, c.TransactionLog, c.User, c.VerificationToken,
-		c.WebhookRetryAttempt,
+		c.APIKey, c.CardServerNonce, c.FiatCurrency, c.IdentityVerificationRequest,
+		c.Institution, c.LockOrderFulfillment, c.LockPaymentOrder,
+		c.MerchantBankAccount, c.Network, c.PaymentOrder, c.PaymentOrderRecipient,
+		c.ProviderOrderToken, c.ProviderProfile, c.ProviderRating, c.ProvisionBucket,
+		c.ReceiveAddress, c.RouteAOrder, c.SenderOrderToken, c.SenderProfile,
+		c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog, c.User,
+		c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -357,6 +363,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *APIKeyMutation:
 		return c.APIKey.mutate(ctx, m)
+	case *CardServerNonceMutation:
+		return c.CardServerNonce.mutate(ctx, m)
 	case *FiatCurrencyMutation:
 		return c.FiatCurrency.mutate(ctx, m)
 	case *IdentityVerificationRequestMutation:
@@ -588,6 +596,171 @@ func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, er
 		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
+	}
+}
+
+// CardServerNonceClient is a client for the CardServerNonce schema.
+type CardServerNonceClient struct {
+	config
+}
+
+// NewCardServerNonceClient returns a client for the CardServerNonce from the given config.
+func NewCardServerNonceClient(c config) *CardServerNonceClient {
+	return &CardServerNonceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `cardservernonce.Hooks(f(g(h())))`.
+func (c *CardServerNonceClient) Use(hooks ...Hook) {
+	c.hooks.CardServerNonce = append(c.hooks.CardServerNonce, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `cardservernonce.Intercept(f(g(h())))`.
+func (c *CardServerNonceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CardServerNonce = append(c.inters.CardServerNonce, interceptors...)
+}
+
+// Create returns a builder for creating a CardServerNonce entity.
+func (c *CardServerNonceClient) Create() *CardServerNonceCreate {
+	mutation := newCardServerNonceMutation(c.config, OpCreate)
+	return &CardServerNonceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CardServerNonce entities.
+func (c *CardServerNonceClient) CreateBulk(builders ...*CardServerNonceCreate) *CardServerNonceCreateBulk {
+	return &CardServerNonceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CardServerNonceClient) MapCreateBulk(slice any, setFunc func(*CardServerNonceCreate, int)) *CardServerNonceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CardServerNonceCreateBulk{err: fmt.Errorf("calling to CardServerNonceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CardServerNonceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CardServerNonceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CardServerNonce.
+func (c *CardServerNonceClient) Update() *CardServerNonceUpdate {
+	mutation := newCardServerNonceMutation(c.config, OpUpdate)
+	return &CardServerNonceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CardServerNonceClient) UpdateOne(csn *CardServerNonce) *CardServerNonceUpdateOne {
+	mutation := newCardServerNonceMutation(c.config, OpUpdateOne, withCardServerNonce(csn))
+	return &CardServerNonceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CardServerNonceClient) UpdateOneID(id uuid.UUID) *CardServerNonceUpdateOne {
+	mutation := newCardServerNonceMutation(c.config, OpUpdateOne, withCardServerNonceID(id))
+	return &CardServerNonceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CardServerNonce.
+func (c *CardServerNonceClient) Delete() *CardServerNonceDelete {
+	mutation := newCardServerNonceMutation(c.config, OpDelete)
+	return &CardServerNonceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CardServerNonceClient) DeleteOne(csn *CardServerNonce) *CardServerNonceDeleteOne {
+	return c.DeleteOneID(csn.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CardServerNonceClient) DeleteOneID(id uuid.UUID) *CardServerNonceDeleteOne {
+	builder := c.Delete().Where(cardservernonce.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CardServerNonceDeleteOne{builder}
+}
+
+// Query returns a query builder for CardServerNonce.
+func (c *CardServerNonceClient) Query() *CardServerNonceQuery {
+	return &CardServerNonceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCardServerNonce},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CardServerNonce entity by its id.
+func (c *CardServerNonceClient) Get(ctx context.Context, id uuid.UUID) (*CardServerNonce, error) {
+	return c.Query().Where(cardservernonce.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CardServerNonceClient) GetX(ctx context.Context, id uuid.UUID) *CardServerNonce {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryCard queries the card edge of a CardServerNonce.
+func (c *CardServerNonceClient) QueryCard(csn *CardServerNonce) *TappCardQuery {
+	query := (&TappCardClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := csn.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(cardservernonce.Table, cardservernonce.FieldID, id),
+			sqlgraph.To(tappcard.Table, tappcard.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, cardservernonce.CardTable, cardservernonce.CardColumn),
+		)
+		fromV = sqlgraph.Neighbors(csn.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySenderProfile queries the sender_profile edge of a CardServerNonce.
+func (c *CardServerNonceClient) QuerySenderProfile(csn *CardServerNonce) *SenderProfileQuery {
+	query := (&SenderProfileClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := csn.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(cardservernonce.Table, cardservernonce.FieldID, id),
+			sqlgraph.To(senderprofile.Table, senderprofile.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, cardservernonce.SenderProfileTable, cardservernonce.SenderProfileColumn),
+		)
+		fromV = sqlgraph.Neighbors(csn.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CardServerNonceClient) Hooks() []Hook {
+	return c.hooks.CardServerNonce
+}
+
+// Interceptors returns the client interceptors.
+func (c *CardServerNonceClient) Interceptors() []Interceptor {
+	return c.inters.CardServerNonce
+}
+
+func (c *CardServerNonceClient) mutate(ctx context.Context, m *CardServerNonceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CardServerNonceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CardServerNonceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CardServerNonceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CardServerNonceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CardServerNonce mutation op: %q", m.Op())
 	}
 }
 
@@ -3483,6 +3656,22 @@ func (c *SenderProfileClient) QueryMerchantBankAccount(sp *SenderProfile) *Merch
 	return query
 }
 
+// QueryCardServerNonces queries the card_server_nonces edge of a SenderProfile.
+func (c *SenderProfileClient) QueryCardServerNonces(sp *SenderProfile) *CardServerNonceQuery {
+	query := (&CardServerNonceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sp.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(senderprofile.Table, senderprofile.FieldID, id),
+			sqlgraph.To(cardservernonce.Table, cardservernonce.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, senderprofile.CardServerNoncesTable, senderprofile.CardServerNoncesColumn),
+		)
+		fromV = sqlgraph.Neighbors(sp.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SenderProfileClient) Hooks() []Hook {
 	return c.hooks.SenderProfile
@@ -3774,6 +3963,22 @@ func (c *TappCardClient) QueryUser(tc *TappCard) *UserQuery {
 			sqlgraph.From(tappcard.Table, tappcard.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, tappcard.UserTable, tappcard.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(tc.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryServerNonces queries the server_nonces edge of a TappCard.
+func (c *TappCardClient) QueryServerNonces(tc *TappCard) *CardServerNonceQuery {
+	query := (&CardServerNonceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := tc.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tappcard.Table, tappcard.FieldID, id),
+			sqlgraph.To(cardservernonce.Table, cardservernonce.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, tappcard.ServerNoncesTable, tappcard.ServerNoncesColumn),
 		)
 		fromV = sqlgraph.Neighbors(tc.driver.Dialect(), step)
 		return fromV, nil
@@ -4620,7 +4825,7 @@ func (c *WebhookRetryAttemptClient) mutate(ctx context.Context, m *WebhookRetryA
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, FiatCurrency, IdentityVerificationRequest, Institution,
+		APIKey, CardServerNonce, FiatCurrency, IdentityVerificationRequest, Institution,
 		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
 		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
 		ProviderRating, ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken,
@@ -4628,7 +4833,7 @@ type (
 		VerificationToken, WebhookRetryAttempt []ent.Hook
 	}
 	inters struct {
-		APIKey, FiatCurrency, IdentityVerificationRequest, Institution,
+		APIKey, CardServerNonce, FiatCurrency, IdentityVerificationRequest, Institution,
 		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
 		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
 		ProviderRating, ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken,

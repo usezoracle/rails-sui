@@ -110,12 +110,18 @@ func senderRoutes(route *gin.Engine) {
 	v1.GET("stats", senderCtrl.Stats)
 
 	// Tapp Merchant — mobile-first merchant API.
+	cardsCtrl := cards.NewController()
 	me := v1.Group("me/")
 	me.POST("bank-account", senderCtrl.SaveMerchantBankAccount)
 	me.GET("bank-account", senderCtrl.GetMerchantBankAccount)
 	me.POST("tap", senderCtrl.InitiateTapPayment)
-	me.POST("tap-card", senderCtrl.InitiateTapCardPayment)
 	me.GET("payments/stream", senderCtrl.StreamPayments)
+
+	// Tap Card vertical (replaces the 501 stub on /tap-card).
+	me.GET("tap-card/nonce", cardsCtrl.TapCardNonce)
+	me.POST("tap-card", cardsCtrl.TapCardDebit)
+	me.POST("tap-card/:order_id/token-ack", cardsCtrl.TapCardTokenAck)
+	me.GET("tap-card/step-up", cardsCtrl.TapCardStepUpPoll)
 }
 
 func providerRoutes(route *gin.Engine) {
@@ -135,23 +141,34 @@ func providerRoutes(route *gin.Engine) {
 	v1.GET("node-info", providerCtrl.NodeInfo)
 }
 
-// cardsRoutes wires the Tapp Card surface — currently a PoC subset
-// (issue activation URLs + resolve the public /c/:token redirect).
-// Post-PoC endpoints (link, resync, debit, …) land in the same
-// /v1/cards group with proper auth wired in per docs/tapp-card-spec.md.
+// cardsRoutes wires the Tapp Card surface — public redirect, full
+// cardholder flow (link, top-up, revoke, resync), and admin recovery.
+// The merchant-facing debit endpoints live under /v1/sender/me/tap-card
+// and are wired in senderRoutes (different middleware stack).
 func cardsRoutes(route *gin.Engine) {
 	cardsCtrl := cards.NewController()
 
 	// Public: the tap-to-URL redirect. Anyone with a card hits this.
 	route.GET("/c/:token", cardsCtrl.Resolve)
 
-	// Cardholder: claim flow (JWT-authenticated via /v1/auth/google).
+	// Cardholder (PWA): JWT-authenticated via /v1/auth/google.
 	cardholder := route.Group("/v1/cards/")
 	cardholder.Use(middleware.JWTMiddleware)
 	cardholder.POST("link/claim", cardsCtrl.Claim)
+	cardholder.POST("link/complete", cardsCtrl.LinkComplete)
+	cardholder.GET("me", cardsCtrl.Me)
+	cardholder.POST("top-up", cardsCtrl.TopUp)
+	cardholder.POST("revoke", cardsCtrl.Revoke)
+	cardholder.POST("me/resync", cardsCtrl.Resync)
+	cardholder.POST("me/resync/complete", cardsCtrl.ResyncComplete)
 
-	// Admin: mint activation tokens for PoC hand-testing.
+	// Admin: shared-secret-gated.
 	admin := route.Group("/v1/cards/")
 	admin.Use(cards.AdminTokenMiddleware)
 	admin.POST("issue-batch", cardsCtrl.IssueBatch)
+
+	// Admin recovery (iOS no-Web-NFC escape hatch).
+	adminCards := route.Group("/v1/admin/cards/")
+	adminCards.Use(cards.AdminTokenMiddleware)
+	adminCards.POST(":id/recovery", cardsCtrl.AdminRecovery)
 }

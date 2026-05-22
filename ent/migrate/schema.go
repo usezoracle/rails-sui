@@ -35,6 +35,47 @@ var (
 			},
 		},
 	}
+	// CardServerNoncesColumns holds the columns for the "card_server_nonces" table.
+	CardServerNoncesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "nonce", Type: field.TypeBytes, Unique: true, Size: 32},
+		{Name: "tier", Type: field.TypeEnum, Enums: []string{"none", "pin", "step_up"}},
+		{Name: "amount", Type: field.TypeString},
+		{Name: "currency", Type: field.TypeString, Size: 3, Default: "NGN"},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "consumed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "sender_profile_card_server_nonces", Type: field.TypeUUID},
+		{Name: "tapp_card_server_nonces", Type: field.TypeUUID},
+	}
+	// CardServerNoncesTable holds the schema information for the "card_server_nonces" table.
+	CardServerNoncesTable = &schema.Table{
+		Name:       "card_server_nonces",
+		Columns:    CardServerNoncesColumns,
+		PrimaryKey: []*schema.Column{CardServerNoncesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "card_server_nonces_sender_profiles_card_server_nonces",
+				Columns:    []*schema.Column{CardServerNoncesColumns[9]},
+				RefColumns: []*schema.Column{SenderProfilesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "card_server_nonces_tapp_cards_server_nonces",
+				Columns:    []*schema.Column{CardServerNoncesColumns[10]},
+				RefColumns: []*schema.Column{TappCardsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "cardservernonce_nonce",
+				Unique:  false,
+				Columns: []*schema.Column{CardServerNoncesColumns[3]},
+			},
+		},
+	}
 	// FiatCurrenciesColumns holds the columns for the "fiat_currencies" table.
 	FiatCurrenciesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -575,6 +616,23 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "activation_token", Type: field.TypeString, Unique: true},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"issued", "claimed", "live", "revoked", "locked"}, Default: "issued"},
+		{Name: "card_uid_hash", Type: field.TypeBytes, Nullable: true, Size: 32},
+		{Name: "cap_object_id", Type: field.TypeString, Nullable: true},
+		{Name: "coin_type", Type: field.TypeString, Nullable: true},
+		{Name: "linking_proof", Type: field.TypeBytes, Nullable: true, Size: 32},
+		{Name: "pin_verifier", Type: field.TypeBytes, Nullable: true, Size: 32},
+		{Name: "pin_attempts_remaining", Type: field.TypeInt, Default: 5},
+		{Name: "locked_until", Type: field.TypeTime, Nullable: true},
+		{Name: "card_password", Type: field.TypeBytes, Nullable: true, Size: 4},
+		{Name: "current_token_ciphertext", Type: field.TypeBytes, Nullable: true},
+		{Name: "token_rotated_at", Type: field.TypeTime, Nullable: true},
+		{Name: "token_mismatch_count", Type: field.TypeInt, Default: 0},
+		{Name: "daily_limit_subunit", Type: field.TypeUint64, Default: 0},
+		{Name: "per_tap_limit_subunit", Type: field.TypeUint64, Default: 0},
+		{Name: "step_up_threshold_subunit", Type: field.TypeUint64, Default: 0},
+		{Name: "spent_today_subunit", Type: field.TypeUint64, Default: 0},
+		{Name: "day_index", Type: field.TypeUint64, Default: 0},
+		{Name: "needs_resync", Type: field.TypeBool, Default: false},
 		{Name: "user_tapp_cards", Type: field.TypeUUID, Nullable: true},
 	}
 	// TappCardsTable holds the schema information for the "tapp_cards" table.
@@ -585,7 +643,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "tapp_cards_users_tapp_cards",
-				Columns:    []*schema.Column{TappCardsColumns[5]},
+				Columns:    []*schema.Column{TappCardsColumns[22]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -595,6 +653,11 @@ var (
 				Name:    "tappcard_activation_token",
 				Unique:  false,
 				Columns: []*schema.Column{TappCardsColumns[3]},
+			},
+			{
+				Name:    "tappcard_card_uid_hash",
+				Unique:  false,
+				Columns: []*schema.Column{TappCardsColumns[5]},
 			},
 		},
 	}
@@ -751,6 +814,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		CardServerNoncesTable,
 		FiatCurrenciesTable,
 		IdentityVerificationRequestsTable,
 		InstitutionsTable,
@@ -782,6 +846,8 @@ var (
 func init() {
 	APIKeysTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	APIKeysTable.ForeignKeys[1].RefTable = SenderProfilesTable
+	CardServerNoncesTable.ForeignKeys[0].RefTable = SenderProfilesTable
+	CardServerNoncesTable.ForeignKeys[1].RefTable = TappCardsTable
 	InstitutionsTable.ForeignKeys[0].RefTable = FiatCurrenciesTable
 	LockOrderFulfillmentsTable.ForeignKeys[0].RefTable = LockPaymentOrdersTable
 	LockPaymentOrdersTable.ForeignKeys[0].RefTable = ProviderProfilesTable

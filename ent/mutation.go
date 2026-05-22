@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/institution"
@@ -51,6 +52,7 @@ const (
 
 	// Node types.
 	TypeAPIKey                      = "APIKey"
+	TypeCardServerNonce             = "CardServerNonce"
 	TypeFiatCurrency                = "FiatCurrency"
 	TypeIdentityVerificationRequest = "IdentityVerificationRequest"
 	TypeInstitution                 = "Institution"
@@ -618,6 +620,864 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey edge %s", name)
+}
+
+// CardServerNonceMutation represents an operation that mutates the CardServerNonce nodes in the graph.
+type CardServerNonceMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	created_at            *time.Time
+	updated_at            *time.Time
+	nonce                 *[]byte
+	tier                  *cardservernonce.Tier
+	amount                *string
+	currency              *string
+	expires_at            *time.Time
+	consumed_at           *time.Time
+	clearedFields         map[string]struct{}
+	card                  *uuid.UUID
+	clearedcard           bool
+	sender_profile        *uuid.UUID
+	clearedsender_profile bool
+	done                  bool
+	oldValue              func(context.Context) (*CardServerNonce, error)
+	predicates            []predicate.CardServerNonce
+}
+
+var _ ent.Mutation = (*CardServerNonceMutation)(nil)
+
+// cardservernonceOption allows management of the mutation configuration using functional options.
+type cardservernonceOption func(*CardServerNonceMutation)
+
+// newCardServerNonceMutation creates new mutation for the CardServerNonce entity.
+func newCardServerNonceMutation(c config, op Op, opts ...cardservernonceOption) *CardServerNonceMutation {
+	m := &CardServerNonceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCardServerNonce,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCardServerNonceID sets the ID field of the mutation.
+func withCardServerNonceID(id uuid.UUID) cardservernonceOption {
+	return func(m *CardServerNonceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CardServerNonce
+		)
+		m.oldValue = func(ctx context.Context) (*CardServerNonce, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CardServerNonce.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCardServerNonce sets the old CardServerNonce of the mutation.
+func withCardServerNonce(node *CardServerNonce) cardservernonceOption {
+	return func(m *CardServerNonceMutation) {
+		m.oldValue = func(context.Context) (*CardServerNonce, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CardServerNonceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CardServerNonceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of CardServerNonce entities.
+func (m *CardServerNonceMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CardServerNonceMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CardServerNonceMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CardServerNonce.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CardServerNonceMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CardServerNonceMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CardServerNonceMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CardServerNonceMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CardServerNonceMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CardServerNonceMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetNonce sets the "nonce" field.
+func (m *CardServerNonceMutation) SetNonce(b []byte) {
+	m.nonce = &b
+}
+
+// Nonce returns the value of the "nonce" field in the mutation.
+func (m *CardServerNonceMutation) Nonce() (r []byte, exists bool) {
+	v := m.nonce
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNonce returns the old "nonce" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldNonce(ctx context.Context) (v []byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNonce is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNonce requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNonce: %w", err)
+	}
+	return oldValue.Nonce, nil
+}
+
+// ResetNonce resets all changes to the "nonce" field.
+func (m *CardServerNonceMutation) ResetNonce() {
+	m.nonce = nil
+}
+
+// SetTier sets the "tier" field.
+func (m *CardServerNonceMutation) SetTier(c cardservernonce.Tier) {
+	m.tier = &c
+}
+
+// Tier returns the value of the "tier" field in the mutation.
+func (m *CardServerNonceMutation) Tier() (r cardservernonce.Tier, exists bool) {
+	v := m.tier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTier returns the old "tier" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldTier(ctx context.Context) (v cardservernonce.Tier, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTier: %w", err)
+	}
+	return oldValue.Tier, nil
+}
+
+// ResetTier resets all changes to the "tier" field.
+func (m *CardServerNonceMutation) ResetTier() {
+	m.tier = nil
+}
+
+// SetAmount sets the "amount" field.
+func (m *CardServerNonceMutation) SetAmount(s string) {
+	m.amount = &s
+}
+
+// Amount returns the value of the "amount" field in the mutation.
+func (m *CardServerNonceMutation) Amount() (r string, exists bool) {
+	v := m.amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAmount returns the old "amount" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldAmount(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAmount: %w", err)
+	}
+	return oldValue.Amount, nil
+}
+
+// ResetAmount resets all changes to the "amount" field.
+func (m *CardServerNonceMutation) ResetAmount() {
+	m.amount = nil
+}
+
+// SetCurrency sets the "currency" field.
+func (m *CardServerNonceMutation) SetCurrency(s string) {
+	m.currency = &s
+}
+
+// Currency returns the value of the "currency" field in the mutation.
+func (m *CardServerNonceMutation) Currency() (r string, exists bool) {
+	v := m.currency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrency returns the old "currency" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldCurrency(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrency is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrency requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrency: %w", err)
+	}
+	return oldValue.Currency, nil
+}
+
+// ResetCurrency resets all changes to the "currency" field.
+func (m *CardServerNonceMutation) ResetCurrency() {
+	m.currency = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *CardServerNonceMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *CardServerNonceMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *CardServerNonceMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (m *CardServerNonceMutation) SetConsumedAt(t time.Time) {
+	m.consumed_at = &t
+}
+
+// ConsumedAt returns the value of the "consumed_at" field in the mutation.
+func (m *CardServerNonceMutation) ConsumedAt() (r time.Time, exists bool) {
+	v := m.consumed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConsumedAt returns the old "consumed_at" field's value of the CardServerNonce entity.
+// If the CardServerNonce object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CardServerNonceMutation) OldConsumedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConsumedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConsumedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConsumedAt: %w", err)
+	}
+	return oldValue.ConsumedAt, nil
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (m *CardServerNonceMutation) ClearConsumedAt() {
+	m.consumed_at = nil
+	m.clearedFields[cardservernonce.FieldConsumedAt] = struct{}{}
+}
+
+// ConsumedAtCleared returns if the "consumed_at" field was cleared in this mutation.
+func (m *CardServerNonceMutation) ConsumedAtCleared() bool {
+	_, ok := m.clearedFields[cardservernonce.FieldConsumedAt]
+	return ok
+}
+
+// ResetConsumedAt resets all changes to the "consumed_at" field.
+func (m *CardServerNonceMutation) ResetConsumedAt() {
+	m.consumed_at = nil
+	delete(m.clearedFields, cardservernonce.FieldConsumedAt)
+}
+
+// SetCardID sets the "card" edge to the TappCard entity by id.
+func (m *CardServerNonceMutation) SetCardID(id uuid.UUID) {
+	m.card = &id
+}
+
+// ClearCard clears the "card" edge to the TappCard entity.
+func (m *CardServerNonceMutation) ClearCard() {
+	m.clearedcard = true
+}
+
+// CardCleared reports if the "card" edge to the TappCard entity was cleared.
+func (m *CardServerNonceMutation) CardCleared() bool {
+	return m.clearedcard
+}
+
+// CardID returns the "card" edge ID in the mutation.
+func (m *CardServerNonceMutation) CardID() (id uuid.UUID, exists bool) {
+	if m.card != nil {
+		return *m.card, true
+	}
+	return
+}
+
+// CardIDs returns the "card" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CardID instead. It exists only for internal usage by the builders.
+func (m *CardServerNonceMutation) CardIDs() (ids []uuid.UUID) {
+	if id := m.card; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCard resets all changes to the "card" edge.
+func (m *CardServerNonceMutation) ResetCard() {
+	m.card = nil
+	m.clearedcard = false
+}
+
+// SetSenderProfileID sets the "sender_profile" edge to the SenderProfile entity by id.
+func (m *CardServerNonceMutation) SetSenderProfileID(id uuid.UUID) {
+	m.sender_profile = &id
+}
+
+// ClearSenderProfile clears the "sender_profile" edge to the SenderProfile entity.
+func (m *CardServerNonceMutation) ClearSenderProfile() {
+	m.clearedsender_profile = true
+}
+
+// SenderProfileCleared reports if the "sender_profile" edge to the SenderProfile entity was cleared.
+func (m *CardServerNonceMutation) SenderProfileCleared() bool {
+	return m.clearedsender_profile
+}
+
+// SenderProfileID returns the "sender_profile" edge ID in the mutation.
+func (m *CardServerNonceMutation) SenderProfileID() (id uuid.UUID, exists bool) {
+	if m.sender_profile != nil {
+		return *m.sender_profile, true
+	}
+	return
+}
+
+// SenderProfileIDs returns the "sender_profile" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SenderProfileID instead. It exists only for internal usage by the builders.
+func (m *CardServerNonceMutation) SenderProfileIDs() (ids []uuid.UUID) {
+	if id := m.sender_profile; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSenderProfile resets all changes to the "sender_profile" edge.
+func (m *CardServerNonceMutation) ResetSenderProfile() {
+	m.sender_profile = nil
+	m.clearedsender_profile = false
+}
+
+// Where appends a list predicates to the CardServerNonceMutation builder.
+func (m *CardServerNonceMutation) Where(ps ...predicate.CardServerNonce) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CardServerNonceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CardServerNonceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CardServerNonce, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CardServerNonceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CardServerNonceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CardServerNonce).
+func (m *CardServerNonceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CardServerNonceMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.created_at != nil {
+		fields = append(fields, cardservernonce.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, cardservernonce.FieldUpdatedAt)
+	}
+	if m.nonce != nil {
+		fields = append(fields, cardservernonce.FieldNonce)
+	}
+	if m.tier != nil {
+		fields = append(fields, cardservernonce.FieldTier)
+	}
+	if m.amount != nil {
+		fields = append(fields, cardservernonce.FieldAmount)
+	}
+	if m.currency != nil {
+		fields = append(fields, cardservernonce.FieldCurrency)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, cardservernonce.FieldExpiresAt)
+	}
+	if m.consumed_at != nil {
+		fields = append(fields, cardservernonce.FieldConsumedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CardServerNonceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case cardservernonce.FieldCreatedAt:
+		return m.CreatedAt()
+	case cardservernonce.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case cardservernonce.FieldNonce:
+		return m.Nonce()
+	case cardservernonce.FieldTier:
+		return m.Tier()
+	case cardservernonce.FieldAmount:
+		return m.Amount()
+	case cardservernonce.FieldCurrency:
+		return m.Currency()
+	case cardservernonce.FieldExpiresAt:
+		return m.ExpiresAt()
+	case cardservernonce.FieldConsumedAt:
+		return m.ConsumedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CardServerNonceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case cardservernonce.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case cardservernonce.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case cardservernonce.FieldNonce:
+		return m.OldNonce(ctx)
+	case cardservernonce.FieldTier:
+		return m.OldTier(ctx)
+	case cardservernonce.FieldAmount:
+		return m.OldAmount(ctx)
+	case cardservernonce.FieldCurrency:
+		return m.OldCurrency(ctx)
+	case cardservernonce.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case cardservernonce.FieldConsumedAt:
+		return m.OldConsumedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown CardServerNonce field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CardServerNonceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case cardservernonce.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case cardservernonce.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case cardservernonce.FieldNonce:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNonce(v)
+		return nil
+	case cardservernonce.FieldTier:
+		v, ok := value.(cardservernonce.Tier)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTier(v)
+		return nil
+	case cardservernonce.FieldAmount:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAmount(v)
+		return nil
+	case cardservernonce.FieldCurrency:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrency(v)
+		return nil
+	case cardservernonce.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case cardservernonce.FieldConsumedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConsumedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CardServerNonce field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CardServerNonceMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CardServerNonceMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CardServerNonceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown CardServerNonce numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CardServerNonceMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(cardservernonce.FieldConsumedAt) {
+		fields = append(fields, cardservernonce.FieldConsumedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CardServerNonceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CardServerNonceMutation) ClearField(name string) error {
+	switch name {
+	case cardservernonce.FieldConsumedAt:
+		m.ClearConsumedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CardServerNonce nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CardServerNonceMutation) ResetField(name string) error {
+	switch name {
+	case cardservernonce.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case cardservernonce.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case cardservernonce.FieldNonce:
+		m.ResetNonce()
+		return nil
+	case cardservernonce.FieldTier:
+		m.ResetTier()
+		return nil
+	case cardservernonce.FieldAmount:
+		m.ResetAmount()
+		return nil
+	case cardservernonce.FieldCurrency:
+		m.ResetCurrency()
+		return nil
+	case cardservernonce.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case cardservernonce.FieldConsumedAt:
+		m.ResetConsumedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown CardServerNonce field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CardServerNonceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.card != nil {
+		edges = append(edges, cardservernonce.EdgeCard)
+	}
+	if m.sender_profile != nil {
+		edges = append(edges, cardservernonce.EdgeSenderProfile)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CardServerNonceMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case cardservernonce.EdgeCard:
+		if id := m.card; id != nil {
+			return []ent.Value{*id}
+		}
+	case cardservernonce.EdgeSenderProfile:
+		if id := m.sender_profile; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CardServerNonceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CardServerNonceMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CardServerNonceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedcard {
+		edges = append(edges, cardservernonce.EdgeCard)
+	}
+	if m.clearedsender_profile {
+		edges = append(edges, cardservernonce.EdgeSenderProfile)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CardServerNonceMutation) EdgeCleared(name string) bool {
+	switch name {
+	case cardservernonce.EdgeCard:
+		return m.clearedcard
+	case cardservernonce.EdgeSenderProfile:
+		return m.clearedsender_profile
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CardServerNonceMutation) ClearEdge(name string) error {
+	switch name {
+	case cardservernonce.EdgeCard:
+		m.ClearCard()
+		return nil
+	case cardservernonce.EdgeSenderProfile:
+		m.ClearSenderProfile()
+		return nil
+	}
+	return fmt.Errorf("unknown CardServerNonce unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CardServerNonceMutation) ResetEdge(name string) error {
+	switch name {
+	case cardservernonce.EdgeCard:
+		m.ResetCard()
+		return nil
+	case cardservernonce.EdgeSenderProfile:
+		m.ResetSenderProfile()
+		return nil
+	}
+	return fmt.Errorf("unknown CardServerNonce edge %s", name)
 }
 
 // FiatCurrencyMutation represents an operation that mutates the FiatCurrency nodes in the graph.
@@ -16805,6 +17665,9 @@ type SenderProfileMutation struct {
 	clearedorder_tokens          bool
 	merchant_bank_account        *uuid.UUID
 	clearedmerchant_bank_account bool
+	card_server_nonces           map[uuid.UUID]struct{}
+	removedcard_server_nonces    map[uuid.UUID]struct{}
+	clearedcard_server_nonces    bool
 	done                         bool
 	oldValue                     func(context.Context) (*SenderProfile, error)
 	predicates                   []predicate.SenderProfile
@@ -17396,6 +18259,60 @@ func (m *SenderProfileMutation) ResetMerchantBankAccount() {
 	m.clearedmerchant_bank_account = false
 }
 
+// AddCardServerNonceIDs adds the "card_server_nonces" edge to the CardServerNonce entity by ids.
+func (m *SenderProfileMutation) AddCardServerNonceIDs(ids ...uuid.UUID) {
+	if m.card_server_nonces == nil {
+		m.card_server_nonces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.card_server_nonces[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCardServerNonces clears the "card_server_nonces" edge to the CardServerNonce entity.
+func (m *SenderProfileMutation) ClearCardServerNonces() {
+	m.clearedcard_server_nonces = true
+}
+
+// CardServerNoncesCleared reports if the "card_server_nonces" edge to the CardServerNonce entity was cleared.
+func (m *SenderProfileMutation) CardServerNoncesCleared() bool {
+	return m.clearedcard_server_nonces
+}
+
+// RemoveCardServerNonceIDs removes the "card_server_nonces" edge to the CardServerNonce entity by IDs.
+func (m *SenderProfileMutation) RemoveCardServerNonceIDs(ids ...uuid.UUID) {
+	if m.removedcard_server_nonces == nil {
+		m.removedcard_server_nonces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.card_server_nonces, ids[i])
+		m.removedcard_server_nonces[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCardServerNonces returns the removed IDs of the "card_server_nonces" edge to the CardServerNonce entity.
+func (m *SenderProfileMutation) RemovedCardServerNoncesIDs() (ids []uuid.UUID) {
+	for id := range m.removedcard_server_nonces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CardServerNoncesIDs returns the "card_server_nonces" edge IDs in the mutation.
+func (m *SenderProfileMutation) CardServerNoncesIDs() (ids []uuid.UUID) {
+	for id := range m.card_server_nonces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCardServerNonces resets all changes to the "card_server_nonces" edge.
+func (m *SenderProfileMutation) ResetCardServerNonces() {
+	m.card_server_nonces = nil
+	m.clearedcard_server_nonces = false
+	m.removedcard_server_nonces = nil
+}
+
 // Where appends a list predicates to the SenderProfileMutation builder.
 func (m *SenderProfileMutation) Where(ps ...predicate.SenderProfile) {
 	m.predicates = append(m.predicates, ps...)
@@ -17629,7 +18546,7 @@ func (m *SenderProfileMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SenderProfileMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.user != nil {
 		edges = append(edges, senderprofile.EdgeUser)
 	}
@@ -17644,6 +18561,9 @@ func (m *SenderProfileMutation) AddedEdges() []string {
 	}
 	if m.merchant_bank_account != nil {
 		edges = append(edges, senderprofile.EdgeMerchantBankAccount)
+	}
+	if m.card_server_nonces != nil {
+		edges = append(edges, senderprofile.EdgeCardServerNonces)
 	}
 	return edges
 }
@@ -17676,18 +18596,27 @@ func (m *SenderProfileMutation) AddedIDs(name string) []ent.Value {
 		if id := m.merchant_bank_account; id != nil {
 			return []ent.Value{*id}
 		}
+	case senderprofile.EdgeCardServerNonces:
+		ids := make([]ent.Value, 0, len(m.card_server_nonces))
+		for id := range m.card_server_nonces {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SenderProfileMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedpayment_orders != nil {
 		edges = append(edges, senderprofile.EdgePaymentOrders)
 	}
 	if m.removedorder_tokens != nil {
 		edges = append(edges, senderprofile.EdgeOrderTokens)
+	}
+	if m.removedcard_server_nonces != nil {
+		edges = append(edges, senderprofile.EdgeCardServerNonces)
 	}
 	return edges
 }
@@ -17708,13 +18637,19 @@ func (m *SenderProfileMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case senderprofile.EdgeCardServerNonces:
+		ids := make([]ent.Value, 0, len(m.removedcard_server_nonces))
+		for id := range m.removedcard_server_nonces {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SenderProfileMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.cleareduser {
 		edges = append(edges, senderprofile.EdgeUser)
 	}
@@ -17729,6 +18664,9 @@ func (m *SenderProfileMutation) ClearedEdges() []string {
 	}
 	if m.clearedmerchant_bank_account {
 		edges = append(edges, senderprofile.EdgeMerchantBankAccount)
+	}
+	if m.clearedcard_server_nonces {
+		edges = append(edges, senderprofile.EdgeCardServerNonces)
 	}
 	return edges
 }
@@ -17747,6 +18685,8 @@ func (m *SenderProfileMutation) EdgeCleared(name string) bool {
 		return m.clearedorder_tokens
 	case senderprofile.EdgeMerchantBankAccount:
 		return m.clearedmerchant_bank_account
+	case senderprofile.EdgeCardServerNonces:
+		return m.clearedcard_server_nonces
 	}
 	return false
 }
@@ -17786,6 +18726,9 @@ func (m *SenderProfileMutation) ResetEdge(name string) error {
 		return nil
 	case senderprofile.EdgeMerchantBankAccount:
 		m.ResetMerchantBankAccount()
+		return nil
+	case senderprofile.EdgeCardServerNonces:
+		m.ResetCardServerNonces()
 		return nil
 	}
 	return fmt.Errorf("unknown SenderProfile edge %s", name)
@@ -18750,19 +19693,46 @@ func (m *SuiReceiveAddressMutation) ResetEdge(name string) error {
 // TappCardMutation represents an operation that mutates the TappCard nodes in the graph.
 type TappCardMutation struct {
 	config
-	op               Op
-	typ              string
-	id               *uuid.UUID
-	created_at       *time.Time
-	updated_at       *time.Time
-	activation_token *string
-	status           *tappcard.Status
-	clearedFields    map[string]struct{}
-	user             *uuid.UUID
-	cleareduser      bool
-	done             bool
-	oldValue         func(context.Context) (*TappCard, error)
-	predicates       []predicate.TappCard
+	op                           Op
+	typ                          string
+	id                           *uuid.UUID
+	created_at                   *time.Time
+	updated_at                   *time.Time
+	activation_token             *string
+	status                       *tappcard.Status
+	card_uid_hash                *[]byte
+	cap_object_id                *string
+	coin_type                    *string
+	linking_proof                *[]byte
+	pin_verifier                 *[]byte
+	pin_attempts_remaining       *int
+	addpin_attempts_remaining    *int
+	locked_until                 *time.Time
+	card_password                *[]byte
+	current_token_ciphertext     *[]byte
+	token_rotated_at             *time.Time
+	token_mismatch_count         *int
+	addtoken_mismatch_count      *int
+	daily_limit_subunit          *uint64
+	adddaily_limit_subunit       *int64
+	per_tap_limit_subunit        *uint64
+	addper_tap_limit_subunit     *int64
+	step_up_threshold_subunit    *uint64
+	addstep_up_threshold_subunit *int64
+	spent_today_subunit          *uint64
+	addspent_today_subunit       *int64
+	day_index                    *uint64
+	addday_index                 *int64
+	needs_resync                 *bool
+	clearedFields                map[string]struct{}
+	user                         *uuid.UUID
+	cleareduser                  bool
+	server_nonces                map[uuid.UUID]struct{}
+	removedserver_nonces         map[uuid.UUID]struct{}
+	clearedserver_nonces         bool
+	done                         bool
+	oldValue                     func(context.Context) (*TappCard, error)
+	predicates                   []predicate.TappCard
 }
 
 var _ ent.Mutation = (*TappCardMutation)(nil)
@@ -19013,6 +19983,875 @@ func (m *TappCardMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (m *TappCardMutation) SetCardUIDHash(b []byte) {
+	m.card_uid_hash = &b
+}
+
+// CardUIDHash returns the value of the "card_uid_hash" field in the mutation.
+func (m *TappCardMutation) CardUIDHash() (r []byte, exists bool) {
+	v := m.card_uid_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCardUIDHash returns the old "card_uid_hash" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldCardUIDHash(ctx context.Context) (v *[]byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCardUIDHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCardUIDHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCardUIDHash: %w", err)
+	}
+	return oldValue.CardUIDHash, nil
+}
+
+// ClearCardUIDHash clears the value of the "card_uid_hash" field.
+func (m *TappCardMutation) ClearCardUIDHash() {
+	m.card_uid_hash = nil
+	m.clearedFields[tappcard.FieldCardUIDHash] = struct{}{}
+}
+
+// CardUIDHashCleared returns if the "card_uid_hash" field was cleared in this mutation.
+func (m *TappCardMutation) CardUIDHashCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldCardUIDHash]
+	return ok
+}
+
+// ResetCardUIDHash resets all changes to the "card_uid_hash" field.
+func (m *TappCardMutation) ResetCardUIDHash() {
+	m.card_uid_hash = nil
+	delete(m.clearedFields, tappcard.FieldCardUIDHash)
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (m *TappCardMutation) SetCapObjectID(s string) {
+	m.cap_object_id = &s
+}
+
+// CapObjectID returns the value of the "cap_object_id" field in the mutation.
+func (m *TappCardMutation) CapObjectID() (r string, exists bool) {
+	v := m.cap_object_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapObjectID returns the old "cap_object_id" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldCapObjectID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapObjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapObjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapObjectID: %w", err)
+	}
+	return oldValue.CapObjectID, nil
+}
+
+// ClearCapObjectID clears the value of the "cap_object_id" field.
+func (m *TappCardMutation) ClearCapObjectID() {
+	m.cap_object_id = nil
+	m.clearedFields[tappcard.FieldCapObjectID] = struct{}{}
+}
+
+// CapObjectIDCleared returns if the "cap_object_id" field was cleared in this mutation.
+func (m *TappCardMutation) CapObjectIDCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldCapObjectID]
+	return ok
+}
+
+// ResetCapObjectID resets all changes to the "cap_object_id" field.
+func (m *TappCardMutation) ResetCapObjectID() {
+	m.cap_object_id = nil
+	delete(m.clearedFields, tappcard.FieldCapObjectID)
+}
+
+// SetCoinType sets the "coin_type" field.
+func (m *TappCardMutation) SetCoinType(s string) {
+	m.coin_type = &s
+}
+
+// CoinType returns the value of the "coin_type" field in the mutation.
+func (m *TappCardMutation) CoinType() (r string, exists bool) {
+	v := m.coin_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCoinType returns the old "coin_type" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldCoinType(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCoinType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCoinType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCoinType: %w", err)
+	}
+	return oldValue.CoinType, nil
+}
+
+// ClearCoinType clears the value of the "coin_type" field.
+func (m *TappCardMutation) ClearCoinType() {
+	m.coin_type = nil
+	m.clearedFields[tappcard.FieldCoinType] = struct{}{}
+}
+
+// CoinTypeCleared returns if the "coin_type" field was cleared in this mutation.
+func (m *TappCardMutation) CoinTypeCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldCoinType]
+	return ok
+}
+
+// ResetCoinType resets all changes to the "coin_type" field.
+func (m *TappCardMutation) ResetCoinType() {
+	m.coin_type = nil
+	delete(m.clearedFields, tappcard.FieldCoinType)
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (m *TappCardMutation) SetLinkingProof(b []byte) {
+	m.linking_proof = &b
+}
+
+// LinkingProof returns the value of the "linking_proof" field in the mutation.
+func (m *TappCardMutation) LinkingProof() (r []byte, exists bool) {
+	v := m.linking_proof
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLinkingProof returns the old "linking_proof" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldLinkingProof(ctx context.Context) (v *[]byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLinkingProof is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLinkingProof requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLinkingProof: %w", err)
+	}
+	return oldValue.LinkingProof, nil
+}
+
+// ClearLinkingProof clears the value of the "linking_proof" field.
+func (m *TappCardMutation) ClearLinkingProof() {
+	m.linking_proof = nil
+	m.clearedFields[tappcard.FieldLinkingProof] = struct{}{}
+}
+
+// LinkingProofCleared returns if the "linking_proof" field was cleared in this mutation.
+func (m *TappCardMutation) LinkingProofCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldLinkingProof]
+	return ok
+}
+
+// ResetLinkingProof resets all changes to the "linking_proof" field.
+func (m *TappCardMutation) ResetLinkingProof() {
+	m.linking_proof = nil
+	delete(m.clearedFields, tappcard.FieldLinkingProof)
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (m *TappCardMutation) SetPinVerifier(b []byte) {
+	m.pin_verifier = &b
+}
+
+// PinVerifier returns the value of the "pin_verifier" field in the mutation.
+func (m *TappCardMutation) PinVerifier() (r []byte, exists bool) {
+	v := m.pin_verifier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPinVerifier returns the old "pin_verifier" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldPinVerifier(ctx context.Context) (v *[]byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPinVerifier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPinVerifier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPinVerifier: %w", err)
+	}
+	return oldValue.PinVerifier, nil
+}
+
+// ClearPinVerifier clears the value of the "pin_verifier" field.
+func (m *TappCardMutation) ClearPinVerifier() {
+	m.pin_verifier = nil
+	m.clearedFields[tappcard.FieldPinVerifier] = struct{}{}
+}
+
+// PinVerifierCleared returns if the "pin_verifier" field was cleared in this mutation.
+func (m *TappCardMutation) PinVerifierCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldPinVerifier]
+	return ok
+}
+
+// ResetPinVerifier resets all changes to the "pin_verifier" field.
+func (m *TappCardMutation) ResetPinVerifier() {
+	m.pin_verifier = nil
+	delete(m.clearedFields, tappcard.FieldPinVerifier)
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (m *TappCardMutation) SetPinAttemptsRemaining(i int) {
+	m.pin_attempts_remaining = &i
+	m.addpin_attempts_remaining = nil
+}
+
+// PinAttemptsRemaining returns the value of the "pin_attempts_remaining" field in the mutation.
+func (m *TappCardMutation) PinAttemptsRemaining() (r int, exists bool) {
+	v := m.pin_attempts_remaining
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPinAttemptsRemaining returns the old "pin_attempts_remaining" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldPinAttemptsRemaining(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPinAttemptsRemaining is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPinAttemptsRemaining requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPinAttemptsRemaining: %w", err)
+	}
+	return oldValue.PinAttemptsRemaining, nil
+}
+
+// AddPinAttemptsRemaining adds i to the "pin_attempts_remaining" field.
+func (m *TappCardMutation) AddPinAttemptsRemaining(i int) {
+	if m.addpin_attempts_remaining != nil {
+		*m.addpin_attempts_remaining += i
+	} else {
+		m.addpin_attempts_remaining = &i
+	}
+}
+
+// AddedPinAttemptsRemaining returns the value that was added to the "pin_attempts_remaining" field in this mutation.
+func (m *TappCardMutation) AddedPinAttemptsRemaining() (r int, exists bool) {
+	v := m.addpin_attempts_remaining
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPinAttemptsRemaining resets all changes to the "pin_attempts_remaining" field.
+func (m *TappCardMutation) ResetPinAttemptsRemaining() {
+	m.pin_attempts_remaining = nil
+	m.addpin_attempts_remaining = nil
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (m *TappCardMutation) SetLockedUntil(t time.Time) {
+	m.locked_until = &t
+}
+
+// LockedUntil returns the value of the "locked_until" field in the mutation.
+func (m *TappCardMutation) LockedUntil() (r time.Time, exists bool) {
+	v := m.locked_until
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLockedUntil returns the old "locked_until" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldLockedUntil(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLockedUntil is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLockedUntil requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLockedUntil: %w", err)
+	}
+	return oldValue.LockedUntil, nil
+}
+
+// ClearLockedUntil clears the value of the "locked_until" field.
+func (m *TappCardMutation) ClearLockedUntil() {
+	m.locked_until = nil
+	m.clearedFields[tappcard.FieldLockedUntil] = struct{}{}
+}
+
+// LockedUntilCleared returns if the "locked_until" field was cleared in this mutation.
+func (m *TappCardMutation) LockedUntilCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldLockedUntil]
+	return ok
+}
+
+// ResetLockedUntil resets all changes to the "locked_until" field.
+func (m *TappCardMutation) ResetLockedUntil() {
+	m.locked_until = nil
+	delete(m.clearedFields, tappcard.FieldLockedUntil)
+}
+
+// SetCardPassword sets the "card_password" field.
+func (m *TappCardMutation) SetCardPassword(b []byte) {
+	m.card_password = &b
+}
+
+// CardPassword returns the value of the "card_password" field in the mutation.
+func (m *TappCardMutation) CardPassword() (r []byte, exists bool) {
+	v := m.card_password
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCardPassword returns the old "card_password" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldCardPassword(ctx context.Context) (v *[]byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCardPassword is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCardPassword requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCardPassword: %w", err)
+	}
+	return oldValue.CardPassword, nil
+}
+
+// ClearCardPassword clears the value of the "card_password" field.
+func (m *TappCardMutation) ClearCardPassword() {
+	m.card_password = nil
+	m.clearedFields[tappcard.FieldCardPassword] = struct{}{}
+}
+
+// CardPasswordCleared returns if the "card_password" field was cleared in this mutation.
+func (m *TappCardMutation) CardPasswordCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldCardPassword]
+	return ok
+}
+
+// ResetCardPassword resets all changes to the "card_password" field.
+func (m *TappCardMutation) ResetCardPassword() {
+	m.card_password = nil
+	delete(m.clearedFields, tappcard.FieldCardPassword)
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (m *TappCardMutation) SetCurrentTokenCiphertext(b []byte) {
+	m.current_token_ciphertext = &b
+}
+
+// CurrentTokenCiphertext returns the value of the "current_token_ciphertext" field in the mutation.
+func (m *TappCardMutation) CurrentTokenCiphertext() (r []byte, exists bool) {
+	v := m.current_token_ciphertext
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCurrentTokenCiphertext returns the old "current_token_ciphertext" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldCurrentTokenCiphertext(ctx context.Context) (v *[]byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCurrentTokenCiphertext is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCurrentTokenCiphertext requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCurrentTokenCiphertext: %w", err)
+	}
+	return oldValue.CurrentTokenCiphertext, nil
+}
+
+// ClearCurrentTokenCiphertext clears the value of the "current_token_ciphertext" field.
+func (m *TappCardMutation) ClearCurrentTokenCiphertext() {
+	m.current_token_ciphertext = nil
+	m.clearedFields[tappcard.FieldCurrentTokenCiphertext] = struct{}{}
+}
+
+// CurrentTokenCiphertextCleared returns if the "current_token_ciphertext" field was cleared in this mutation.
+func (m *TappCardMutation) CurrentTokenCiphertextCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldCurrentTokenCiphertext]
+	return ok
+}
+
+// ResetCurrentTokenCiphertext resets all changes to the "current_token_ciphertext" field.
+func (m *TappCardMutation) ResetCurrentTokenCiphertext() {
+	m.current_token_ciphertext = nil
+	delete(m.clearedFields, tappcard.FieldCurrentTokenCiphertext)
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (m *TappCardMutation) SetTokenRotatedAt(t time.Time) {
+	m.token_rotated_at = &t
+}
+
+// TokenRotatedAt returns the value of the "token_rotated_at" field in the mutation.
+func (m *TappCardMutation) TokenRotatedAt() (r time.Time, exists bool) {
+	v := m.token_rotated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenRotatedAt returns the old "token_rotated_at" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldTokenRotatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenRotatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenRotatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenRotatedAt: %w", err)
+	}
+	return oldValue.TokenRotatedAt, nil
+}
+
+// ClearTokenRotatedAt clears the value of the "token_rotated_at" field.
+func (m *TappCardMutation) ClearTokenRotatedAt() {
+	m.token_rotated_at = nil
+	m.clearedFields[tappcard.FieldTokenRotatedAt] = struct{}{}
+}
+
+// TokenRotatedAtCleared returns if the "token_rotated_at" field was cleared in this mutation.
+func (m *TappCardMutation) TokenRotatedAtCleared() bool {
+	_, ok := m.clearedFields[tappcard.FieldTokenRotatedAt]
+	return ok
+}
+
+// ResetTokenRotatedAt resets all changes to the "token_rotated_at" field.
+func (m *TappCardMutation) ResetTokenRotatedAt() {
+	m.token_rotated_at = nil
+	delete(m.clearedFields, tappcard.FieldTokenRotatedAt)
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (m *TappCardMutation) SetTokenMismatchCount(i int) {
+	m.token_mismatch_count = &i
+	m.addtoken_mismatch_count = nil
+}
+
+// TokenMismatchCount returns the value of the "token_mismatch_count" field in the mutation.
+func (m *TappCardMutation) TokenMismatchCount() (r int, exists bool) {
+	v := m.token_mismatch_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenMismatchCount returns the old "token_mismatch_count" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldTokenMismatchCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenMismatchCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenMismatchCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenMismatchCount: %w", err)
+	}
+	return oldValue.TokenMismatchCount, nil
+}
+
+// AddTokenMismatchCount adds i to the "token_mismatch_count" field.
+func (m *TappCardMutation) AddTokenMismatchCount(i int) {
+	if m.addtoken_mismatch_count != nil {
+		*m.addtoken_mismatch_count += i
+	} else {
+		m.addtoken_mismatch_count = &i
+	}
+}
+
+// AddedTokenMismatchCount returns the value that was added to the "token_mismatch_count" field in this mutation.
+func (m *TappCardMutation) AddedTokenMismatchCount() (r int, exists bool) {
+	v := m.addtoken_mismatch_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTokenMismatchCount resets all changes to the "token_mismatch_count" field.
+func (m *TappCardMutation) ResetTokenMismatchCount() {
+	m.token_mismatch_count = nil
+	m.addtoken_mismatch_count = nil
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (m *TappCardMutation) SetDailyLimitSubunit(u uint64) {
+	m.daily_limit_subunit = &u
+	m.adddaily_limit_subunit = nil
+}
+
+// DailyLimitSubunit returns the value of the "daily_limit_subunit" field in the mutation.
+func (m *TappCardMutation) DailyLimitSubunit() (r uint64, exists bool) {
+	v := m.daily_limit_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDailyLimitSubunit returns the old "daily_limit_subunit" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldDailyLimitSubunit(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDailyLimitSubunit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDailyLimitSubunit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDailyLimitSubunit: %w", err)
+	}
+	return oldValue.DailyLimitSubunit, nil
+}
+
+// AddDailyLimitSubunit adds u to the "daily_limit_subunit" field.
+func (m *TappCardMutation) AddDailyLimitSubunit(u int64) {
+	if m.adddaily_limit_subunit != nil {
+		*m.adddaily_limit_subunit += u
+	} else {
+		m.adddaily_limit_subunit = &u
+	}
+}
+
+// AddedDailyLimitSubunit returns the value that was added to the "daily_limit_subunit" field in this mutation.
+func (m *TappCardMutation) AddedDailyLimitSubunit() (r int64, exists bool) {
+	v := m.adddaily_limit_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDailyLimitSubunit resets all changes to the "daily_limit_subunit" field.
+func (m *TappCardMutation) ResetDailyLimitSubunit() {
+	m.daily_limit_subunit = nil
+	m.adddaily_limit_subunit = nil
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (m *TappCardMutation) SetPerTapLimitSubunit(u uint64) {
+	m.per_tap_limit_subunit = &u
+	m.addper_tap_limit_subunit = nil
+}
+
+// PerTapLimitSubunit returns the value of the "per_tap_limit_subunit" field in the mutation.
+func (m *TappCardMutation) PerTapLimitSubunit() (r uint64, exists bool) {
+	v := m.per_tap_limit_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPerTapLimitSubunit returns the old "per_tap_limit_subunit" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldPerTapLimitSubunit(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPerTapLimitSubunit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPerTapLimitSubunit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPerTapLimitSubunit: %w", err)
+	}
+	return oldValue.PerTapLimitSubunit, nil
+}
+
+// AddPerTapLimitSubunit adds u to the "per_tap_limit_subunit" field.
+func (m *TappCardMutation) AddPerTapLimitSubunit(u int64) {
+	if m.addper_tap_limit_subunit != nil {
+		*m.addper_tap_limit_subunit += u
+	} else {
+		m.addper_tap_limit_subunit = &u
+	}
+}
+
+// AddedPerTapLimitSubunit returns the value that was added to the "per_tap_limit_subunit" field in this mutation.
+func (m *TappCardMutation) AddedPerTapLimitSubunit() (r int64, exists bool) {
+	v := m.addper_tap_limit_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPerTapLimitSubunit resets all changes to the "per_tap_limit_subunit" field.
+func (m *TappCardMutation) ResetPerTapLimitSubunit() {
+	m.per_tap_limit_subunit = nil
+	m.addper_tap_limit_subunit = nil
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (m *TappCardMutation) SetStepUpThresholdSubunit(u uint64) {
+	m.step_up_threshold_subunit = &u
+	m.addstep_up_threshold_subunit = nil
+}
+
+// StepUpThresholdSubunit returns the value of the "step_up_threshold_subunit" field in the mutation.
+func (m *TappCardMutation) StepUpThresholdSubunit() (r uint64, exists bool) {
+	v := m.step_up_threshold_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStepUpThresholdSubunit returns the old "step_up_threshold_subunit" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldStepUpThresholdSubunit(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStepUpThresholdSubunit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStepUpThresholdSubunit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStepUpThresholdSubunit: %w", err)
+	}
+	return oldValue.StepUpThresholdSubunit, nil
+}
+
+// AddStepUpThresholdSubunit adds u to the "step_up_threshold_subunit" field.
+func (m *TappCardMutation) AddStepUpThresholdSubunit(u int64) {
+	if m.addstep_up_threshold_subunit != nil {
+		*m.addstep_up_threshold_subunit += u
+	} else {
+		m.addstep_up_threshold_subunit = &u
+	}
+}
+
+// AddedStepUpThresholdSubunit returns the value that was added to the "step_up_threshold_subunit" field in this mutation.
+func (m *TappCardMutation) AddedStepUpThresholdSubunit() (r int64, exists bool) {
+	v := m.addstep_up_threshold_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetStepUpThresholdSubunit resets all changes to the "step_up_threshold_subunit" field.
+func (m *TappCardMutation) ResetStepUpThresholdSubunit() {
+	m.step_up_threshold_subunit = nil
+	m.addstep_up_threshold_subunit = nil
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (m *TappCardMutation) SetSpentTodaySubunit(u uint64) {
+	m.spent_today_subunit = &u
+	m.addspent_today_subunit = nil
+}
+
+// SpentTodaySubunit returns the value of the "spent_today_subunit" field in the mutation.
+func (m *TappCardMutation) SpentTodaySubunit() (r uint64, exists bool) {
+	v := m.spent_today_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSpentTodaySubunit returns the old "spent_today_subunit" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldSpentTodaySubunit(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSpentTodaySubunit is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSpentTodaySubunit requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSpentTodaySubunit: %w", err)
+	}
+	return oldValue.SpentTodaySubunit, nil
+}
+
+// AddSpentTodaySubunit adds u to the "spent_today_subunit" field.
+func (m *TappCardMutation) AddSpentTodaySubunit(u int64) {
+	if m.addspent_today_subunit != nil {
+		*m.addspent_today_subunit += u
+	} else {
+		m.addspent_today_subunit = &u
+	}
+}
+
+// AddedSpentTodaySubunit returns the value that was added to the "spent_today_subunit" field in this mutation.
+func (m *TappCardMutation) AddedSpentTodaySubunit() (r int64, exists bool) {
+	v := m.addspent_today_subunit
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSpentTodaySubunit resets all changes to the "spent_today_subunit" field.
+func (m *TappCardMutation) ResetSpentTodaySubunit() {
+	m.spent_today_subunit = nil
+	m.addspent_today_subunit = nil
+}
+
+// SetDayIndex sets the "day_index" field.
+func (m *TappCardMutation) SetDayIndex(u uint64) {
+	m.day_index = &u
+	m.addday_index = nil
+}
+
+// DayIndex returns the value of the "day_index" field in the mutation.
+func (m *TappCardMutation) DayIndex() (r uint64, exists bool) {
+	v := m.day_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDayIndex returns the old "day_index" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldDayIndex(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDayIndex is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDayIndex requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDayIndex: %w", err)
+	}
+	return oldValue.DayIndex, nil
+}
+
+// AddDayIndex adds u to the "day_index" field.
+func (m *TappCardMutation) AddDayIndex(u int64) {
+	if m.addday_index != nil {
+		*m.addday_index += u
+	} else {
+		m.addday_index = &u
+	}
+}
+
+// AddedDayIndex returns the value that was added to the "day_index" field in this mutation.
+func (m *TappCardMutation) AddedDayIndex() (r int64, exists bool) {
+	v := m.addday_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDayIndex resets all changes to the "day_index" field.
+func (m *TappCardMutation) ResetDayIndex() {
+	m.day_index = nil
+	m.addday_index = nil
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (m *TappCardMutation) SetNeedsResync(b bool) {
+	m.needs_resync = &b
+}
+
+// NeedsResync returns the value of the "needs_resync" field in the mutation.
+func (m *TappCardMutation) NeedsResync() (r bool, exists bool) {
+	v := m.needs_resync
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNeedsResync returns the old "needs_resync" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldNeedsResync(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNeedsResync is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNeedsResync requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNeedsResync: %w", err)
+	}
+	return oldValue.NeedsResync, nil
+}
+
+// ResetNeedsResync resets all changes to the "needs_resync" field.
+func (m *TappCardMutation) ResetNeedsResync() {
+	m.needs_resync = nil
+}
+
 // SetUserID sets the "user" edge to the User entity by id.
 func (m *TappCardMutation) SetUserID(id uuid.UUID) {
 	m.user = &id
@@ -19052,6 +20891,60 @@ func (m *TappCardMutation) ResetUser() {
 	m.cleareduser = false
 }
 
+// AddServerNonceIDs adds the "server_nonces" edge to the CardServerNonce entity by ids.
+func (m *TappCardMutation) AddServerNonceIDs(ids ...uuid.UUID) {
+	if m.server_nonces == nil {
+		m.server_nonces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.server_nonces[ids[i]] = struct{}{}
+	}
+}
+
+// ClearServerNonces clears the "server_nonces" edge to the CardServerNonce entity.
+func (m *TappCardMutation) ClearServerNonces() {
+	m.clearedserver_nonces = true
+}
+
+// ServerNoncesCleared reports if the "server_nonces" edge to the CardServerNonce entity was cleared.
+func (m *TappCardMutation) ServerNoncesCleared() bool {
+	return m.clearedserver_nonces
+}
+
+// RemoveServerNonceIDs removes the "server_nonces" edge to the CardServerNonce entity by IDs.
+func (m *TappCardMutation) RemoveServerNonceIDs(ids ...uuid.UUID) {
+	if m.removedserver_nonces == nil {
+		m.removedserver_nonces = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.server_nonces, ids[i])
+		m.removedserver_nonces[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedServerNonces returns the removed IDs of the "server_nonces" edge to the CardServerNonce entity.
+func (m *TappCardMutation) RemovedServerNoncesIDs() (ids []uuid.UUID) {
+	for id := range m.removedserver_nonces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ServerNoncesIDs returns the "server_nonces" edge IDs in the mutation.
+func (m *TappCardMutation) ServerNoncesIDs() (ids []uuid.UUID) {
+	for id := range m.server_nonces {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetServerNonces resets all changes to the "server_nonces" edge.
+func (m *TappCardMutation) ResetServerNonces() {
+	m.server_nonces = nil
+	m.clearedserver_nonces = false
+	m.removedserver_nonces = nil
+}
+
 // Where appends a list predicates to the TappCardMutation builder.
 func (m *TappCardMutation) Where(ps ...predicate.TappCard) {
 	m.predicates = append(m.predicates, ps...)
@@ -19086,7 +20979,7 @@ func (m *TappCardMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TappCardMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 21)
 	if m.created_at != nil {
 		fields = append(fields, tappcard.FieldCreatedAt)
 	}
@@ -19098,6 +20991,57 @@ func (m *TappCardMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, tappcard.FieldStatus)
+	}
+	if m.card_uid_hash != nil {
+		fields = append(fields, tappcard.FieldCardUIDHash)
+	}
+	if m.cap_object_id != nil {
+		fields = append(fields, tappcard.FieldCapObjectID)
+	}
+	if m.coin_type != nil {
+		fields = append(fields, tappcard.FieldCoinType)
+	}
+	if m.linking_proof != nil {
+		fields = append(fields, tappcard.FieldLinkingProof)
+	}
+	if m.pin_verifier != nil {
+		fields = append(fields, tappcard.FieldPinVerifier)
+	}
+	if m.pin_attempts_remaining != nil {
+		fields = append(fields, tappcard.FieldPinAttemptsRemaining)
+	}
+	if m.locked_until != nil {
+		fields = append(fields, tappcard.FieldLockedUntil)
+	}
+	if m.card_password != nil {
+		fields = append(fields, tappcard.FieldCardPassword)
+	}
+	if m.current_token_ciphertext != nil {
+		fields = append(fields, tappcard.FieldCurrentTokenCiphertext)
+	}
+	if m.token_rotated_at != nil {
+		fields = append(fields, tappcard.FieldTokenRotatedAt)
+	}
+	if m.token_mismatch_count != nil {
+		fields = append(fields, tappcard.FieldTokenMismatchCount)
+	}
+	if m.daily_limit_subunit != nil {
+		fields = append(fields, tappcard.FieldDailyLimitSubunit)
+	}
+	if m.per_tap_limit_subunit != nil {
+		fields = append(fields, tappcard.FieldPerTapLimitSubunit)
+	}
+	if m.step_up_threshold_subunit != nil {
+		fields = append(fields, tappcard.FieldStepUpThresholdSubunit)
+	}
+	if m.spent_today_subunit != nil {
+		fields = append(fields, tappcard.FieldSpentTodaySubunit)
+	}
+	if m.day_index != nil {
+		fields = append(fields, tappcard.FieldDayIndex)
+	}
+	if m.needs_resync != nil {
+		fields = append(fields, tappcard.FieldNeedsResync)
 	}
 	return fields
 }
@@ -19115,6 +21059,40 @@ func (m *TappCardMutation) Field(name string) (ent.Value, bool) {
 		return m.ActivationToken()
 	case tappcard.FieldStatus:
 		return m.Status()
+	case tappcard.FieldCardUIDHash:
+		return m.CardUIDHash()
+	case tappcard.FieldCapObjectID:
+		return m.CapObjectID()
+	case tappcard.FieldCoinType:
+		return m.CoinType()
+	case tappcard.FieldLinkingProof:
+		return m.LinkingProof()
+	case tappcard.FieldPinVerifier:
+		return m.PinVerifier()
+	case tappcard.FieldPinAttemptsRemaining:
+		return m.PinAttemptsRemaining()
+	case tappcard.FieldLockedUntil:
+		return m.LockedUntil()
+	case tappcard.FieldCardPassword:
+		return m.CardPassword()
+	case tappcard.FieldCurrentTokenCiphertext:
+		return m.CurrentTokenCiphertext()
+	case tappcard.FieldTokenRotatedAt:
+		return m.TokenRotatedAt()
+	case tappcard.FieldTokenMismatchCount:
+		return m.TokenMismatchCount()
+	case tappcard.FieldDailyLimitSubunit:
+		return m.DailyLimitSubunit()
+	case tappcard.FieldPerTapLimitSubunit:
+		return m.PerTapLimitSubunit()
+	case tappcard.FieldStepUpThresholdSubunit:
+		return m.StepUpThresholdSubunit()
+	case tappcard.FieldSpentTodaySubunit:
+		return m.SpentTodaySubunit()
+	case tappcard.FieldDayIndex:
+		return m.DayIndex()
+	case tappcard.FieldNeedsResync:
+		return m.NeedsResync()
 	}
 	return nil, false
 }
@@ -19132,6 +21110,40 @@ func (m *TappCardMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldActivationToken(ctx)
 	case tappcard.FieldStatus:
 		return m.OldStatus(ctx)
+	case tappcard.FieldCardUIDHash:
+		return m.OldCardUIDHash(ctx)
+	case tappcard.FieldCapObjectID:
+		return m.OldCapObjectID(ctx)
+	case tappcard.FieldCoinType:
+		return m.OldCoinType(ctx)
+	case tappcard.FieldLinkingProof:
+		return m.OldLinkingProof(ctx)
+	case tappcard.FieldPinVerifier:
+		return m.OldPinVerifier(ctx)
+	case tappcard.FieldPinAttemptsRemaining:
+		return m.OldPinAttemptsRemaining(ctx)
+	case tappcard.FieldLockedUntil:
+		return m.OldLockedUntil(ctx)
+	case tappcard.FieldCardPassword:
+		return m.OldCardPassword(ctx)
+	case tappcard.FieldCurrentTokenCiphertext:
+		return m.OldCurrentTokenCiphertext(ctx)
+	case tappcard.FieldTokenRotatedAt:
+		return m.OldTokenRotatedAt(ctx)
+	case tappcard.FieldTokenMismatchCount:
+		return m.OldTokenMismatchCount(ctx)
+	case tappcard.FieldDailyLimitSubunit:
+		return m.OldDailyLimitSubunit(ctx)
+	case tappcard.FieldPerTapLimitSubunit:
+		return m.OldPerTapLimitSubunit(ctx)
+	case tappcard.FieldStepUpThresholdSubunit:
+		return m.OldStepUpThresholdSubunit(ctx)
+	case tappcard.FieldSpentTodaySubunit:
+		return m.OldSpentTodaySubunit(ctx)
+	case tappcard.FieldDayIndex:
+		return m.OldDayIndex(ctx)
+	case tappcard.FieldNeedsResync:
+		return m.OldNeedsResync(ctx)
 	}
 	return nil, fmt.Errorf("unknown TappCard field %s", name)
 }
@@ -19169,6 +21181,125 @@ func (m *TappCardMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetStatus(v)
 		return nil
+	case tappcard.FieldCardUIDHash:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCardUIDHash(v)
+		return nil
+	case tappcard.FieldCapObjectID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapObjectID(v)
+		return nil
+	case tappcard.FieldCoinType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCoinType(v)
+		return nil
+	case tappcard.FieldLinkingProof:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLinkingProof(v)
+		return nil
+	case tappcard.FieldPinVerifier:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPinVerifier(v)
+		return nil
+	case tappcard.FieldPinAttemptsRemaining:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPinAttemptsRemaining(v)
+		return nil
+	case tappcard.FieldLockedUntil:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLockedUntil(v)
+		return nil
+	case tappcard.FieldCardPassword:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCardPassword(v)
+		return nil
+	case tappcard.FieldCurrentTokenCiphertext:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCurrentTokenCiphertext(v)
+		return nil
+	case tappcard.FieldTokenRotatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenRotatedAt(v)
+		return nil
+	case tappcard.FieldTokenMismatchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenMismatchCount(v)
+		return nil
+	case tappcard.FieldDailyLimitSubunit:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDailyLimitSubunit(v)
+		return nil
+	case tappcard.FieldPerTapLimitSubunit:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPerTapLimitSubunit(v)
+		return nil
+	case tappcard.FieldStepUpThresholdSubunit:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStepUpThresholdSubunit(v)
+		return nil
+	case tappcard.FieldSpentTodaySubunit:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSpentTodaySubunit(v)
+		return nil
+	case tappcard.FieldDayIndex:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDayIndex(v)
+		return nil
+	case tappcard.FieldNeedsResync:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNeedsResync(v)
+		return nil
 	}
 	return fmt.Errorf("unknown TappCard field %s", name)
 }
@@ -19176,13 +21307,51 @@ func (m *TappCardMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *TappCardMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addpin_attempts_remaining != nil {
+		fields = append(fields, tappcard.FieldPinAttemptsRemaining)
+	}
+	if m.addtoken_mismatch_count != nil {
+		fields = append(fields, tappcard.FieldTokenMismatchCount)
+	}
+	if m.adddaily_limit_subunit != nil {
+		fields = append(fields, tappcard.FieldDailyLimitSubunit)
+	}
+	if m.addper_tap_limit_subunit != nil {
+		fields = append(fields, tappcard.FieldPerTapLimitSubunit)
+	}
+	if m.addstep_up_threshold_subunit != nil {
+		fields = append(fields, tappcard.FieldStepUpThresholdSubunit)
+	}
+	if m.addspent_today_subunit != nil {
+		fields = append(fields, tappcard.FieldSpentTodaySubunit)
+	}
+	if m.addday_index != nil {
+		fields = append(fields, tappcard.FieldDayIndex)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *TappCardMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case tappcard.FieldPinAttemptsRemaining:
+		return m.AddedPinAttemptsRemaining()
+	case tappcard.FieldTokenMismatchCount:
+		return m.AddedTokenMismatchCount()
+	case tappcard.FieldDailyLimitSubunit:
+		return m.AddedDailyLimitSubunit()
+	case tappcard.FieldPerTapLimitSubunit:
+		return m.AddedPerTapLimitSubunit()
+	case tappcard.FieldStepUpThresholdSubunit:
+		return m.AddedStepUpThresholdSubunit()
+	case tappcard.FieldSpentTodaySubunit:
+		return m.AddedSpentTodaySubunit()
+	case tappcard.FieldDayIndex:
+		return m.AddedDayIndex()
+	}
 	return nil, false
 }
 
@@ -19191,6 +21360,55 @@ func (m *TappCardMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *TappCardMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case tappcard.FieldPinAttemptsRemaining:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPinAttemptsRemaining(v)
+		return nil
+	case tappcard.FieldTokenMismatchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTokenMismatchCount(v)
+		return nil
+	case tappcard.FieldDailyLimitSubunit:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDailyLimitSubunit(v)
+		return nil
+	case tappcard.FieldPerTapLimitSubunit:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPerTapLimitSubunit(v)
+		return nil
+	case tappcard.FieldStepUpThresholdSubunit:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddStepUpThresholdSubunit(v)
+		return nil
+	case tappcard.FieldSpentTodaySubunit:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSpentTodaySubunit(v)
+		return nil
+	case tappcard.FieldDayIndex:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDayIndex(v)
+		return nil
 	}
 	return fmt.Errorf("unknown TappCard numeric field %s", name)
 }
@@ -19198,7 +21416,35 @@ func (m *TappCardMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *TappCardMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(tappcard.FieldCardUIDHash) {
+		fields = append(fields, tappcard.FieldCardUIDHash)
+	}
+	if m.FieldCleared(tappcard.FieldCapObjectID) {
+		fields = append(fields, tappcard.FieldCapObjectID)
+	}
+	if m.FieldCleared(tappcard.FieldCoinType) {
+		fields = append(fields, tappcard.FieldCoinType)
+	}
+	if m.FieldCleared(tappcard.FieldLinkingProof) {
+		fields = append(fields, tappcard.FieldLinkingProof)
+	}
+	if m.FieldCleared(tappcard.FieldPinVerifier) {
+		fields = append(fields, tappcard.FieldPinVerifier)
+	}
+	if m.FieldCleared(tappcard.FieldLockedUntil) {
+		fields = append(fields, tappcard.FieldLockedUntil)
+	}
+	if m.FieldCleared(tappcard.FieldCardPassword) {
+		fields = append(fields, tappcard.FieldCardPassword)
+	}
+	if m.FieldCleared(tappcard.FieldCurrentTokenCiphertext) {
+		fields = append(fields, tappcard.FieldCurrentTokenCiphertext)
+	}
+	if m.FieldCleared(tappcard.FieldTokenRotatedAt) {
+		fields = append(fields, tappcard.FieldTokenRotatedAt)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -19211,6 +21457,35 @@ func (m *TappCardMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *TappCardMutation) ClearField(name string) error {
+	switch name {
+	case tappcard.FieldCardUIDHash:
+		m.ClearCardUIDHash()
+		return nil
+	case tappcard.FieldCapObjectID:
+		m.ClearCapObjectID()
+		return nil
+	case tappcard.FieldCoinType:
+		m.ClearCoinType()
+		return nil
+	case tappcard.FieldLinkingProof:
+		m.ClearLinkingProof()
+		return nil
+	case tappcard.FieldPinVerifier:
+		m.ClearPinVerifier()
+		return nil
+	case tappcard.FieldLockedUntil:
+		m.ClearLockedUntil()
+		return nil
+	case tappcard.FieldCardPassword:
+		m.ClearCardPassword()
+		return nil
+	case tappcard.FieldCurrentTokenCiphertext:
+		m.ClearCurrentTokenCiphertext()
+		return nil
+	case tappcard.FieldTokenRotatedAt:
+		m.ClearTokenRotatedAt()
+		return nil
+	}
 	return fmt.Errorf("unknown TappCard nullable field %s", name)
 }
 
@@ -19230,15 +21505,69 @@ func (m *TappCardMutation) ResetField(name string) error {
 	case tappcard.FieldStatus:
 		m.ResetStatus()
 		return nil
+	case tappcard.FieldCardUIDHash:
+		m.ResetCardUIDHash()
+		return nil
+	case tappcard.FieldCapObjectID:
+		m.ResetCapObjectID()
+		return nil
+	case tappcard.FieldCoinType:
+		m.ResetCoinType()
+		return nil
+	case tappcard.FieldLinkingProof:
+		m.ResetLinkingProof()
+		return nil
+	case tappcard.FieldPinVerifier:
+		m.ResetPinVerifier()
+		return nil
+	case tappcard.FieldPinAttemptsRemaining:
+		m.ResetPinAttemptsRemaining()
+		return nil
+	case tappcard.FieldLockedUntil:
+		m.ResetLockedUntil()
+		return nil
+	case tappcard.FieldCardPassword:
+		m.ResetCardPassword()
+		return nil
+	case tappcard.FieldCurrentTokenCiphertext:
+		m.ResetCurrentTokenCiphertext()
+		return nil
+	case tappcard.FieldTokenRotatedAt:
+		m.ResetTokenRotatedAt()
+		return nil
+	case tappcard.FieldTokenMismatchCount:
+		m.ResetTokenMismatchCount()
+		return nil
+	case tappcard.FieldDailyLimitSubunit:
+		m.ResetDailyLimitSubunit()
+		return nil
+	case tappcard.FieldPerTapLimitSubunit:
+		m.ResetPerTapLimitSubunit()
+		return nil
+	case tappcard.FieldStepUpThresholdSubunit:
+		m.ResetStepUpThresholdSubunit()
+		return nil
+	case tappcard.FieldSpentTodaySubunit:
+		m.ResetSpentTodaySubunit()
+		return nil
+	case tappcard.FieldDayIndex:
+		m.ResetDayIndex()
+		return nil
+	case tappcard.FieldNeedsResync:
+		m.ResetNeedsResync()
+		return nil
 	}
 	return fmt.Errorf("unknown TappCard field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TappCardMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.user != nil {
 		edges = append(edges, tappcard.EdgeUser)
+	}
+	if m.server_nonces != nil {
+		edges = append(edges, tappcard.EdgeServerNonces)
 	}
 	return edges
 }
@@ -19251,27 +21580,47 @@ func (m *TappCardMutation) AddedIDs(name string) []ent.Value {
 		if id := m.user; id != nil {
 			return []ent.Value{*id}
 		}
+	case tappcard.EdgeServerNonces:
+		ids := make([]ent.Value, 0, len(m.server_nonces))
+		for id := range m.server_nonces {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TappCardMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedserver_nonces != nil {
+		edges = append(edges, tappcard.EdgeServerNonces)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *TappCardMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case tappcard.EdgeServerNonces:
+		ids := make([]ent.Value, 0, len(m.removedserver_nonces))
+		for id := range m.removedserver_nonces {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TappCardMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.cleareduser {
 		edges = append(edges, tappcard.EdgeUser)
+	}
+	if m.clearedserver_nonces {
+		edges = append(edges, tappcard.EdgeServerNonces)
 	}
 	return edges
 }
@@ -19282,6 +21631,8 @@ func (m *TappCardMutation) EdgeCleared(name string) bool {
 	switch name {
 	case tappcard.EdgeUser:
 		return m.cleareduser
+	case tappcard.EdgeServerNonces:
+		return m.clearedserver_nonces
 	}
 	return false
 }
@@ -19303,6 +21654,9 @@ func (m *TappCardMutation) ResetEdge(name string) error {
 	switch name {
 	case tappcard.EdgeUser:
 		m.ResetUser()
+		return nil
+	case tappcard.EdgeServerNonces:
+		m.ResetServerNonces()
 		return nil
 	}
 	return fmt.Errorf("unknown TappCard edge %s", name)

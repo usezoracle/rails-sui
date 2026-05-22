@@ -406,6 +406,29 @@ func HasMerchantBankAccountWith(preds ...predicate.MerchantBankAccount) predicat
 	})
 }
 
+// HasCardServerNonces applies the HasEdge predicate on the "card_server_nonces" edge.
+func HasCardServerNonces() predicate.SenderProfile {
+	return predicate.SenderProfile(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CardServerNoncesTable, CardServerNoncesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCardServerNoncesWith applies the HasEdge predicate on the "card_server_nonces" edge with a given conditions (other predicates).
+func HasCardServerNoncesWith(preds ...predicate.CardServerNonce) predicate.SenderProfile {
+	return predicate.SenderProfile(func(s *sql.Selector) {
+		step := newCardServerNoncesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.SenderProfile) predicate.SenderProfile {
 	return predicate.SenderProfile(sql.AndPredicates(predicates...))

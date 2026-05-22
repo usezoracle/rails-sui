@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/apikey"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
@@ -196,6 +197,21 @@ func (spc *SenderProfileCreate) SetNillableMerchantBankAccountID(id *uuid.UUID) 
 // SetMerchantBankAccount sets the "merchant_bank_account" edge to the MerchantBankAccount entity.
 func (spc *SenderProfileCreate) SetMerchantBankAccount(m *MerchantBankAccount) *SenderProfileCreate {
 	return spc.SetMerchantBankAccountID(m.ID)
+}
+
+// AddCardServerNonceIDs adds the "card_server_nonces" edge to the CardServerNonce entity by IDs.
+func (spc *SenderProfileCreate) AddCardServerNonceIDs(ids ...uuid.UUID) *SenderProfileCreate {
+	spc.mutation.AddCardServerNonceIDs(ids...)
+	return spc
+}
+
+// AddCardServerNonces adds the "card_server_nonces" edges to the CardServerNonce entity.
+func (spc *SenderProfileCreate) AddCardServerNonces(c ...*CardServerNonce) *SenderProfileCreate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return spc.AddCardServerNonceIDs(ids...)
 }
 
 // Mutation returns the SenderProfileMutation object of the builder.
@@ -406,6 +422,22 @@ func (spc *SenderProfileCreate) createSpec() (*SenderProfile, *sqlgraph.CreateSp
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(merchantbankaccount.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := spc.mutation.CardServerNoncesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   senderprofile.CardServerNoncesTable,
+			Columns: []string{senderprofile.CardServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

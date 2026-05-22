@@ -9,6 +9,9 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// CardServerNonce is the predicate function for cardservernonce builders.
+type CardServerNonce func(*sql.Selector)
+
 // FiatCurrency is the predicate function for fiatcurrency builders.
 type FiatCurrency func(*sql.Selector)
 

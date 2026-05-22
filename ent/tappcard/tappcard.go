@@ -24,8 +24,44 @@ const (
 	FieldActivationToken = "activation_token"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldCardUIDHash holds the string denoting the card_uid_hash field in the database.
+	FieldCardUIDHash = "card_uid_hash"
+	// FieldCapObjectID holds the string denoting the cap_object_id field in the database.
+	FieldCapObjectID = "cap_object_id"
+	// FieldCoinType holds the string denoting the coin_type field in the database.
+	FieldCoinType = "coin_type"
+	// FieldLinkingProof holds the string denoting the linking_proof field in the database.
+	FieldLinkingProof = "linking_proof"
+	// FieldPinVerifier holds the string denoting the pin_verifier field in the database.
+	FieldPinVerifier = "pin_verifier"
+	// FieldPinAttemptsRemaining holds the string denoting the pin_attempts_remaining field in the database.
+	FieldPinAttemptsRemaining = "pin_attempts_remaining"
+	// FieldLockedUntil holds the string denoting the locked_until field in the database.
+	FieldLockedUntil = "locked_until"
+	// FieldCardPassword holds the string denoting the card_password field in the database.
+	FieldCardPassword = "card_password"
+	// FieldCurrentTokenCiphertext holds the string denoting the current_token_ciphertext field in the database.
+	FieldCurrentTokenCiphertext = "current_token_ciphertext"
+	// FieldTokenRotatedAt holds the string denoting the token_rotated_at field in the database.
+	FieldTokenRotatedAt = "token_rotated_at"
+	// FieldTokenMismatchCount holds the string denoting the token_mismatch_count field in the database.
+	FieldTokenMismatchCount = "token_mismatch_count"
+	// FieldDailyLimitSubunit holds the string denoting the daily_limit_subunit field in the database.
+	FieldDailyLimitSubunit = "daily_limit_subunit"
+	// FieldPerTapLimitSubunit holds the string denoting the per_tap_limit_subunit field in the database.
+	FieldPerTapLimitSubunit = "per_tap_limit_subunit"
+	// FieldStepUpThresholdSubunit holds the string denoting the step_up_threshold_subunit field in the database.
+	FieldStepUpThresholdSubunit = "step_up_threshold_subunit"
+	// FieldSpentTodaySubunit holds the string denoting the spent_today_subunit field in the database.
+	FieldSpentTodaySubunit = "spent_today_subunit"
+	// FieldDayIndex holds the string denoting the day_index field in the database.
+	FieldDayIndex = "day_index"
+	// FieldNeedsResync holds the string denoting the needs_resync field in the database.
+	FieldNeedsResync = "needs_resync"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
+	// EdgeServerNonces holds the string denoting the server_nonces edge name in mutations.
+	EdgeServerNonces = "server_nonces"
 	// Table holds the table name of the tappcard in the database.
 	Table = "tapp_cards"
 	// UserTable is the table that holds the user relation/edge.
@@ -35,6 +71,13 @@ const (
 	UserInverseTable = "users"
 	// UserColumn is the table column denoting the user relation/edge.
 	UserColumn = "user_tapp_cards"
+	// ServerNoncesTable is the table that holds the server_nonces relation/edge.
+	ServerNoncesTable = "card_server_nonces"
+	// ServerNoncesInverseTable is the table name for the CardServerNonce entity.
+	// It exists in this package in order to avoid circular dependency with the "cardservernonce" package.
+	ServerNoncesInverseTable = "card_server_nonces"
+	// ServerNoncesColumn is the table column denoting the server_nonces relation/edge.
+	ServerNoncesColumn = "tapp_card_server_nonces"
 )
 
 // Columns holds all SQL columns for tappcard fields.
@@ -44,6 +87,23 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldActivationToken,
 	FieldStatus,
+	FieldCardUIDHash,
+	FieldCapObjectID,
+	FieldCoinType,
+	FieldLinkingProof,
+	FieldPinVerifier,
+	FieldPinAttemptsRemaining,
+	FieldLockedUntil,
+	FieldCardPassword,
+	FieldCurrentTokenCiphertext,
+	FieldTokenRotatedAt,
+	FieldTokenMismatchCount,
+	FieldDailyLimitSubunit,
+	FieldPerTapLimitSubunit,
+	FieldStepUpThresholdSubunit,
+	FieldSpentTodaySubunit,
+	FieldDayIndex,
+	FieldNeedsResync,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "tapp_cards"
@@ -76,6 +136,34 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// ActivationTokenValidator is a validator for the "activation_token" field. It is called by the builders before save.
 	ActivationTokenValidator func(string) error
+	// CardUIDHashValidator is a validator for the "card_uid_hash" field. It is called by the builders before save.
+	CardUIDHashValidator func([]byte) error
+	// LinkingProofValidator is a validator for the "linking_proof" field. It is called by the builders before save.
+	LinkingProofValidator func([]byte) error
+	// PinVerifierValidator is a validator for the "pin_verifier" field. It is called by the builders before save.
+	PinVerifierValidator func([]byte) error
+	// DefaultPinAttemptsRemaining holds the default value on creation for the "pin_attempts_remaining" field.
+	DefaultPinAttemptsRemaining int
+	// PinAttemptsRemainingValidator is a validator for the "pin_attempts_remaining" field. It is called by the builders before save.
+	PinAttemptsRemainingValidator func(int) error
+	// CardPasswordValidator is a validator for the "card_password" field. It is called by the builders before save.
+	CardPasswordValidator func([]byte) error
+	// DefaultTokenMismatchCount holds the default value on creation for the "token_mismatch_count" field.
+	DefaultTokenMismatchCount int
+	// TokenMismatchCountValidator is a validator for the "token_mismatch_count" field. It is called by the builders before save.
+	TokenMismatchCountValidator func(int) error
+	// DefaultDailyLimitSubunit holds the default value on creation for the "daily_limit_subunit" field.
+	DefaultDailyLimitSubunit uint64
+	// DefaultPerTapLimitSubunit holds the default value on creation for the "per_tap_limit_subunit" field.
+	DefaultPerTapLimitSubunit uint64
+	// DefaultStepUpThresholdSubunit holds the default value on creation for the "step_up_threshold_subunit" field.
+	DefaultStepUpThresholdSubunit uint64
+	// DefaultSpentTodaySubunit holds the default value on creation for the "spent_today_subunit" field.
+	DefaultSpentTodaySubunit uint64
+	// DefaultDayIndex holds the default value on creation for the "day_index" field.
+	DefaultDayIndex uint64
+	// DefaultNeedsResync holds the default value on creation for the "needs_resync" field.
+	DefaultNeedsResync bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -137,10 +225,84 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
+// ByCapObjectID orders the results by the cap_object_id field.
+func ByCapObjectID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCapObjectID, opts...).ToFunc()
+}
+
+// ByCoinType orders the results by the coin_type field.
+func ByCoinType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCoinType, opts...).ToFunc()
+}
+
+// ByPinAttemptsRemaining orders the results by the pin_attempts_remaining field.
+func ByPinAttemptsRemaining(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPinAttemptsRemaining, opts...).ToFunc()
+}
+
+// ByLockedUntil orders the results by the locked_until field.
+func ByLockedUntil(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLockedUntil, opts...).ToFunc()
+}
+
+// ByTokenRotatedAt orders the results by the token_rotated_at field.
+func ByTokenRotatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTokenRotatedAt, opts...).ToFunc()
+}
+
+// ByTokenMismatchCount orders the results by the token_mismatch_count field.
+func ByTokenMismatchCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTokenMismatchCount, opts...).ToFunc()
+}
+
+// ByDailyLimitSubunit orders the results by the daily_limit_subunit field.
+func ByDailyLimitSubunit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDailyLimitSubunit, opts...).ToFunc()
+}
+
+// ByPerTapLimitSubunit orders the results by the per_tap_limit_subunit field.
+func ByPerTapLimitSubunit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPerTapLimitSubunit, opts...).ToFunc()
+}
+
+// ByStepUpThresholdSubunit orders the results by the step_up_threshold_subunit field.
+func ByStepUpThresholdSubunit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStepUpThresholdSubunit, opts...).ToFunc()
+}
+
+// BySpentTodaySubunit orders the results by the spent_today_subunit field.
+func BySpentTodaySubunit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSpentTodaySubunit, opts...).ToFunc()
+}
+
+// ByDayIndex orders the results by the day_index field.
+func ByDayIndex(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDayIndex, opts...).ToFunc()
+}
+
+// ByNeedsResync orders the results by the needs_resync field.
+func ByNeedsResync(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNeedsResync, opts...).ToFunc()
+}
+
 // ByUserField orders the results by user field.
 func ByUserField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newUserStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByServerNoncesCount orders the results by server_nonces count.
+func ByServerNoncesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newServerNoncesStep(), opts...)
+	}
+}
+
+// ByServerNonces orders the results by server_nonces terms.
+func ByServerNonces(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newServerNoncesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 func newUserStep() *sqlgraph.Step {
@@ -148,5 +310,12 @@ func newUserStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UserInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, UserTable, UserColumn),
+	)
+}
+func newServerNoncesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ServerNoncesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ServerNoncesTable, ServerNoncesColumn),
 	)
 }

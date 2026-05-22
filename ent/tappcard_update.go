@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -64,6 +65,307 @@ func (tcu *TappCardUpdate) SetNillableStatus(t *tappcard.Status) *TappCardUpdate
 	return tcu
 }
 
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (tcu *TappCardUpdate) SetCardUIDHash(b []byte) *TappCardUpdate {
+	tcu.mutation.SetCardUIDHash(b)
+	return tcu
+}
+
+// ClearCardUIDHash clears the value of the "card_uid_hash" field.
+func (tcu *TappCardUpdate) ClearCardUIDHash() *TappCardUpdate {
+	tcu.mutation.ClearCardUIDHash()
+	return tcu
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (tcu *TappCardUpdate) SetCapObjectID(s string) *TappCardUpdate {
+	tcu.mutation.SetCapObjectID(s)
+	return tcu
+}
+
+// SetNillableCapObjectID sets the "cap_object_id" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableCapObjectID(s *string) *TappCardUpdate {
+	if s != nil {
+		tcu.SetCapObjectID(*s)
+	}
+	return tcu
+}
+
+// ClearCapObjectID clears the value of the "cap_object_id" field.
+func (tcu *TappCardUpdate) ClearCapObjectID() *TappCardUpdate {
+	tcu.mutation.ClearCapObjectID()
+	return tcu
+}
+
+// SetCoinType sets the "coin_type" field.
+func (tcu *TappCardUpdate) SetCoinType(s string) *TappCardUpdate {
+	tcu.mutation.SetCoinType(s)
+	return tcu
+}
+
+// SetNillableCoinType sets the "coin_type" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableCoinType(s *string) *TappCardUpdate {
+	if s != nil {
+		tcu.SetCoinType(*s)
+	}
+	return tcu
+}
+
+// ClearCoinType clears the value of the "coin_type" field.
+func (tcu *TappCardUpdate) ClearCoinType() *TappCardUpdate {
+	tcu.mutation.ClearCoinType()
+	return tcu
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (tcu *TappCardUpdate) SetLinkingProof(b []byte) *TappCardUpdate {
+	tcu.mutation.SetLinkingProof(b)
+	return tcu
+}
+
+// ClearLinkingProof clears the value of the "linking_proof" field.
+func (tcu *TappCardUpdate) ClearLinkingProof() *TappCardUpdate {
+	tcu.mutation.ClearLinkingProof()
+	return tcu
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (tcu *TappCardUpdate) SetPinVerifier(b []byte) *TappCardUpdate {
+	tcu.mutation.SetPinVerifier(b)
+	return tcu
+}
+
+// ClearPinVerifier clears the value of the "pin_verifier" field.
+func (tcu *TappCardUpdate) ClearPinVerifier() *TappCardUpdate {
+	tcu.mutation.ClearPinVerifier()
+	return tcu
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (tcu *TappCardUpdate) SetPinAttemptsRemaining(i int) *TappCardUpdate {
+	tcu.mutation.ResetPinAttemptsRemaining()
+	tcu.mutation.SetPinAttemptsRemaining(i)
+	return tcu
+}
+
+// SetNillablePinAttemptsRemaining sets the "pin_attempts_remaining" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillablePinAttemptsRemaining(i *int) *TappCardUpdate {
+	if i != nil {
+		tcu.SetPinAttemptsRemaining(*i)
+	}
+	return tcu
+}
+
+// AddPinAttemptsRemaining adds i to the "pin_attempts_remaining" field.
+func (tcu *TappCardUpdate) AddPinAttemptsRemaining(i int) *TappCardUpdate {
+	tcu.mutation.AddPinAttemptsRemaining(i)
+	return tcu
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (tcu *TappCardUpdate) SetLockedUntil(t time.Time) *TappCardUpdate {
+	tcu.mutation.SetLockedUntil(t)
+	return tcu
+}
+
+// SetNillableLockedUntil sets the "locked_until" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableLockedUntil(t *time.Time) *TappCardUpdate {
+	if t != nil {
+		tcu.SetLockedUntil(*t)
+	}
+	return tcu
+}
+
+// ClearLockedUntil clears the value of the "locked_until" field.
+func (tcu *TappCardUpdate) ClearLockedUntil() *TappCardUpdate {
+	tcu.mutation.ClearLockedUntil()
+	return tcu
+}
+
+// SetCardPassword sets the "card_password" field.
+func (tcu *TappCardUpdate) SetCardPassword(b []byte) *TappCardUpdate {
+	tcu.mutation.SetCardPassword(b)
+	return tcu
+}
+
+// ClearCardPassword clears the value of the "card_password" field.
+func (tcu *TappCardUpdate) ClearCardPassword() *TappCardUpdate {
+	tcu.mutation.ClearCardPassword()
+	return tcu
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (tcu *TappCardUpdate) SetCurrentTokenCiphertext(b []byte) *TappCardUpdate {
+	tcu.mutation.SetCurrentTokenCiphertext(b)
+	return tcu
+}
+
+// ClearCurrentTokenCiphertext clears the value of the "current_token_ciphertext" field.
+func (tcu *TappCardUpdate) ClearCurrentTokenCiphertext() *TappCardUpdate {
+	tcu.mutation.ClearCurrentTokenCiphertext()
+	return tcu
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (tcu *TappCardUpdate) SetTokenRotatedAt(t time.Time) *TappCardUpdate {
+	tcu.mutation.SetTokenRotatedAt(t)
+	return tcu
+}
+
+// SetNillableTokenRotatedAt sets the "token_rotated_at" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableTokenRotatedAt(t *time.Time) *TappCardUpdate {
+	if t != nil {
+		tcu.SetTokenRotatedAt(*t)
+	}
+	return tcu
+}
+
+// ClearTokenRotatedAt clears the value of the "token_rotated_at" field.
+func (tcu *TappCardUpdate) ClearTokenRotatedAt() *TappCardUpdate {
+	tcu.mutation.ClearTokenRotatedAt()
+	return tcu
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (tcu *TappCardUpdate) SetTokenMismatchCount(i int) *TappCardUpdate {
+	tcu.mutation.ResetTokenMismatchCount()
+	tcu.mutation.SetTokenMismatchCount(i)
+	return tcu
+}
+
+// SetNillableTokenMismatchCount sets the "token_mismatch_count" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableTokenMismatchCount(i *int) *TappCardUpdate {
+	if i != nil {
+		tcu.SetTokenMismatchCount(*i)
+	}
+	return tcu
+}
+
+// AddTokenMismatchCount adds i to the "token_mismatch_count" field.
+func (tcu *TappCardUpdate) AddTokenMismatchCount(i int) *TappCardUpdate {
+	tcu.mutation.AddTokenMismatchCount(i)
+	return tcu
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (tcu *TappCardUpdate) SetDailyLimitSubunit(u uint64) *TappCardUpdate {
+	tcu.mutation.ResetDailyLimitSubunit()
+	tcu.mutation.SetDailyLimitSubunit(u)
+	return tcu
+}
+
+// SetNillableDailyLimitSubunit sets the "daily_limit_subunit" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableDailyLimitSubunit(u *uint64) *TappCardUpdate {
+	if u != nil {
+		tcu.SetDailyLimitSubunit(*u)
+	}
+	return tcu
+}
+
+// AddDailyLimitSubunit adds u to the "daily_limit_subunit" field.
+func (tcu *TappCardUpdate) AddDailyLimitSubunit(u int64) *TappCardUpdate {
+	tcu.mutation.AddDailyLimitSubunit(u)
+	return tcu
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (tcu *TappCardUpdate) SetPerTapLimitSubunit(u uint64) *TappCardUpdate {
+	tcu.mutation.ResetPerTapLimitSubunit()
+	tcu.mutation.SetPerTapLimitSubunit(u)
+	return tcu
+}
+
+// SetNillablePerTapLimitSubunit sets the "per_tap_limit_subunit" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillablePerTapLimitSubunit(u *uint64) *TappCardUpdate {
+	if u != nil {
+		tcu.SetPerTapLimitSubunit(*u)
+	}
+	return tcu
+}
+
+// AddPerTapLimitSubunit adds u to the "per_tap_limit_subunit" field.
+func (tcu *TappCardUpdate) AddPerTapLimitSubunit(u int64) *TappCardUpdate {
+	tcu.mutation.AddPerTapLimitSubunit(u)
+	return tcu
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (tcu *TappCardUpdate) SetStepUpThresholdSubunit(u uint64) *TappCardUpdate {
+	tcu.mutation.ResetStepUpThresholdSubunit()
+	tcu.mutation.SetStepUpThresholdSubunit(u)
+	return tcu
+}
+
+// SetNillableStepUpThresholdSubunit sets the "step_up_threshold_subunit" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableStepUpThresholdSubunit(u *uint64) *TappCardUpdate {
+	if u != nil {
+		tcu.SetStepUpThresholdSubunit(*u)
+	}
+	return tcu
+}
+
+// AddStepUpThresholdSubunit adds u to the "step_up_threshold_subunit" field.
+func (tcu *TappCardUpdate) AddStepUpThresholdSubunit(u int64) *TappCardUpdate {
+	tcu.mutation.AddStepUpThresholdSubunit(u)
+	return tcu
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (tcu *TappCardUpdate) SetSpentTodaySubunit(u uint64) *TappCardUpdate {
+	tcu.mutation.ResetSpentTodaySubunit()
+	tcu.mutation.SetSpentTodaySubunit(u)
+	return tcu
+}
+
+// SetNillableSpentTodaySubunit sets the "spent_today_subunit" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableSpentTodaySubunit(u *uint64) *TappCardUpdate {
+	if u != nil {
+		tcu.SetSpentTodaySubunit(*u)
+	}
+	return tcu
+}
+
+// AddSpentTodaySubunit adds u to the "spent_today_subunit" field.
+func (tcu *TappCardUpdate) AddSpentTodaySubunit(u int64) *TappCardUpdate {
+	tcu.mutation.AddSpentTodaySubunit(u)
+	return tcu
+}
+
+// SetDayIndex sets the "day_index" field.
+func (tcu *TappCardUpdate) SetDayIndex(u uint64) *TappCardUpdate {
+	tcu.mutation.ResetDayIndex()
+	tcu.mutation.SetDayIndex(u)
+	return tcu
+}
+
+// SetNillableDayIndex sets the "day_index" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableDayIndex(u *uint64) *TappCardUpdate {
+	if u != nil {
+		tcu.SetDayIndex(*u)
+	}
+	return tcu
+}
+
+// AddDayIndex adds u to the "day_index" field.
+func (tcu *TappCardUpdate) AddDayIndex(u int64) *TappCardUpdate {
+	tcu.mutation.AddDayIndex(u)
+	return tcu
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (tcu *TappCardUpdate) SetNeedsResync(b bool) *TappCardUpdate {
+	tcu.mutation.SetNeedsResync(b)
+	return tcu
+}
+
+// SetNillableNeedsResync sets the "needs_resync" field if the given value is not nil.
+func (tcu *TappCardUpdate) SetNillableNeedsResync(b *bool) *TappCardUpdate {
+	if b != nil {
+		tcu.SetNeedsResync(*b)
+	}
+	return tcu
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (tcu *TappCardUpdate) SetUserID(id uuid.UUID) *TappCardUpdate {
 	tcu.mutation.SetUserID(id)
@@ -83,6 +385,21 @@ func (tcu *TappCardUpdate) SetUser(u *User) *TappCardUpdate {
 	return tcu.SetUserID(u.ID)
 }
 
+// AddServerNonceIDs adds the "server_nonces" edge to the CardServerNonce entity by IDs.
+func (tcu *TappCardUpdate) AddServerNonceIDs(ids ...uuid.UUID) *TappCardUpdate {
+	tcu.mutation.AddServerNonceIDs(ids...)
+	return tcu
+}
+
+// AddServerNonces adds the "server_nonces" edges to the CardServerNonce entity.
+func (tcu *TappCardUpdate) AddServerNonces(c ...*CardServerNonce) *TappCardUpdate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return tcu.AddServerNonceIDs(ids...)
+}
+
 // Mutation returns the TappCardMutation object of the builder.
 func (tcu *TappCardUpdate) Mutation() *TappCardMutation {
 	return tcu.mutation
@@ -92,6 +409,27 @@ func (tcu *TappCardUpdate) Mutation() *TappCardMutation {
 func (tcu *TappCardUpdate) ClearUser() *TappCardUpdate {
 	tcu.mutation.ClearUser()
 	return tcu
+}
+
+// ClearServerNonces clears all "server_nonces" edges to the CardServerNonce entity.
+func (tcu *TappCardUpdate) ClearServerNonces() *TappCardUpdate {
+	tcu.mutation.ClearServerNonces()
+	return tcu
+}
+
+// RemoveServerNonceIDs removes the "server_nonces" edge to CardServerNonce entities by IDs.
+func (tcu *TappCardUpdate) RemoveServerNonceIDs(ids ...uuid.UUID) *TappCardUpdate {
+	tcu.mutation.RemoveServerNonceIDs(ids...)
+	return tcu
+}
+
+// RemoveServerNonces removes "server_nonces" edges to CardServerNonce entities.
+func (tcu *TappCardUpdate) RemoveServerNonces(c ...*CardServerNonce) *TappCardUpdate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return tcu.RemoveServerNonceIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -142,6 +480,36 @@ func (tcu *TappCardUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "TappCard.status": %w`, err)}
 		}
 	}
+	if v, ok := tcu.mutation.CardUIDHash(); ok {
+		if err := tappcard.CardUIDHashValidator(v); err != nil {
+			return &ValidationError{Name: "card_uid_hash", err: fmt.Errorf(`ent: validator failed for field "TappCard.card_uid_hash": %w`, err)}
+		}
+	}
+	if v, ok := tcu.mutation.LinkingProof(); ok {
+		if err := tappcard.LinkingProofValidator(v); err != nil {
+			return &ValidationError{Name: "linking_proof", err: fmt.Errorf(`ent: validator failed for field "TappCard.linking_proof": %w`, err)}
+		}
+	}
+	if v, ok := tcu.mutation.PinVerifier(); ok {
+		if err := tappcard.PinVerifierValidator(v); err != nil {
+			return &ValidationError{Name: "pin_verifier", err: fmt.Errorf(`ent: validator failed for field "TappCard.pin_verifier": %w`, err)}
+		}
+	}
+	if v, ok := tcu.mutation.PinAttemptsRemaining(); ok {
+		if err := tappcard.PinAttemptsRemainingValidator(v); err != nil {
+			return &ValidationError{Name: "pin_attempts_remaining", err: fmt.Errorf(`ent: validator failed for field "TappCard.pin_attempts_remaining": %w`, err)}
+		}
+	}
+	if v, ok := tcu.mutation.CardPassword(); ok {
+		if err := tappcard.CardPasswordValidator(v); err != nil {
+			return &ValidationError{Name: "card_password", err: fmt.Errorf(`ent: validator failed for field "TappCard.card_password": %w`, err)}
+		}
+	}
+	if v, ok := tcu.mutation.TokenMismatchCount(); ok {
+		if err := tappcard.TokenMismatchCountValidator(v); err != nil {
+			return &ValidationError{Name: "token_mismatch_count", err: fmt.Errorf(`ent: validator failed for field "TappCard.token_mismatch_count": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -166,6 +534,105 @@ func (tcu *TappCardUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := tcu.mutation.Status(); ok {
 		_spec.SetField(tappcard.FieldStatus, field.TypeEnum, value)
 	}
+	if value, ok := tcu.mutation.CardUIDHash(); ok {
+		_spec.SetField(tappcard.FieldCardUIDHash, field.TypeBytes, value)
+	}
+	if tcu.mutation.CardUIDHashCleared() {
+		_spec.ClearField(tappcard.FieldCardUIDHash, field.TypeBytes)
+	}
+	if value, ok := tcu.mutation.CapObjectID(); ok {
+		_spec.SetField(tappcard.FieldCapObjectID, field.TypeString, value)
+	}
+	if tcu.mutation.CapObjectIDCleared() {
+		_spec.ClearField(tappcard.FieldCapObjectID, field.TypeString)
+	}
+	if value, ok := tcu.mutation.CoinType(); ok {
+		_spec.SetField(tappcard.FieldCoinType, field.TypeString, value)
+	}
+	if tcu.mutation.CoinTypeCleared() {
+		_spec.ClearField(tappcard.FieldCoinType, field.TypeString)
+	}
+	if value, ok := tcu.mutation.LinkingProof(); ok {
+		_spec.SetField(tappcard.FieldLinkingProof, field.TypeBytes, value)
+	}
+	if tcu.mutation.LinkingProofCleared() {
+		_spec.ClearField(tappcard.FieldLinkingProof, field.TypeBytes)
+	}
+	if value, ok := tcu.mutation.PinVerifier(); ok {
+		_spec.SetField(tappcard.FieldPinVerifier, field.TypeBytes, value)
+	}
+	if tcu.mutation.PinVerifierCleared() {
+		_spec.ClearField(tappcard.FieldPinVerifier, field.TypeBytes)
+	}
+	if value, ok := tcu.mutation.PinAttemptsRemaining(); ok {
+		_spec.SetField(tappcard.FieldPinAttemptsRemaining, field.TypeInt, value)
+	}
+	if value, ok := tcu.mutation.AddedPinAttemptsRemaining(); ok {
+		_spec.AddField(tappcard.FieldPinAttemptsRemaining, field.TypeInt, value)
+	}
+	if value, ok := tcu.mutation.LockedUntil(); ok {
+		_spec.SetField(tappcard.FieldLockedUntil, field.TypeTime, value)
+	}
+	if tcu.mutation.LockedUntilCleared() {
+		_spec.ClearField(tappcard.FieldLockedUntil, field.TypeTime)
+	}
+	if value, ok := tcu.mutation.CardPassword(); ok {
+		_spec.SetField(tappcard.FieldCardPassword, field.TypeBytes, value)
+	}
+	if tcu.mutation.CardPasswordCleared() {
+		_spec.ClearField(tappcard.FieldCardPassword, field.TypeBytes)
+	}
+	if value, ok := tcu.mutation.CurrentTokenCiphertext(); ok {
+		_spec.SetField(tappcard.FieldCurrentTokenCiphertext, field.TypeBytes, value)
+	}
+	if tcu.mutation.CurrentTokenCiphertextCleared() {
+		_spec.ClearField(tappcard.FieldCurrentTokenCiphertext, field.TypeBytes)
+	}
+	if value, ok := tcu.mutation.TokenRotatedAt(); ok {
+		_spec.SetField(tappcard.FieldTokenRotatedAt, field.TypeTime, value)
+	}
+	if tcu.mutation.TokenRotatedAtCleared() {
+		_spec.ClearField(tappcard.FieldTokenRotatedAt, field.TypeTime)
+	}
+	if value, ok := tcu.mutation.TokenMismatchCount(); ok {
+		_spec.SetField(tappcard.FieldTokenMismatchCount, field.TypeInt, value)
+	}
+	if value, ok := tcu.mutation.AddedTokenMismatchCount(); ok {
+		_spec.AddField(tappcard.FieldTokenMismatchCount, field.TypeInt, value)
+	}
+	if value, ok := tcu.mutation.DailyLimitSubunit(); ok {
+		_spec.SetField(tappcard.FieldDailyLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.AddedDailyLimitSubunit(); ok {
+		_spec.AddField(tappcard.FieldDailyLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.PerTapLimitSubunit(); ok {
+		_spec.SetField(tappcard.FieldPerTapLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.AddedPerTapLimitSubunit(); ok {
+		_spec.AddField(tappcard.FieldPerTapLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.StepUpThresholdSubunit(); ok {
+		_spec.SetField(tappcard.FieldStepUpThresholdSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.AddedStepUpThresholdSubunit(); ok {
+		_spec.AddField(tappcard.FieldStepUpThresholdSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.SpentTodaySubunit(); ok {
+		_spec.SetField(tappcard.FieldSpentTodaySubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.AddedSpentTodaySubunit(); ok {
+		_spec.AddField(tappcard.FieldSpentTodaySubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.DayIndex(); ok {
+		_spec.SetField(tappcard.FieldDayIndex, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.AddedDayIndex(); ok {
+		_spec.AddField(tappcard.FieldDayIndex, field.TypeUint64, value)
+	}
+	if value, ok := tcu.mutation.NeedsResync(); ok {
+		_spec.SetField(tappcard.FieldNeedsResync, field.TypeBool, value)
+	}
 	if tcu.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -188,6 +655,51 @@ func (tcu *TappCardUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tcu.mutation.ServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tcu.mutation.RemovedServerNoncesIDs(); len(nodes) > 0 && !tcu.mutation.ServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tcu.mutation.ServerNoncesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -249,6 +761,307 @@ func (tcuo *TappCardUpdateOne) SetNillableStatus(t *tappcard.Status) *TappCardUp
 	return tcuo
 }
 
+// SetCardUIDHash sets the "card_uid_hash" field.
+func (tcuo *TappCardUpdateOne) SetCardUIDHash(b []byte) *TappCardUpdateOne {
+	tcuo.mutation.SetCardUIDHash(b)
+	return tcuo
+}
+
+// ClearCardUIDHash clears the value of the "card_uid_hash" field.
+func (tcuo *TappCardUpdateOne) ClearCardUIDHash() *TappCardUpdateOne {
+	tcuo.mutation.ClearCardUIDHash()
+	return tcuo
+}
+
+// SetCapObjectID sets the "cap_object_id" field.
+func (tcuo *TappCardUpdateOne) SetCapObjectID(s string) *TappCardUpdateOne {
+	tcuo.mutation.SetCapObjectID(s)
+	return tcuo
+}
+
+// SetNillableCapObjectID sets the "cap_object_id" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableCapObjectID(s *string) *TappCardUpdateOne {
+	if s != nil {
+		tcuo.SetCapObjectID(*s)
+	}
+	return tcuo
+}
+
+// ClearCapObjectID clears the value of the "cap_object_id" field.
+func (tcuo *TappCardUpdateOne) ClearCapObjectID() *TappCardUpdateOne {
+	tcuo.mutation.ClearCapObjectID()
+	return tcuo
+}
+
+// SetCoinType sets the "coin_type" field.
+func (tcuo *TappCardUpdateOne) SetCoinType(s string) *TappCardUpdateOne {
+	tcuo.mutation.SetCoinType(s)
+	return tcuo
+}
+
+// SetNillableCoinType sets the "coin_type" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableCoinType(s *string) *TappCardUpdateOne {
+	if s != nil {
+		tcuo.SetCoinType(*s)
+	}
+	return tcuo
+}
+
+// ClearCoinType clears the value of the "coin_type" field.
+func (tcuo *TappCardUpdateOne) ClearCoinType() *TappCardUpdateOne {
+	tcuo.mutation.ClearCoinType()
+	return tcuo
+}
+
+// SetLinkingProof sets the "linking_proof" field.
+func (tcuo *TappCardUpdateOne) SetLinkingProof(b []byte) *TappCardUpdateOne {
+	tcuo.mutation.SetLinkingProof(b)
+	return tcuo
+}
+
+// ClearLinkingProof clears the value of the "linking_proof" field.
+func (tcuo *TappCardUpdateOne) ClearLinkingProof() *TappCardUpdateOne {
+	tcuo.mutation.ClearLinkingProof()
+	return tcuo
+}
+
+// SetPinVerifier sets the "pin_verifier" field.
+func (tcuo *TappCardUpdateOne) SetPinVerifier(b []byte) *TappCardUpdateOne {
+	tcuo.mutation.SetPinVerifier(b)
+	return tcuo
+}
+
+// ClearPinVerifier clears the value of the "pin_verifier" field.
+func (tcuo *TappCardUpdateOne) ClearPinVerifier() *TappCardUpdateOne {
+	tcuo.mutation.ClearPinVerifier()
+	return tcuo
+}
+
+// SetPinAttemptsRemaining sets the "pin_attempts_remaining" field.
+func (tcuo *TappCardUpdateOne) SetPinAttemptsRemaining(i int) *TappCardUpdateOne {
+	tcuo.mutation.ResetPinAttemptsRemaining()
+	tcuo.mutation.SetPinAttemptsRemaining(i)
+	return tcuo
+}
+
+// SetNillablePinAttemptsRemaining sets the "pin_attempts_remaining" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillablePinAttemptsRemaining(i *int) *TappCardUpdateOne {
+	if i != nil {
+		tcuo.SetPinAttemptsRemaining(*i)
+	}
+	return tcuo
+}
+
+// AddPinAttemptsRemaining adds i to the "pin_attempts_remaining" field.
+func (tcuo *TappCardUpdateOne) AddPinAttemptsRemaining(i int) *TappCardUpdateOne {
+	tcuo.mutation.AddPinAttemptsRemaining(i)
+	return tcuo
+}
+
+// SetLockedUntil sets the "locked_until" field.
+func (tcuo *TappCardUpdateOne) SetLockedUntil(t time.Time) *TappCardUpdateOne {
+	tcuo.mutation.SetLockedUntil(t)
+	return tcuo
+}
+
+// SetNillableLockedUntil sets the "locked_until" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableLockedUntil(t *time.Time) *TappCardUpdateOne {
+	if t != nil {
+		tcuo.SetLockedUntil(*t)
+	}
+	return tcuo
+}
+
+// ClearLockedUntil clears the value of the "locked_until" field.
+func (tcuo *TappCardUpdateOne) ClearLockedUntil() *TappCardUpdateOne {
+	tcuo.mutation.ClearLockedUntil()
+	return tcuo
+}
+
+// SetCardPassword sets the "card_password" field.
+func (tcuo *TappCardUpdateOne) SetCardPassword(b []byte) *TappCardUpdateOne {
+	tcuo.mutation.SetCardPassword(b)
+	return tcuo
+}
+
+// ClearCardPassword clears the value of the "card_password" field.
+func (tcuo *TappCardUpdateOne) ClearCardPassword() *TappCardUpdateOne {
+	tcuo.mutation.ClearCardPassword()
+	return tcuo
+}
+
+// SetCurrentTokenCiphertext sets the "current_token_ciphertext" field.
+func (tcuo *TappCardUpdateOne) SetCurrentTokenCiphertext(b []byte) *TappCardUpdateOne {
+	tcuo.mutation.SetCurrentTokenCiphertext(b)
+	return tcuo
+}
+
+// ClearCurrentTokenCiphertext clears the value of the "current_token_ciphertext" field.
+func (tcuo *TappCardUpdateOne) ClearCurrentTokenCiphertext() *TappCardUpdateOne {
+	tcuo.mutation.ClearCurrentTokenCiphertext()
+	return tcuo
+}
+
+// SetTokenRotatedAt sets the "token_rotated_at" field.
+func (tcuo *TappCardUpdateOne) SetTokenRotatedAt(t time.Time) *TappCardUpdateOne {
+	tcuo.mutation.SetTokenRotatedAt(t)
+	return tcuo
+}
+
+// SetNillableTokenRotatedAt sets the "token_rotated_at" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableTokenRotatedAt(t *time.Time) *TappCardUpdateOne {
+	if t != nil {
+		tcuo.SetTokenRotatedAt(*t)
+	}
+	return tcuo
+}
+
+// ClearTokenRotatedAt clears the value of the "token_rotated_at" field.
+func (tcuo *TappCardUpdateOne) ClearTokenRotatedAt() *TappCardUpdateOne {
+	tcuo.mutation.ClearTokenRotatedAt()
+	return tcuo
+}
+
+// SetTokenMismatchCount sets the "token_mismatch_count" field.
+func (tcuo *TappCardUpdateOne) SetTokenMismatchCount(i int) *TappCardUpdateOne {
+	tcuo.mutation.ResetTokenMismatchCount()
+	tcuo.mutation.SetTokenMismatchCount(i)
+	return tcuo
+}
+
+// SetNillableTokenMismatchCount sets the "token_mismatch_count" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableTokenMismatchCount(i *int) *TappCardUpdateOne {
+	if i != nil {
+		tcuo.SetTokenMismatchCount(*i)
+	}
+	return tcuo
+}
+
+// AddTokenMismatchCount adds i to the "token_mismatch_count" field.
+func (tcuo *TappCardUpdateOne) AddTokenMismatchCount(i int) *TappCardUpdateOne {
+	tcuo.mutation.AddTokenMismatchCount(i)
+	return tcuo
+}
+
+// SetDailyLimitSubunit sets the "daily_limit_subunit" field.
+func (tcuo *TappCardUpdateOne) SetDailyLimitSubunit(u uint64) *TappCardUpdateOne {
+	tcuo.mutation.ResetDailyLimitSubunit()
+	tcuo.mutation.SetDailyLimitSubunit(u)
+	return tcuo
+}
+
+// SetNillableDailyLimitSubunit sets the "daily_limit_subunit" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableDailyLimitSubunit(u *uint64) *TappCardUpdateOne {
+	if u != nil {
+		tcuo.SetDailyLimitSubunit(*u)
+	}
+	return tcuo
+}
+
+// AddDailyLimitSubunit adds u to the "daily_limit_subunit" field.
+func (tcuo *TappCardUpdateOne) AddDailyLimitSubunit(u int64) *TappCardUpdateOne {
+	tcuo.mutation.AddDailyLimitSubunit(u)
+	return tcuo
+}
+
+// SetPerTapLimitSubunit sets the "per_tap_limit_subunit" field.
+func (tcuo *TappCardUpdateOne) SetPerTapLimitSubunit(u uint64) *TappCardUpdateOne {
+	tcuo.mutation.ResetPerTapLimitSubunit()
+	tcuo.mutation.SetPerTapLimitSubunit(u)
+	return tcuo
+}
+
+// SetNillablePerTapLimitSubunit sets the "per_tap_limit_subunit" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillablePerTapLimitSubunit(u *uint64) *TappCardUpdateOne {
+	if u != nil {
+		tcuo.SetPerTapLimitSubunit(*u)
+	}
+	return tcuo
+}
+
+// AddPerTapLimitSubunit adds u to the "per_tap_limit_subunit" field.
+func (tcuo *TappCardUpdateOne) AddPerTapLimitSubunit(u int64) *TappCardUpdateOne {
+	tcuo.mutation.AddPerTapLimitSubunit(u)
+	return tcuo
+}
+
+// SetStepUpThresholdSubunit sets the "step_up_threshold_subunit" field.
+func (tcuo *TappCardUpdateOne) SetStepUpThresholdSubunit(u uint64) *TappCardUpdateOne {
+	tcuo.mutation.ResetStepUpThresholdSubunit()
+	tcuo.mutation.SetStepUpThresholdSubunit(u)
+	return tcuo
+}
+
+// SetNillableStepUpThresholdSubunit sets the "step_up_threshold_subunit" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableStepUpThresholdSubunit(u *uint64) *TappCardUpdateOne {
+	if u != nil {
+		tcuo.SetStepUpThresholdSubunit(*u)
+	}
+	return tcuo
+}
+
+// AddStepUpThresholdSubunit adds u to the "step_up_threshold_subunit" field.
+func (tcuo *TappCardUpdateOne) AddStepUpThresholdSubunit(u int64) *TappCardUpdateOne {
+	tcuo.mutation.AddStepUpThresholdSubunit(u)
+	return tcuo
+}
+
+// SetSpentTodaySubunit sets the "spent_today_subunit" field.
+func (tcuo *TappCardUpdateOne) SetSpentTodaySubunit(u uint64) *TappCardUpdateOne {
+	tcuo.mutation.ResetSpentTodaySubunit()
+	tcuo.mutation.SetSpentTodaySubunit(u)
+	return tcuo
+}
+
+// SetNillableSpentTodaySubunit sets the "spent_today_subunit" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableSpentTodaySubunit(u *uint64) *TappCardUpdateOne {
+	if u != nil {
+		tcuo.SetSpentTodaySubunit(*u)
+	}
+	return tcuo
+}
+
+// AddSpentTodaySubunit adds u to the "spent_today_subunit" field.
+func (tcuo *TappCardUpdateOne) AddSpentTodaySubunit(u int64) *TappCardUpdateOne {
+	tcuo.mutation.AddSpentTodaySubunit(u)
+	return tcuo
+}
+
+// SetDayIndex sets the "day_index" field.
+func (tcuo *TappCardUpdateOne) SetDayIndex(u uint64) *TappCardUpdateOne {
+	tcuo.mutation.ResetDayIndex()
+	tcuo.mutation.SetDayIndex(u)
+	return tcuo
+}
+
+// SetNillableDayIndex sets the "day_index" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableDayIndex(u *uint64) *TappCardUpdateOne {
+	if u != nil {
+		tcuo.SetDayIndex(*u)
+	}
+	return tcuo
+}
+
+// AddDayIndex adds u to the "day_index" field.
+func (tcuo *TappCardUpdateOne) AddDayIndex(u int64) *TappCardUpdateOne {
+	tcuo.mutation.AddDayIndex(u)
+	return tcuo
+}
+
+// SetNeedsResync sets the "needs_resync" field.
+func (tcuo *TappCardUpdateOne) SetNeedsResync(b bool) *TappCardUpdateOne {
+	tcuo.mutation.SetNeedsResync(b)
+	return tcuo
+}
+
+// SetNillableNeedsResync sets the "needs_resync" field if the given value is not nil.
+func (tcuo *TappCardUpdateOne) SetNillableNeedsResync(b *bool) *TappCardUpdateOne {
+	if b != nil {
+		tcuo.SetNeedsResync(*b)
+	}
+	return tcuo
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (tcuo *TappCardUpdateOne) SetUserID(id uuid.UUID) *TappCardUpdateOne {
 	tcuo.mutation.SetUserID(id)
@@ -268,6 +1081,21 @@ func (tcuo *TappCardUpdateOne) SetUser(u *User) *TappCardUpdateOne {
 	return tcuo.SetUserID(u.ID)
 }
 
+// AddServerNonceIDs adds the "server_nonces" edge to the CardServerNonce entity by IDs.
+func (tcuo *TappCardUpdateOne) AddServerNonceIDs(ids ...uuid.UUID) *TappCardUpdateOne {
+	tcuo.mutation.AddServerNonceIDs(ids...)
+	return tcuo
+}
+
+// AddServerNonces adds the "server_nonces" edges to the CardServerNonce entity.
+func (tcuo *TappCardUpdateOne) AddServerNonces(c ...*CardServerNonce) *TappCardUpdateOne {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return tcuo.AddServerNonceIDs(ids...)
+}
+
 // Mutation returns the TappCardMutation object of the builder.
 func (tcuo *TappCardUpdateOne) Mutation() *TappCardMutation {
 	return tcuo.mutation
@@ -277,6 +1105,27 @@ func (tcuo *TappCardUpdateOne) Mutation() *TappCardMutation {
 func (tcuo *TappCardUpdateOne) ClearUser() *TappCardUpdateOne {
 	tcuo.mutation.ClearUser()
 	return tcuo
+}
+
+// ClearServerNonces clears all "server_nonces" edges to the CardServerNonce entity.
+func (tcuo *TappCardUpdateOne) ClearServerNonces() *TappCardUpdateOne {
+	tcuo.mutation.ClearServerNonces()
+	return tcuo
+}
+
+// RemoveServerNonceIDs removes the "server_nonces" edge to CardServerNonce entities by IDs.
+func (tcuo *TappCardUpdateOne) RemoveServerNonceIDs(ids ...uuid.UUID) *TappCardUpdateOne {
+	tcuo.mutation.RemoveServerNonceIDs(ids...)
+	return tcuo
+}
+
+// RemoveServerNonces removes "server_nonces" edges to CardServerNonce entities.
+func (tcuo *TappCardUpdateOne) RemoveServerNonces(c ...*CardServerNonce) *TappCardUpdateOne {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return tcuo.RemoveServerNonceIDs(ids...)
 }
 
 // Where appends a list predicates to the TappCardUpdate builder.
@@ -340,6 +1189,36 @@ func (tcuo *TappCardUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "TappCard.status": %w`, err)}
 		}
 	}
+	if v, ok := tcuo.mutation.CardUIDHash(); ok {
+		if err := tappcard.CardUIDHashValidator(v); err != nil {
+			return &ValidationError{Name: "card_uid_hash", err: fmt.Errorf(`ent: validator failed for field "TappCard.card_uid_hash": %w`, err)}
+		}
+	}
+	if v, ok := tcuo.mutation.LinkingProof(); ok {
+		if err := tappcard.LinkingProofValidator(v); err != nil {
+			return &ValidationError{Name: "linking_proof", err: fmt.Errorf(`ent: validator failed for field "TappCard.linking_proof": %w`, err)}
+		}
+	}
+	if v, ok := tcuo.mutation.PinVerifier(); ok {
+		if err := tappcard.PinVerifierValidator(v); err != nil {
+			return &ValidationError{Name: "pin_verifier", err: fmt.Errorf(`ent: validator failed for field "TappCard.pin_verifier": %w`, err)}
+		}
+	}
+	if v, ok := tcuo.mutation.PinAttemptsRemaining(); ok {
+		if err := tappcard.PinAttemptsRemainingValidator(v); err != nil {
+			return &ValidationError{Name: "pin_attempts_remaining", err: fmt.Errorf(`ent: validator failed for field "TappCard.pin_attempts_remaining": %w`, err)}
+		}
+	}
+	if v, ok := tcuo.mutation.CardPassword(); ok {
+		if err := tappcard.CardPasswordValidator(v); err != nil {
+			return &ValidationError{Name: "card_password", err: fmt.Errorf(`ent: validator failed for field "TappCard.card_password": %w`, err)}
+		}
+	}
+	if v, ok := tcuo.mutation.TokenMismatchCount(); ok {
+		if err := tappcard.TokenMismatchCountValidator(v); err != nil {
+			return &ValidationError{Name: "token_mismatch_count", err: fmt.Errorf(`ent: validator failed for field "TappCard.token_mismatch_count": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -381,6 +1260,105 @@ func (tcuo *TappCardUpdateOne) sqlSave(ctx context.Context) (_node *TappCard, er
 	if value, ok := tcuo.mutation.Status(); ok {
 		_spec.SetField(tappcard.FieldStatus, field.TypeEnum, value)
 	}
+	if value, ok := tcuo.mutation.CardUIDHash(); ok {
+		_spec.SetField(tappcard.FieldCardUIDHash, field.TypeBytes, value)
+	}
+	if tcuo.mutation.CardUIDHashCleared() {
+		_spec.ClearField(tappcard.FieldCardUIDHash, field.TypeBytes)
+	}
+	if value, ok := tcuo.mutation.CapObjectID(); ok {
+		_spec.SetField(tappcard.FieldCapObjectID, field.TypeString, value)
+	}
+	if tcuo.mutation.CapObjectIDCleared() {
+		_spec.ClearField(tappcard.FieldCapObjectID, field.TypeString)
+	}
+	if value, ok := tcuo.mutation.CoinType(); ok {
+		_spec.SetField(tappcard.FieldCoinType, field.TypeString, value)
+	}
+	if tcuo.mutation.CoinTypeCleared() {
+		_spec.ClearField(tappcard.FieldCoinType, field.TypeString)
+	}
+	if value, ok := tcuo.mutation.LinkingProof(); ok {
+		_spec.SetField(tappcard.FieldLinkingProof, field.TypeBytes, value)
+	}
+	if tcuo.mutation.LinkingProofCleared() {
+		_spec.ClearField(tappcard.FieldLinkingProof, field.TypeBytes)
+	}
+	if value, ok := tcuo.mutation.PinVerifier(); ok {
+		_spec.SetField(tappcard.FieldPinVerifier, field.TypeBytes, value)
+	}
+	if tcuo.mutation.PinVerifierCleared() {
+		_spec.ClearField(tappcard.FieldPinVerifier, field.TypeBytes)
+	}
+	if value, ok := tcuo.mutation.PinAttemptsRemaining(); ok {
+		_spec.SetField(tappcard.FieldPinAttemptsRemaining, field.TypeInt, value)
+	}
+	if value, ok := tcuo.mutation.AddedPinAttemptsRemaining(); ok {
+		_spec.AddField(tappcard.FieldPinAttemptsRemaining, field.TypeInt, value)
+	}
+	if value, ok := tcuo.mutation.LockedUntil(); ok {
+		_spec.SetField(tappcard.FieldLockedUntil, field.TypeTime, value)
+	}
+	if tcuo.mutation.LockedUntilCleared() {
+		_spec.ClearField(tappcard.FieldLockedUntil, field.TypeTime)
+	}
+	if value, ok := tcuo.mutation.CardPassword(); ok {
+		_spec.SetField(tappcard.FieldCardPassword, field.TypeBytes, value)
+	}
+	if tcuo.mutation.CardPasswordCleared() {
+		_spec.ClearField(tappcard.FieldCardPassword, field.TypeBytes)
+	}
+	if value, ok := tcuo.mutation.CurrentTokenCiphertext(); ok {
+		_spec.SetField(tappcard.FieldCurrentTokenCiphertext, field.TypeBytes, value)
+	}
+	if tcuo.mutation.CurrentTokenCiphertextCleared() {
+		_spec.ClearField(tappcard.FieldCurrentTokenCiphertext, field.TypeBytes)
+	}
+	if value, ok := tcuo.mutation.TokenRotatedAt(); ok {
+		_spec.SetField(tappcard.FieldTokenRotatedAt, field.TypeTime, value)
+	}
+	if tcuo.mutation.TokenRotatedAtCleared() {
+		_spec.ClearField(tappcard.FieldTokenRotatedAt, field.TypeTime)
+	}
+	if value, ok := tcuo.mutation.TokenMismatchCount(); ok {
+		_spec.SetField(tappcard.FieldTokenMismatchCount, field.TypeInt, value)
+	}
+	if value, ok := tcuo.mutation.AddedTokenMismatchCount(); ok {
+		_spec.AddField(tappcard.FieldTokenMismatchCount, field.TypeInt, value)
+	}
+	if value, ok := tcuo.mutation.DailyLimitSubunit(); ok {
+		_spec.SetField(tappcard.FieldDailyLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.AddedDailyLimitSubunit(); ok {
+		_spec.AddField(tappcard.FieldDailyLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.PerTapLimitSubunit(); ok {
+		_spec.SetField(tappcard.FieldPerTapLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.AddedPerTapLimitSubunit(); ok {
+		_spec.AddField(tappcard.FieldPerTapLimitSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.StepUpThresholdSubunit(); ok {
+		_spec.SetField(tappcard.FieldStepUpThresholdSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.AddedStepUpThresholdSubunit(); ok {
+		_spec.AddField(tappcard.FieldStepUpThresholdSubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.SpentTodaySubunit(); ok {
+		_spec.SetField(tappcard.FieldSpentTodaySubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.AddedSpentTodaySubunit(); ok {
+		_spec.AddField(tappcard.FieldSpentTodaySubunit, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.DayIndex(); ok {
+		_spec.SetField(tappcard.FieldDayIndex, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.AddedDayIndex(); ok {
+		_spec.AddField(tappcard.FieldDayIndex, field.TypeUint64, value)
+	}
+	if value, ok := tcuo.mutation.NeedsResync(); ok {
+		_spec.SetField(tappcard.FieldNeedsResync, field.TypeBool, value)
+	}
 	if tcuo.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -403,6 +1381,51 @@ func (tcuo *TappCardUpdateOne) sqlSave(ctx context.Context) (_node *TappCard, er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if tcuo.mutation.ServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tcuo.mutation.RemovedServerNoncesIDs(); len(nodes) > 0 && !tcuo.mutation.ServerNoncesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := tcuo.mutation.ServerNoncesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tappcard.ServerNoncesTable,
+			Columns: []string{tappcard.ServerNoncesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

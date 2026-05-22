@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -12,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -20,12 +22,13 @@ import (
 // TappCardQuery is the builder for querying TappCard entities.
 type TappCardQuery struct {
 	config
-	ctx        *QueryContext
-	order      []tappcard.OrderOption
-	inters     []Interceptor
-	predicates []predicate.TappCard
-	withUser   *UserQuery
-	withFKs    bool
+	ctx              *QueryContext
+	order            []tappcard.OrderOption
+	inters           []Interceptor
+	predicates       []predicate.TappCard
+	withUser         *UserQuery
+	withServerNonces *CardServerNonceQuery
+	withFKs          bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -77,6 +80,28 @@ func (tcq *TappCardQuery) QueryUser() *UserQuery {
 			sqlgraph.From(tappcard.Table, tappcard.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, tappcard.UserTable, tappcard.UserColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(tcq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryServerNonces chains the current query on the "server_nonces" edge.
+func (tcq *TappCardQuery) QueryServerNonces() *CardServerNonceQuery {
+	query := (&CardServerNonceClient{config: tcq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := tcq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := tcq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tappcard.Table, tappcard.FieldID, selector),
+			sqlgraph.To(cardservernonce.Table, cardservernonce.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, tappcard.ServerNoncesTable, tappcard.ServerNoncesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(tcq.driver.Dialect(), step)
 		return fromU, nil
@@ -271,12 +296,13 @@ func (tcq *TappCardQuery) Clone() *TappCardQuery {
 		return nil
 	}
 	return &TappCardQuery{
-		config:     tcq.config,
-		ctx:        tcq.ctx.Clone(),
-		order:      append([]tappcard.OrderOption{}, tcq.order...),
-		inters:     append([]Interceptor{}, tcq.inters...),
-		predicates: append([]predicate.TappCard{}, tcq.predicates...),
-		withUser:   tcq.withUser.Clone(),
+		config:           tcq.config,
+		ctx:              tcq.ctx.Clone(),
+		order:            append([]tappcard.OrderOption{}, tcq.order...),
+		inters:           append([]Interceptor{}, tcq.inters...),
+		predicates:       append([]predicate.TappCard{}, tcq.predicates...),
+		withUser:         tcq.withUser.Clone(),
+		withServerNonces: tcq.withServerNonces.Clone(),
 		// clone intermediate query.
 		sql:  tcq.sql.Clone(),
 		path: tcq.path,
@@ -291,6 +317,17 @@ func (tcq *TappCardQuery) WithUser(opts ...func(*UserQuery)) *TappCardQuery {
 		opt(query)
 	}
 	tcq.withUser = query
+	return tcq
+}
+
+// WithServerNonces tells the query-builder to eager-load the nodes that are connected to
+// the "server_nonces" edge. The optional arguments are used to configure the query builder of the edge.
+func (tcq *TappCardQuery) WithServerNonces(opts ...func(*CardServerNonceQuery)) *TappCardQuery {
+	query := (&CardServerNonceClient{config: tcq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	tcq.withServerNonces = query
 	return tcq
 }
 
@@ -373,8 +410,9 @@ func (tcq *TappCardQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ta
 		nodes       = []*TappCard{}
 		withFKs     = tcq.withFKs
 		_spec       = tcq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			tcq.withUser != nil,
+			tcq.withServerNonces != nil,
 		}
 	)
 	if tcq.withUser != nil {
@@ -404,6 +442,13 @@ func (tcq *TappCardQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ta
 	if query := tcq.withUser; query != nil {
 		if err := tcq.loadUser(ctx, query, nodes, nil,
 			func(n *TappCard, e *User) { n.Edges.User = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := tcq.withServerNonces; query != nil {
+		if err := tcq.loadServerNonces(ctx, query, nodes,
+			func(n *TappCard) { n.Edges.ServerNonces = []*CardServerNonce{} },
+			func(n *TappCard, e *CardServerNonce) { n.Edges.ServerNonces = append(n.Edges.ServerNonces, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -439,6 +484,37 @@ func (tcq *TappCardQuery) loadUser(ctx context.Context, query *UserQuery, nodes 
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (tcq *TappCardQuery) loadServerNonces(ctx context.Context, query *CardServerNonceQuery, nodes []*TappCard, init func(*TappCard), assign func(*TappCard, *CardServerNonce)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*TappCard)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.CardServerNonce(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(tappcard.ServerNoncesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.tapp_card_server_nonces
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "tapp_card_server_nonces" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "tapp_card_server_nonces" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

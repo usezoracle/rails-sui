@@ -21,6 +21,18 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The CardServerNonceFunc type is an adapter to allow the use of ordinary
+// function as CardServerNonce mutator.
+type CardServerNonceFunc func(context.Context, *ent.CardServerNonceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CardServerNonceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CardServerNonceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CardServerNonceMutation", m)
+}
+
 // The FiatCurrencyFunc type is an adapter to allow the use of ordinary
 // function as FiatCurrency mutator.
 type FiatCurrencyFunc func(context.Context, *ent.FiatCurrencyMutation) (ent.Value, error)
