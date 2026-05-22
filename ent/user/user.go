@@ -40,6 +40,8 @@ const (
 	EdgeProviderProfile = "provider_profile"
 	// EdgeVerificationToken holds the string denoting the verification_token edge name in mutations.
 	EdgeVerificationToken = "verification_token"
+	// EdgeTappCards holds the string denoting the tapp_cards edge name in mutations.
+	EdgeTappCards = "tapp_cards"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// SenderProfileTable is the table that holds the sender_profile relation/edge.
@@ -63,6 +65,13 @@ const (
 	VerificationTokenInverseTable = "verification_tokens"
 	// VerificationTokenColumn is the table column denoting the verification_token relation/edge.
 	VerificationTokenColumn = "user_verification_token"
+	// TappCardsTable is the table that holds the tapp_cards relation/edge.
+	TappCardsTable = "tapp_cards"
+	// TappCardsInverseTable is the table name for the TappCard entity.
+	// It exists in this package in order to avoid circular dependency with the "tappcard" package.
+	TappCardsInverseTable = "tapp_cards"
+	// TappCardsColumn is the table column denoting the tapp_cards relation/edge.
+	TappCardsColumn = "user_tapp_cards"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -194,6 +203,20 @@ func ByVerificationToken(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newVerificationTokenStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByTappCardsCount orders the results by tapp_cards count.
+func ByTappCardsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newTappCardsStep(), opts...)
+	}
+}
+
+// ByTappCards orders the results by tapp_cards terms.
+func ByTappCards(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newTappCardsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newSenderProfileStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -213,5 +236,12 @@ func newVerificationTokenStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(VerificationTokenInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, VerificationTokenTable, VerificationTokenColumn),
+	)
+}
+func newTappCardsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(TappCardsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, TappCardsTable, TappCardsColumn),
 	)
 }

@@ -35,6 +35,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
+	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -85,6 +86,8 @@ type Client struct {
 	SenderProfile *SenderProfileClient
 	// SuiReceiveAddress is the client for interacting with the SuiReceiveAddress builders.
 	SuiReceiveAddress *SuiReceiveAddressClient
+	// TappCard is the client for interacting with the TappCard builders.
+	TappCard *TappCardClient
 	// Token is the client for interacting with the Token builders.
 	Token *TokenClient
 	// TransactionLog is the client for interacting with the TransactionLog builders.
@@ -125,6 +128,7 @@ func (c *Client) init() {
 	c.SenderOrderToken = NewSenderOrderTokenClient(c.config)
 	c.SenderProfile = NewSenderProfileClient(c.config)
 	c.SuiReceiveAddress = NewSuiReceiveAddressClient(c.config)
+	c.TappCard = NewTappCardClient(c.config)
 	c.Token = NewTokenClient(c.config)
 	c.TransactionLog = NewTransactionLogClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -241,6 +245,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		SenderOrderToken:            NewSenderOrderTokenClient(cfg),
 		SenderProfile:               NewSenderProfileClient(cfg),
 		SuiReceiveAddress:           NewSuiReceiveAddressClient(cfg),
+		TappCard:                    NewTappCardClient(cfg),
 		Token:                       NewTokenClient(cfg),
 		TransactionLog:              NewTransactionLogClient(cfg),
 		User:                        NewUserClient(cfg),
@@ -284,6 +289,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		SenderOrderToken:            NewSenderOrderTokenClient(cfg),
 		SenderProfile:               NewSenderProfileClient(cfg),
 		SuiReceiveAddress:           NewSuiReceiveAddressClient(cfg),
+		TappCard:                    NewTappCardClient(cfg),
 		Token:                       NewTokenClient(cfg),
 		TransactionLog:              NewTransactionLogClient(cfg),
 		User:                        NewUserClient(cfg),
@@ -323,7 +329,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
 		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
 		c.RouteAOrder, c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress,
-		c.Token, c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
+		c.TappCard, c.Token, c.TransactionLog, c.User, c.VerificationToken,
+		c.WebhookRetryAttempt,
 	} {
 		n.Use(hooks...)
 	}
@@ -338,7 +345,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
 		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
 		c.RouteAOrder, c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress,
-		c.Token, c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
+		c.TappCard, c.Token, c.TransactionLog, c.User, c.VerificationToken,
+		c.WebhookRetryAttempt,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -385,6 +393,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.SenderProfile.mutate(ctx, m)
 	case *SuiReceiveAddressMutation:
 		return c.SuiReceiveAddress.mutate(ctx, m)
+	case *TappCardMutation:
+		return c.TappCard.mutate(ctx, m)
 	case *TokenMutation:
 		return c.Token.mutate(ctx, m)
 	case *TransactionLogMutation:
@@ -3647,6 +3657,155 @@ func (c *SuiReceiveAddressClient) mutate(ctx context.Context, m *SuiReceiveAddre
 	}
 }
 
+// TappCardClient is a client for the TappCard schema.
+type TappCardClient struct {
+	config
+}
+
+// NewTappCardClient returns a client for the TappCard from the given config.
+func NewTappCardClient(c config) *TappCardClient {
+	return &TappCardClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `tappcard.Hooks(f(g(h())))`.
+func (c *TappCardClient) Use(hooks ...Hook) {
+	c.hooks.TappCard = append(c.hooks.TappCard, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `tappcard.Intercept(f(g(h())))`.
+func (c *TappCardClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TappCard = append(c.inters.TappCard, interceptors...)
+}
+
+// Create returns a builder for creating a TappCard entity.
+func (c *TappCardClient) Create() *TappCardCreate {
+	mutation := newTappCardMutation(c.config, OpCreate)
+	return &TappCardCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TappCard entities.
+func (c *TappCardClient) CreateBulk(builders ...*TappCardCreate) *TappCardCreateBulk {
+	return &TappCardCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TappCardClient) MapCreateBulk(slice any, setFunc func(*TappCardCreate, int)) *TappCardCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TappCardCreateBulk{err: fmt.Errorf("calling to TappCardClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TappCardCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TappCardCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TappCard.
+func (c *TappCardClient) Update() *TappCardUpdate {
+	mutation := newTappCardMutation(c.config, OpUpdate)
+	return &TappCardUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TappCardClient) UpdateOne(tc *TappCard) *TappCardUpdateOne {
+	mutation := newTappCardMutation(c.config, OpUpdateOne, withTappCard(tc))
+	return &TappCardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TappCardClient) UpdateOneID(id uuid.UUID) *TappCardUpdateOne {
+	mutation := newTappCardMutation(c.config, OpUpdateOne, withTappCardID(id))
+	return &TappCardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TappCard.
+func (c *TappCardClient) Delete() *TappCardDelete {
+	mutation := newTappCardMutation(c.config, OpDelete)
+	return &TappCardDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TappCardClient) DeleteOne(tc *TappCard) *TappCardDeleteOne {
+	return c.DeleteOneID(tc.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TappCardClient) DeleteOneID(id uuid.UUID) *TappCardDeleteOne {
+	builder := c.Delete().Where(tappcard.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TappCardDeleteOne{builder}
+}
+
+// Query returns a query builder for TappCard.
+func (c *TappCardClient) Query() *TappCardQuery {
+	return &TappCardQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTappCard},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TappCard entity by its id.
+func (c *TappCardClient) Get(ctx context.Context, id uuid.UUID) (*TappCard, error) {
+	return c.Query().Where(tappcard.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TappCardClient) GetX(ctx context.Context, id uuid.UUID) *TappCard {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a TappCard.
+func (c *TappCardClient) QueryUser(tc *TappCard) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := tc.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tappcard.Table, tappcard.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, tappcard.UserTable, tappcard.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(tc.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TappCardClient) Hooks() []Hook {
+	return c.hooks.TappCard
+}
+
+// Interceptors returns the client interceptors.
+func (c *TappCardClient) Interceptors() []Interceptor {
+	return c.inters.TappCard
+}
+
+func (c *TappCardClient) mutate(ctx context.Context, m *TappCardMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TappCardCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TappCardUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TappCardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TappCardDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TappCard mutation op: %q", m.Op())
+	}
+}
+
 // TokenClient is a client for the Token schema.
 type TokenClient struct {
 	config
@@ -4133,6 +4292,22 @@ func (c *UserClient) QueryVerificationToken(u *User) *VerificationTokenQuery {
 	return query
 }
 
+// QueryTappCards queries the tapp_cards edge of a User.
+func (c *UserClient) QueryTappCards(u *User) *TappCardQuery {
+	query := (&TappCardClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(tappcard.Table, tappcard.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.TappCardsTable, user.TappCardsColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	hooks := c.hooks.User
@@ -4449,7 +4624,7 @@ type (
 		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
 		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
 		ProviderRating, ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken,
-		SenderProfile, SuiReceiveAddress, Token, TransactionLog, User,
+		SenderProfile, SuiReceiveAddress, TappCard, Token, TransactionLog, User,
 		VerificationToken, WebhookRetryAttempt []ent.Hook
 	}
 	inters struct {
@@ -4457,7 +4632,7 @@ type (
 		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
 		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
 		ProviderRating, ProvisionBucket, ReceiveAddress, RouteAOrder, SenderOrderToken,
-		SenderProfile, SuiReceiveAddress, Token, TransactionLog, User,
+		SenderProfile, SuiReceiveAddress, TappCard, Token, TransactionLog, User,
 		VerificationToken, WebhookRetryAttempt []ent.Interceptor
 	}
 )

@@ -55,6 +55,8 @@ func (User) Edges() []ent.Edge {
 			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("verification_token", VerificationToken.Type).
 			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("tapp_cards", TappCard.Type).
+			Annotations(entsql.OnDelete(entsql.SetNull)),
 	}
 }
 

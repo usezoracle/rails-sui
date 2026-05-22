@@ -31,6 +31,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
+	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -115,6 +116,7 @@ func checkColumn(table, column string) error {
 			senderordertoken.Table:            senderordertoken.ValidColumn,
 			senderprofile.Table:               senderprofile.ValidColumn,
 			suireceiveaddress.Table:           suireceiveaddress.ValidColumn,
+			tappcard.Table:                    tappcard.ValidColumn,
 			token.Table:                       token.ValidColumn,
 			transactionlog.Table:              transactionlog.ValidColumn,
 			user.Table:                        user.ValidColumn,

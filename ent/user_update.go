@@ -15,6 +15,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
+	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/ent/verificationtoken"
 )
@@ -189,6 +190,21 @@ func (uu *UserUpdate) AddVerificationToken(v ...*VerificationToken) *UserUpdate 
 	return uu.AddVerificationTokenIDs(ids...)
 }
 
+// AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by IDs.
+func (uu *UserUpdate) AddTappCardIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddTappCardIDs(ids...)
+	return uu
+}
+
+// AddTappCards adds the "tapp_cards" edges to the TappCard entity.
+func (uu *UserUpdate) AddTappCards(t ...*TappCard) *UserUpdate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return uu.AddTappCardIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uu *UserUpdate) Mutation() *UserMutation {
 	return uu.mutation
@@ -225,6 +241,27 @@ func (uu *UserUpdate) RemoveVerificationToken(v ...*VerificationToken) *UserUpda
 		ids[i] = v[i].ID
 	}
 	return uu.RemoveVerificationTokenIDs(ids...)
+}
+
+// ClearTappCards clears all "tapp_cards" edges to the TappCard entity.
+func (uu *UserUpdate) ClearTappCards() *UserUpdate {
+	uu.mutation.ClearTappCards()
+	return uu
+}
+
+// RemoveTappCardIDs removes the "tapp_cards" edge to TappCard entities by IDs.
+func (uu *UserUpdate) RemoveTappCardIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveTappCardIDs(ids...)
+	return uu
+}
+
+// RemoveTappCards removes "tapp_cards" edges to TappCard entities.
+func (uu *UserUpdate) RemoveTappCards(t ...*TappCard) *UserUpdate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return uu.RemoveTappCardIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -423,6 +460,51 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if uu.mutation.TappCardsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedTappCardsIDs(); len(nodes) > 0 && !uu.mutation.TappCardsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.TappCardsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -600,6 +682,21 @@ func (uuo *UserUpdateOne) AddVerificationToken(v ...*VerificationToken) *UserUpd
 	return uuo.AddVerificationTokenIDs(ids...)
 }
 
+// AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by IDs.
+func (uuo *UserUpdateOne) AddTappCardIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddTappCardIDs(ids...)
+	return uuo
+}
+
+// AddTappCards adds the "tapp_cards" edges to the TappCard entity.
+func (uuo *UserUpdateOne) AddTappCards(t ...*TappCard) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return uuo.AddTappCardIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uuo *UserUpdateOne) Mutation() *UserMutation {
 	return uuo.mutation
@@ -636,6 +733,27 @@ func (uuo *UserUpdateOne) RemoveVerificationToken(v ...*VerificationToken) *User
 		ids[i] = v[i].ID
 	}
 	return uuo.RemoveVerificationTokenIDs(ids...)
+}
+
+// ClearTappCards clears all "tapp_cards" edges to the TappCard entity.
+func (uuo *UserUpdateOne) ClearTappCards() *UserUpdateOne {
+	uuo.mutation.ClearTappCards()
+	return uuo
+}
+
+// RemoveTappCardIDs removes the "tapp_cards" edge to TappCard entities by IDs.
+func (uuo *UserUpdateOne) RemoveTappCardIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveTappCardIDs(ids...)
+	return uuo
+}
+
+// RemoveTappCards removes "tapp_cards" edges to TappCard entities.
+func (uuo *UserUpdateOne) RemoveTappCards(t ...*TappCard) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return uuo.RemoveTappCardIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -857,6 +975,51 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(verificationtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.TappCardsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedTappCardsIDs(); len(nodes) > 0 && !uuo.mutation.TappCardsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.TappCardsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

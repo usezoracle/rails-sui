@@ -52,9 +52,11 @@ type UserEdges struct {
 	ProviderProfile *ProviderProfile `json:"provider_profile,omitempty"`
 	// VerificationToken holds the value of the verification_token edge.
 	VerificationToken []*VerificationToken `json:"verification_token,omitempty"`
+	// TappCards holds the value of the tapp_cards edge.
+	TappCards []*TappCard `json:"tapp_cards,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // SenderProfileOrErr returns the SenderProfile value or an error if the edge
@@ -86,6 +88,15 @@ func (e UserEdges) VerificationTokenOrErr() ([]*VerificationToken, error) {
 		return e.VerificationToken, nil
 	}
 	return nil, &NotLoadedError{edge: "verification_token"}
+}
+
+// TappCardsOrErr returns the TappCards value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) TappCardsOrErr() ([]*TappCard, error) {
+	if e.loadedTypes[3] {
+		return e.TappCards, nil
+	}
+	return nil, &NotLoadedError{edge: "tapp_cards"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -202,6 +213,11 @@ func (u *User) QueryProviderProfile() *ProviderProfileQuery {
 // QueryVerificationToken queries the "verification_token" edge of the User entity.
 func (u *User) QueryVerificationToken() *VerificationTokenQuery {
 	return NewUserClient(u.config).QueryVerificationToken(u)
+}
+
+// QueryTappCards queries the "tapp_cards" edge of the User entity.
+func (u *User) QueryTappCards() *TappCardQuery {
+	return NewUserClient(u.config).QueryTappCards(u)
 }
 
 // Update returns a builder for updating this User.

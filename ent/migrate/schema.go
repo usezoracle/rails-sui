@@ -568,6 +568,36 @@ var (
 			},
 		},
 	}
+	// TappCardsColumns holds the columns for the "tapp_cards" table.
+	TappCardsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "activation_token", Type: field.TypeString, Unique: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"issued", "claimed", "live", "revoked", "locked"}, Default: "issued"},
+		{Name: "user_tapp_cards", Type: field.TypeUUID, Nullable: true},
+	}
+	// TappCardsTable holds the schema information for the "tapp_cards" table.
+	TappCardsTable = &schema.Table{
+		Name:       "tapp_cards",
+		Columns:    TappCardsColumns,
+		PrimaryKey: []*schema.Column{TappCardsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "tapp_cards_users_tapp_cards",
+				Columns:    []*schema.Column{TappCardsColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "tappcard_activation_token",
+				Unique:  false,
+				Columns: []*schema.Column{TappCardsColumns[3]},
+			},
+		},
+	}
 	// TokensColumns holds the columns for the "tokens" table.
 	TokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -739,6 +769,7 @@ var (
 		SenderOrderTokensTable,
 		SenderProfilesTable,
 		SuiReceiveAddressesTable,
+		TappCardsTable,
 		TokensTable,
 		TransactionLogsTable,
 		UsersTable,
@@ -772,6 +803,7 @@ func init() {
 	SenderOrderTokensTable.ForeignKeys[1].RefTable = TokensTable
 	SenderProfilesTable.ForeignKeys[0].RefTable = UsersTable
 	SuiReceiveAddressesTable.ForeignKeys[0].RefTable = PaymentOrdersTable
+	TappCardsTable.ForeignKeys[0].RefTable = UsersTable
 	TokensTable.ForeignKeys[0].RefTable = NetworksTable
 	TransactionLogsTable.ForeignKeys[0].RefTable = LockPaymentOrdersTable
 	TransactionLogsTable.ForeignKeys[1].RefTable = PaymentOrdersTable

@@ -17,6 +17,8 @@ type ServerConfiguration struct {
 	SentryDSN       string
 	HostDomain      string
 	CheckoutBaseURL string
+	PWABaseURL      string
+	AdminAPIToken   string
 }
 
 // ServerConfig sets the server configuration
@@ -29,6 +31,8 @@ func ServerConfig() *ServerConfiguration {
 	viper.SetDefault("ENVIRONMENT", "local")
 	viper.SetDefault("SENTRY_DSN", "")
 	viper.SetDefault("CHECKOUT_BASE_URL", "https://checkout.zoracle.com")
+	viper.SetDefault("PWA_BASE_URL", "https://tapp.zoracle.com")
+	viper.SetDefault("ADMIN_API_TOKEN", "")
 
 	return &ServerConfiguration{
 		Debug:           viper.GetBool("DEBUG"),
@@ -40,6 +44,8 @@ func ServerConfig() *ServerConfiguration {
 		SentryDSN:       viper.GetString("SENTRY_DSN"),
 		HostDomain:      viper.GetString("HOST_DOMAIN"),
 		CheckoutBaseURL: viper.GetString("CHECKOUT_BASE_URL"),
+		PWABaseURL:      viper.GetString("PWA_BASE_URL"),
+		AdminAPIToken:   viper.GetString("ADMIN_API_TOKEN"),
 	}
 }
 

@@ -33,6 +33,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
+	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -68,6 +69,7 @@ const (
 	TypeSenderOrderToken            = "SenderOrderToken"
 	TypeSenderProfile               = "SenderProfile"
 	TypeSuiReceiveAddress           = "SuiReceiveAddress"
+	TypeTappCard                    = "TappCard"
 	TypeToken                       = "Token"
 	TypeTransactionLog              = "TransactionLog"
 	TypeUser                        = "User"
@@ -18745,6 +18747,567 @@ func (m *SuiReceiveAddressMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown SuiReceiveAddress edge %s", name)
 }
 
+// TappCardMutation represents an operation that mutates the TappCard nodes in the graph.
+type TappCardMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	created_at       *time.Time
+	updated_at       *time.Time
+	activation_token *string
+	status           *tappcard.Status
+	clearedFields    map[string]struct{}
+	user             *uuid.UUID
+	cleareduser      bool
+	done             bool
+	oldValue         func(context.Context) (*TappCard, error)
+	predicates       []predicate.TappCard
+}
+
+var _ ent.Mutation = (*TappCardMutation)(nil)
+
+// tappcardOption allows management of the mutation configuration using functional options.
+type tappcardOption func(*TappCardMutation)
+
+// newTappCardMutation creates new mutation for the TappCard entity.
+func newTappCardMutation(c config, op Op, opts ...tappcardOption) *TappCardMutation {
+	m := &TappCardMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTappCard,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTappCardID sets the ID field of the mutation.
+func withTappCardID(id uuid.UUID) tappcardOption {
+	return func(m *TappCardMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TappCard
+		)
+		m.oldValue = func(ctx context.Context) (*TappCard, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TappCard.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTappCard sets the old TappCard of the mutation.
+func withTappCard(node *TappCard) tappcardOption {
+	return func(m *TappCardMutation) {
+		m.oldValue = func(context.Context) (*TappCard, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TappCardMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TappCardMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of TappCard entities.
+func (m *TappCardMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TappCardMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TappCardMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TappCard.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *TappCardMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *TappCardMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *TappCardMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *TappCardMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *TappCardMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *TappCardMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (m *TappCardMutation) SetActivationToken(s string) {
+	m.activation_token = &s
+}
+
+// ActivationToken returns the value of the "activation_token" field in the mutation.
+func (m *TappCardMutation) ActivationToken() (r string, exists bool) {
+	v := m.activation_token
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivationToken returns the old "activation_token" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldActivationToken(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivationToken is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivationToken requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivationToken: %w", err)
+	}
+	return oldValue.ActivationToken, nil
+}
+
+// ResetActivationToken resets all changes to the "activation_token" field.
+func (m *TappCardMutation) ResetActivationToken() {
+	m.activation_token = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *TappCardMutation) SetStatus(t tappcard.Status) {
+	m.status = &t
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *TappCardMutation) Status() (r tappcard.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the TappCard entity.
+// If the TappCard object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TappCardMutation) OldStatus(ctx context.Context) (v tappcard.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *TappCardMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetUserID sets the "user" edge to the User entity by id.
+func (m *TappCardMutation) SetUserID(id uuid.UUID) {
+	m.user = &id
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *TappCardMutation) ClearUser() {
+	m.cleareduser = true
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *TappCardMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserID returns the "user" edge ID in the mutation.
+func (m *TappCardMutation) UserID() (id uuid.UUID, exists bool) {
+	if m.user != nil {
+		return *m.user, true
+	}
+	return
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *TappCardMutation) UserIDs() (ids []uuid.UUID) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *TappCardMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the TappCardMutation builder.
+func (m *TappCardMutation) Where(ps ...predicate.TappCard) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TappCardMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TappCardMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TappCard, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TappCardMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TappCardMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TappCard).
+func (m *TappCardMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TappCardMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.created_at != nil {
+		fields = append(fields, tappcard.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, tappcard.FieldUpdatedAt)
+	}
+	if m.activation_token != nil {
+		fields = append(fields, tappcard.FieldActivationToken)
+	}
+	if m.status != nil {
+		fields = append(fields, tappcard.FieldStatus)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TappCardMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case tappcard.FieldCreatedAt:
+		return m.CreatedAt()
+	case tappcard.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case tappcard.FieldActivationToken:
+		return m.ActivationToken()
+	case tappcard.FieldStatus:
+		return m.Status()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TappCardMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case tappcard.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case tappcard.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case tappcard.FieldActivationToken:
+		return m.OldActivationToken(ctx)
+	case tappcard.FieldStatus:
+		return m.OldStatus(ctx)
+	}
+	return nil, fmt.Errorf("unknown TappCard field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TappCardMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case tappcard.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case tappcard.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case tappcard.FieldActivationToken:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivationToken(v)
+		return nil
+	case tappcard.FieldStatus:
+		v, ok := value.(tappcard.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TappCard field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TappCardMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TappCardMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TappCardMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown TappCard numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TappCardMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TappCardMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TappCardMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown TappCard nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TappCardMutation) ResetField(name string) error {
+	switch name {
+	case tappcard.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case tappcard.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case tappcard.FieldActivationToken:
+		m.ResetActivationToken()
+		return nil
+	case tappcard.FieldStatus:
+		m.ResetStatus()
+		return nil
+	}
+	return fmt.Errorf("unknown TappCard field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TappCardMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.user != nil {
+		edges = append(edges, tappcard.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TappCardMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case tappcard.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TappCardMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TappCardMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TappCardMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareduser {
+		edges = append(edges, tappcard.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TappCardMutation) EdgeCleared(name string) bool {
+	switch name {
+	case tappcard.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TappCardMutation) ClearEdge(name string) error {
+	switch name {
+	case tappcard.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown TappCard unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TappCardMutation) ResetEdge(name string) error {
+	switch name {
+	case tappcard.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown TappCard edge %s", name)
+}
+
 // TokenMutation represents an operation that mutates the Token nodes in the graph.
 type TokenMutation struct {
 	config
@@ -20380,6 +20943,9 @@ type UserMutation struct {
 	verification_token        map[uuid.UUID]struct{}
 	removedverification_token map[uuid.UUID]struct{}
 	clearedverification_token bool
+	tapp_cards                map[uuid.UUID]struct{}
+	removedtapp_cards         map[uuid.UUID]struct{}
+	clearedtapp_cards         bool
 	done                      bool
 	oldValue                  func(context.Context) (*User, error)
 	predicates                []predicate.User
@@ -20945,6 +21511,60 @@ func (m *UserMutation) ResetVerificationToken() {
 	m.removedverification_token = nil
 }
 
+// AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by ids.
+func (m *UserMutation) AddTappCardIDs(ids ...uuid.UUID) {
+	if m.tapp_cards == nil {
+		m.tapp_cards = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.tapp_cards[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTappCards clears the "tapp_cards" edge to the TappCard entity.
+func (m *UserMutation) ClearTappCards() {
+	m.clearedtapp_cards = true
+}
+
+// TappCardsCleared reports if the "tapp_cards" edge to the TappCard entity was cleared.
+func (m *UserMutation) TappCardsCleared() bool {
+	return m.clearedtapp_cards
+}
+
+// RemoveTappCardIDs removes the "tapp_cards" edge to the TappCard entity by IDs.
+func (m *UserMutation) RemoveTappCardIDs(ids ...uuid.UUID) {
+	if m.removedtapp_cards == nil {
+		m.removedtapp_cards = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.tapp_cards, ids[i])
+		m.removedtapp_cards[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTappCards returns the removed IDs of the "tapp_cards" edge to the TappCard entity.
+func (m *UserMutation) RemovedTappCardsIDs() (ids []uuid.UUID) {
+	for id := range m.removedtapp_cards {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TappCardsIDs returns the "tapp_cards" edge IDs in the mutation.
+func (m *UserMutation) TappCardsIDs() (ids []uuid.UUID) {
+	for id := range m.tapp_cards {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTappCards resets all changes to the "tapp_cards" edge.
+func (m *UserMutation) ResetTappCards() {
+	m.tapp_cards = nil
+	m.clearedtapp_cards = false
+	m.removedtapp_cards = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -21214,7 +21834,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.sender_profile != nil {
 		edges = append(edges, user.EdgeSenderProfile)
 	}
@@ -21223,6 +21843,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.verification_token != nil {
 		edges = append(edges, user.EdgeVerificationToken)
+	}
+	if m.tapp_cards != nil {
+		edges = append(edges, user.EdgeTappCards)
 	}
 	return edges
 }
@@ -21245,15 +21868,24 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeTappCards:
+		ids := make([]ent.Value, 0, len(m.tapp_cards))
+		for id := range m.tapp_cards {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedverification_token != nil {
 		edges = append(edges, user.EdgeVerificationToken)
+	}
+	if m.removedtapp_cards != nil {
+		edges = append(edges, user.EdgeTappCards)
 	}
 	return edges
 }
@@ -21268,13 +21900,19 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeTappCards:
+		ids := make([]ent.Value, 0, len(m.removedtapp_cards))
+		for id := range m.removedtapp_cards {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedsender_profile {
 		edges = append(edges, user.EdgeSenderProfile)
 	}
@@ -21283,6 +21921,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedverification_token {
 		edges = append(edges, user.EdgeVerificationToken)
+	}
+	if m.clearedtapp_cards {
+		edges = append(edges, user.EdgeTappCards)
 	}
 	return edges
 }
@@ -21297,6 +21938,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedprovider_profile
 	case user.EdgeVerificationToken:
 		return m.clearedverification_token
+	case user.EdgeTappCards:
+		return m.clearedtapp_cards
 	}
 	return false
 }
@@ -21327,6 +21970,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeVerificationToken:
 		m.ResetVerificationToken()
+		return nil
+	case user.EdgeTappCards:
+		m.ResetTappCards()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

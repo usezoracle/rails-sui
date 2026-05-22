@@ -50,6 +50,8 @@ type Tx struct {
 	SenderProfile *SenderProfileClient
 	// SuiReceiveAddress is the client for interacting with the SuiReceiveAddress builders.
 	SuiReceiveAddress *SuiReceiveAddressClient
+	// TappCard is the client for interacting with the TappCard builders.
+	TappCard *TappCardClient
 	// Token is the client for interacting with the Token builders.
 	Token *TokenClient
 	// TransactionLog is the client for interacting with the TransactionLog builders.
@@ -210,6 +212,7 @@ func (tx *Tx) init() {
 	tx.SenderOrderToken = NewSenderOrderTokenClient(tx.config)
 	tx.SenderProfile = NewSenderProfileClient(tx.config)
 	tx.SuiReceiveAddress = NewSuiReceiveAddressClient(tx.config)
+	tx.TappCard = NewTappCardClient(tx.config)
 	tx.Token = NewTokenClient(tx.config)
 	tx.TransactionLog = NewTransactionLogClient(tx.config)
 	tx.User = NewUserClient(tx.config)

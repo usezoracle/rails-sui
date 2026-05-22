@@ -237,6 +237,18 @@ func (f SuiReceiveAddressFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SuiReceiveAddressMutation", m)
 }
 
+// The TappCardFunc type is an adapter to allow the use of ordinary
+// function as TappCard mutator.
+type TappCardFunc func(context.Context, *ent.TappCardMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TappCardFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TappCardMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TappCardMutation", m)
+}
+
 // The TokenFunc type is an adapter to allow the use of ordinary
 // function as Token mutator.
 type TokenFunc func(context.Context, *ent.TokenMutation) (ent.Value, error)

@@ -25,6 +25,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
+	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -433,6 +434,29 @@ func init() {
 	suireceiveaddress.DefaultUpdatedAt = suireceiveaddressDescUpdatedAt.Default.(func() time.Time)
 	// suireceiveaddress.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	suireceiveaddress.UpdateDefaultUpdatedAt = suireceiveaddressDescUpdatedAt.UpdateDefault.(func() time.Time)
+	tappcardMixin := schema.TappCard{}.Mixin()
+	tappcardMixinFields0 := tappcardMixin[0].Fields()
+	_ = tappcardMixinFields0
+	tappcardFields := schema.TappCard{}.Fields()
+	_ = tappcardFields
+	// tappcardDescCreatedAt is the schema descriptor for created_at field.
+	tappcardDescCreatedAt := tappcardMixinFields0[0].Descriptor()
+	// tappcard.DefaultCreatedAt holds the default value on creation for the created_at field.
+	tappcard.DefaultCreatedAt = tappcardDescCreatedAt.Default.(func() time.Time)
+	// tappcardDescUpdatedAt is the schema descriptor for updated_at field.
+	tappcardDescUpdatedAt := tappcardMixinFields0[1].Descriptor()
+	// tappcard.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	tappcard.DefaultUpdatedAt = tappcardDescUpdatedAt.Default.(func() time.Time)
+	// tappcard.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	tappcard.UpdateDefaultUpdatedAt = tappcardDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// tappcardDescActivationToken is the schema descriptor for activation_token field.
+	tappcardDescActivationToken := tappcardFields[1].Descriptor()
+	// tappcard.ActivationTokenValidator is a validator for the "activation_token" field. It is called by the builders before save.
+	tappcard.ActivationTokenValidator = tappcardDescActivationToken.Validators[0].(func(string) error)
+	// tappcardDescID is the schema descriptor for id field.
+	tappcardDescID := tappcardFields[0].Descriptor()
+	// tappcard.DefaultID holds the default value on creation for the id field.
+	tappcard.DefaultID = tappcardDescID.Default.(func() uuid.UUID)
 	tokenMixin := schema.Token{}.Mixin()
 	tokenMixinFields0 := tokenMixin[0].Fields()
 	_ = tokenMixinFields0

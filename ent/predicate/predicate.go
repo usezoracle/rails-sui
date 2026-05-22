@@ -63,6 +63,9 @@ type SenderProfile func(*sql.Selector)
 // SuiReceiveAddress is the predicate function for suireceiveaddress builders.
 type SuiReceiveAddress func(*sql.Selector)
 
+// TappCard is the predicate function for tappcard builders.
+type TappCard func(*sql.Selector)
+
 // Token is the predicate function for token builders.
 type Token func(*sql.Selector)
 

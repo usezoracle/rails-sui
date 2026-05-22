@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/usezoracle/rails-sui/controllers"
 	"github.com/usezoracle/rails-sui/controllers/accounts"
+	"github.com/usezoracle/rails-sui/controllers/cards"
 	"github.com/usezoracle/rails-sui/controllers/provider"
 	"github.com/usezoracle/rails-sui/controllers/sender"
 	"github.com/usezoracle/rails-sui/routers/middleware"
@@ -23,6 +24,7 @@ func RegisterRoutes(route *gin.Engine) {
 	authRoutes(route)
 	senderRoutes(route)
 	providerRoutes(route)
+	cardsRoutes(route)
 
 	ctrl := controllers.NewController()
 
@@ -130,4 +132,20 @@ func providerRoutes(route *gin.Engine) {
 	v1.GET("rates/:token/:fiat", providerCtrl.GetMarketRate)
 	v1.GET("stats", providerCtrl.Stats)
 	v1.GET("node-info", providerCtrl.NodeInfo)
+}
+
+// cardsRoutes wires the Tapp Card surface — currently a PoC subset
+// (issue activation URLs + resolve the public /c/:token redirect).
+// Post-PoC endpoints (link, resync, debit, …) land in the same
+// /v1/cards group with proper auth wired in per docs/tapp-card-spec.md.
+func cardsRoutes(route *gin.Engine) {
+	cardsCtrl := cards.NewController()
+
+	// Public: the tap-to-URL redirect. Anyone with a card hits this.
+	route.GET("/c/:token", cardsCtrl.Resolve)
+
+	// Admin: mint activation tokens for PoC hand-testing.
+	admin := route.Group("/v1/cards/")
+	admin.Use(cards.AdminTokenMiddleware)
+	admin.POST("issue-batch", cardsCtrl.IssueBatch)
 }

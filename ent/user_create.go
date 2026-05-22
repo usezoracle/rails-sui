@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
+	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/ent/verificationtoken"
 )
@@ -178,6 +179,21 @@ func (uc *UserCreate) AddVerificationToken(v ...*VerificationToken) *UserCreate 
 		ids[i] = v[i].ID
 	}
 	return uc.AddVerificationTokenIDs(ids...)
+}
+
+// AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by IDs.
+func (uc *UserCreate) AddTappCardIDs(ids ...uuid.UUID) *UserCreate {
+	uc.mutation.AddTappCardIDs(ids...)
+	return uc
+}
+
+// AddTappCards adds the "tapp_cards" edges to the TappCard entity.
+func (uc *UserCreate) AddTappCards(t ...*TappCard) *UserCreate {
+	ids := make([]uuid.UUID, len(t))
+	for i := range t {
+		ids[i] = t[i].ID
+	}
+	return uc.AddTappCardIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -401,6 +417,22 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(verificationtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.TappCardsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TappCardsTable,
+			Columns: []string{user.TappCardsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(tappcard.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
