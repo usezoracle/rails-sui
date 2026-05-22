@@ -26,9 +26,10 @@ import (
 
 // Module names within the Gateway package.
 const (
-	ModuleConfig = "config"
-	ModuleOrder  = "order"
-	ModuleEvents = "events"
+	ModuleConfig   = "config"
+	ModuleOrder    = "order"
+	ModuleEvents   = "events"
+	ModuleTappCard = "tapp_card"
 )
 
 // Entry functions on rails::order.
@@ -36,6 +37,15 @@ const (
 	FnCreateOrder = "create_order"
 	FnSettleOrder = "settle_order"
 	FnRefundOrder = "refund_order"
+)
+
+// Entry functions on rails::tapp_card.
+const (
+	FnCreateCap         = "create_cap"
+	FnTapCardDebit      = "debit"
+	FnTapCardSetRevoked = "set_revoked"
+	FnTapCardTopUp      = "top_up"
+	FnTapCardDestroy    = "destroy_and_reclaim"
 )
 
 // Entry functions on rails::config (admin operations).
@@ -52,10 +62,11 @@ const (
 // Event names inside rails::events. Used to build event-type tag strings of
 // the form "{PackageID}::events::{EventName}" for sui_subscribeEvent filters.
 const (
-	EventOrderCreated          = "OrderCreated"
-	EventOrderSettled          = "OrderSettled"
-	EventOrderRefunded         = "OrderRefunded"
-	EventSenderFeeTransferred  = "SenderFeeTransferred"
+	EventOrderCreated         = "OrderCreated"
+	EventOrderSettled         = "OrderSettled"
+	EventOrderRefunded        = "OrderRefunded"
+	EventSenderFeeTransferred = "SenderFeeTransferred"
+	EventCardDebited          = "CardDebited"
 )
 
 // Order status enum values from the Move package (rails::order).

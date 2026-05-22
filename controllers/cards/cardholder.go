@@ -19,6 +19,7 @@ package cards
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -149,10 +150,29 @@ func (ctrl *Controller) LinkComplete(ctx *gin.Context) {
 		return
 	}
 
-	// TODO(sui-verify): hit the Sui RPC for `req.TxDigest` and confirm
-	// it published a CardSpendingCap with matching card_uid_hash +
-	// owner = user's zkLogin-derived address. For v1 we trust the
-	// PWA's claim since it's authenticated; production tightens this.
+	// Verify the on-chain tx actually published a CardSpendingCap
+	// with the cap_object_id the PWA is claiming. Skipped (with a
+	// warning) when SUI_GATEWAY_PACKAGE_ID isn't configured — useful
+	// for local dev against a non-deployed package; production always
+	// has it.
+	if verifyResult, vErr := verifyCreateCap(ctx, req.TxDigest, req.CapObjectID); vErr != nil {
+		logger.Warnf("LinkComplete: tx verification skipped: %v", vErr)
+	} else if verifyResult != nil && !verifyResult.OK {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"On-chain create_cap could not be verified",
+			map[string]any{"code": "tx_verify_failed", "reason": verifyResult.Reason})
+		return
+	} else if verifyResult != nil && verifyResult.CoinType != "" &&
+		!strings.EqualFold(verifyResult.CoinType, req.CoinType) {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Submitted coin_type does not match the on-chain object",
+			map[string]any{
+				"code":  "coin_type_mismatch",
+				"want":  verifyResult.CoinType,
+				"got":   req.CoinType,
+			})
+		return
+	}
 
 	// Look up the user's claimed card (status=claimed) and flip to live.
 	card, err := storage.Client.TappCard.

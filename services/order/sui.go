@@ -522,6 +522,86 @@ func (s *OrderSui) RefundOrder(ctx context.Context, orderID string) error {
 	return nil
 }
 
+// DebitCard submits a `tapp_card::debit<T>` PTB against an on-chain
+// CardSpendingCap. Called from the Tap Card debit handler after the
+// strict state machine (nonce + token + PIN + limits) passes.
+//
+// Args mirror the Move signature:
+//   - capObjectID: the user's CardSpendingCap<T> shared object
+//   - coinType:    Move type string (e.g. "0x...::usdc::USDC")
+//   - amountSubunit: amount in coin subunits
+//   - merchantRecipient: Sui address that receives the debited coin
+//   - fiatReference:  utf-8 bytes the indexer uses to correlate
+//                     back to a PaymentOrder (we pass PaymentOrder.ID)
+//
+// Returns the submitted tx digest. Caller persists it on the row.
+func (s *OrderSui) DebitCard(
+	ctx context.Context,
+	capObjectID string,
+	coinType string,
+	amountSubunit uint64,
+	merchantRecipient string,
+	fiatReference []byte,
+) (string, error) {
+	if s.signer == nil {
+		return "", ErrAggregatorNotConfigured
+	}
+	if capObjectID == "" {
+		return "", fmt.Errorf("tapp_card: empty cap_object_id")
+	}
+	// Empty recipient → default to the aggregator's own address. The
+	// off-chain BaaS pipeline then pays out NGN from the aggregator's
+	// funded coin pool.
+	if merchantRecipient == "" {
+		merchantRecipient = s.signer.Address
+	}
+
+	coinTypeTag, err := parseCoinTypeTag(coinType)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card: parse coin type: %w", err)
+	}
+
+	tx, err := s.newAggregatorTx(ctx)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card: prepare tx: %w", err)
+	}
+
+	// Sui's Clock is the well-known shared object at 0x6 (see
+	// `sui::clock` framework module).
+	const clockObjectID = "0x0000000000000000000000000000000000000000000000000000000000000006"
+
+	tx.MoveCall(
+		models.SuiAddress(s.packageID),
+		"tapp_card",
+		"debit",
+		[]transaction.TypeTag{coinTypeTag},
+		[]transaction.Argument{
+			tx.Object(s.aggregatorCapID),
+			tx.Object(capObjectID),
+			tx.Pure(amountSubunit),
+			tx.Pure(merchantRecipient),
+			tx.Pure(fiatReference),
+			tx.Object(clockObjectID),
+		},
+	)
+
+	resp, err := tx.Execute(
+		ctx,
+		models.SuiTransactionBlockOptions{
+			ShowEffects: true,
+			ShowEvents:  true,
+		},
+		"WaitForLocalExecution",
+	)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card debit: submit: %w", err)
+	}
+	if !isTxSuccess(resp) {
+		return "", fmt.Errorf("tapp_card debit: on-chain failure: digest=%s", resp.Digest)
+	}
+	return resp.Digest, nil
+}
+
 // newAggregatorTx returns a transaction.Transaction configured with the
 // aggregator signer + a freshly selected gas coin + current reference gas
 // price. Used by SettleOrder and RefundOrder, which both submit aggregator-

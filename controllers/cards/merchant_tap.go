@@ -36,6 +36,7 @@ import (
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	svc "github.com/usezoracle/rails-sui/services"
+	orderSvc "github.com/usezoracle/rails-sui/services/order"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -340,7 +341,7 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 		return
 	}
 
-	po, txHash, perr := persistTapCardPaymentOrder(ctx, sender, bank, card, amount, req.Memo)
+	po, stubTxHash, perr := persistTapCardPaymentOrder(ctx, sender, bank, card, amount, req.Memo)
 	if perr != nil {
 		logger.Errorf("TapCardDebit: persist order: %v", perr)
 		u.APIResponse(ctx, http.StatusInternalServerError, "error",
@@ -348,15 +349,48 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 		return
 	}
 
-	// Step 8: submit the on-chain Move debit. STUB for v1 — the real
-	// PTB build + sign + execute lives in services/order/sui.go and
-	// requires `SUI_AGGREGATOR_PRIVATE_KEY` + a deployed Gateway. When
-	// the chain call is wired, the simulated success below is
-	// replaced with the real digest.
+	// Step 8: submit the on-chain `tapp_card::debit` PTB.
 	//
-	// TODO(sui-integration): build `tapp_card::debit<T>` PTB with
-	// cap_object_id + AggregatorCap + Clock + amount + merchant
-	// recipient address + PaymentOrder.ID as fiat_reference.
+	// Falls back to the stub digest when:
+	//   - The aggregator signer isn't configured (local dev without
+	//     SUI_AGGREGATOR_PRIVATE_KEY), or
+	//   - The card row is missing cap_object_id / coin_type (e.g. the
+	//     PWA linking flow never completed for this card).
+	//
+	// In either case we proceed with token rotation + the SSE
+	// merchant-side success so end-to-end UI flows can be tested
+	// without on-chain infra. Production deployments will always have
+	// both pieces present; the stub branch logs warnings so any
+	// production fallback is obvious in observability.
+	txHash := stubTxHash
+	if card.CapObjectID != nil && card.CoinType != nil {
+		if svcSui, ok := orderSvc.NewOrderSui().(*orderSvc.OrderSui); ok {
+			digest, err := svcSui.DebitCard(
+				ctx.Request.Context(),
+				*card.CapObjectID,
+				*card.CoinType,
+				// Move enforces in subunit terms. For NGN→USDC we'd
+				// need an off-chain rate quote here; for v1 we pass
+				// the kobo amount directly so the chain math matches
+				// the spent_today bookkeeping below.
+				amountKobo,
+				"", // recipient: default to aggregator address (see DebitCard)
+				[]byte(po.ID.String()),
+			)
+			if err != nil {
+				logger.Errorf("TapCardDebit: on-chain debit: %v", err)
+				u.APIResponse(ctx, http.StatusBadGateway, "error",
+					"On-chain debit failed",
+					map[string]any{"code": "chain_debit_failed", "detail": err.Error()})
+				return
+			}
+			txHash = digest
+		} else {
+			logger.Warnf("TapCardDebit: aggregator service not initialized — proceeding with stub digest")
+		}
+	} else {
+		logger.Warnf("TapCardDebit: card %s missing cap_object_id or coin_type — proceeding with stub digest", card.ID)
+	}
 
 	// Step 9: rotate the token. Atomic — if any earlier step had
 	// failed we'd be unreachable here.

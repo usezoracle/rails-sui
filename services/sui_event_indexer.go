@@ -86,6 +86,8 @@ func NewSuiEventIndexer(wsURL, packageID, networkKey string) *SuiEventIndexer {
 		{eventName: contracts.EventOrderRefunded, handler: idx.handleOrderRefunded},
 		// SenderFeeTransferred is informational only — logged, no DB update.
 		{eventName: contracts.EventSenderFeeTransferred, handler: idx.handleSenderFeeTransferred},
+		// Tap Card: settle the PaymentOrder + fire merchant SSE.
+		{eventName: contracts.EventCardDebited, handler: idx.handleCardDebited},
 	}
 	return idx
 }
@@ -683,6 +685,76 @@ func (s *SuiEventIndexer) handleSenderFeeTransferred(ctx context.Context, raw mo
 		getUint64(parsed, "amount"),
 		raw.Id.TxDigest,
 	)
+	return nil
+}
+
+// handleCardDebited resolves the PaymentOrder the Tap Card debit
+// corresponds to (via `fiat_reference` = PaymentOrder.ID as UTF-8
+// bytes), marks it settled, persists the tx digest, and publishes
+// `payment.settled` to the merchant SSE bus so the merchant's
+// "Payment received" screen lights up.
+func (s *SuiEventIndexer) handleCardDebited(ctx context.Context, raw models.SuiEventResponse) error {
+	parsed, err := decodeMoveEvent(raw)
+	if err != nil {
+		return fmt.Errorf("decode CardDebited: %w", err)
+	}
+
+	capID := getString(parsed, "cap_id")
+	owner := getString(parsed, "owner")
+	merchantRecipient := getString(parsed, "merchant_recipient")
+	amountSubunit := getUint64(parsed, "amount_subunit")
+	fiatRef := getBytes(parsed, "fiat_reference")
+
+	logger.Infof("sui event indexer: CardDebited cap=%s owner=%s recipient=%s amount=%d ref=%s tx=%s",
+		capID, owner, merchantRecipient, amountSubunit, string(fiatRef), raw.Id.TxDigest)
+
+	// Resolve PaymentOrder by reference. The merchant_tap controller
+	// sets PaymentOrder.Reference = the TappCard's UUID; the
+	// fiat_reference passed to the Move call is PaymentOrder.ID
+	// (different UUID). The DebitCard call uses po.ID — that's the
+	// authoritative correlation key.
+	poID, err := uuid.Parse(string(fiatRef))
+	if err != nil {
+		return fmt.Errorf("CardDebited: fiat_reference is not a UUID (got %q): %w", string(fiatRef), err)
+	}
+
+	po, err := db.Client.PaymentOrder.
+		Query().
+		Where(paymentorder.IDEQ(poID)).
+		WithSenderProfile().
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			// Not ours — could be a debit from a non-Rails initiator.
+			// Log and skip.
+			logger.Infof("CardDebited: no PaymentOrder for ref %s — skipping", poID)
+			return nil
+		}
+		return fmt.Errorf("CardDebited: load payment order %s: %w", poID, err)
+	}
+
+	if po.Status == paymentorder.StatusSettled {
+		// Idempotent — event redelivery shouldn't double-emit SSE.
+		return nil
+	}
+
+	if _, err := po.Update().
+		SetStatus(paymentorder.StatusSettled).
+		SetTxHash(raw.Id.TxDigest).
+		Save(ctx); err != nil {
+		return fmt.Errorf("CardDebited: mark settled: %w", err)
+	}
+
+	if po.Edges.SenderProfile != nil {
+		Bus().Publish(po.Edges.SenderProfile.ID, "payment.settled", map[string]any{
+			"order_id":   po.ID.String(),
+			"amount":     po.Amount.String(),
+			"tx_hash":    raw.Id.TxDigest,
+			"source":     "tap_card",
+			"settled_at": time.Now().UTC().Format(time.RFC3339),
+		})
+	}
+
 	return nil
 }
 
