@@ -1,0 +1,1466 @@
+openapi: 3.1.0
+info:
+  title: Rails API
+  version: 0.1.0
+  description: |
+    Backend API for the Zoracle stack — Rails (B2B Sui→fiat settlement
+    infra) + the Tapp tap-to-pay vertical. Used by:
+
+    - **Tapp Merchant** app (cross-platform Expo) — `/v1/sender/me/*`,
+      `/v1/sender/me/tap-card/*`, SSE stream.
+    - **Tapp PWA** (cardholder web) — `/v1/cards/*`, `/v1/auth/google`,
+      public `/c/:token` redirect.
+    - **Sender / Provider integrations** — `/v1/sender/*`, `/v1/provider/*`.
+    - **Admin tools** — `/v1/cards/issue-batch`, `/v1/admin/cards/*`.
+
+    Envelope shape (every successful JSON response):
+
+    ```json
+    { "status": "success", "message": "Human-readable", "data": <payload> }
+    ```
+
+    Errors are the same envelope with `status: "error"` and the payload
+    in `data` often carrying a structured `code` field clients can
+    branch on.
+
+  contact:
+    name: Zoracle
+    url: https://zoracle.com
+  license:
+    name: UNLICENSED
+servers:
+  - url: http://localhost:8000
+    description: Local dev
+  - url: https://reggie-undefinable-cash.ngrok-free.dev
+    description: ngrok tunnel
+  - url: https://api.zoracle.com
+    description: Production
+
+# ---------------------------------------------------------------------------
+# Tags drive Swagger UI's grouping. Order here = order in the rendered UI.
+# ---------------------------------------------------------------------------
+tags:
+  - name: Health
+  - name: Auth
+  - name: Catalog
+    description: Currencies, institutions, rates, public keys.
+  - name: KYC
+  - name: Sender — Orders
+  - name: Sender — Merchant (Tapp)
+    description: Tapp Merchant app surface (auth-gated, sender scope).
+  - name: Sender — Tap Card
+    description: Merchant-side Tap Card debit flow.
+  - name: Cards — Public
+  - name: Cards — Cardholder (PWA)
+    description: Tapp PWA surface for the cardholder; JWT-authenticated.
+  - name: Cards — Admin
+    description: Admin operations gated by `X-Admin-Token`.
+  - name: Provider
+  - name: Settings
+
+# ---------------------------------------------------------------------------
+# Security schemes — JWT bearer for cardholder/merchant; X-Admin-Token
+# header for admin endpoints. Most public catalog endpoints have no auth.
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Issued by `/v1/auth/login`, `/v1/auth/google`, or
+        `/v1/auth/refresh`. Set `Authorization: Bearer <token>`.
+    adminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+      description: |
+        Shared-secret value of `ADMIN_API_TOKEN` env on the server.
+        PoC-grade; replace with proper RBAC before exposing externally.
+
+  # -------------------------------------------------------------------------
+  # Shared schemas. The envelope is everywhere; specific data payloads
+  # are inlined or referenced per-operation.
+  # -------------------------------------------------------------------------
+  schemas:
+    Envelope:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+        message:
+          type: string
+        data:
+          description: Operation-specific payload (shape varies).
+
+    ErrorData:
+      type: object
+      properties:
+        code:
+          type: string
+          description: |
+            Structured error code clients branch on, e.g.
+            `card_already_claimed_by_you`, `nonce_invalid`,
+            `step_up_required`, `token_invalid_resync_required`.
+        detail:
+          type: string
+
+    UUID:
+      type: string
+      format: uuid
+      example: 0e0e76d4-44ee-4d4a-8e51-2e1f6e6d8a7c
+
+    DecimalString:
+      type: string
+      description: Decimal as string to avoid JS float precision loss.
+      example: "2500.00"
+
+    HexString:
+      type: string
+      description: Lowercase hex, no `0x` prefix unless noted.
+
+    # ---- Auth ----
+    AuthTokens:
+      type: object
+      properties:
+        access_token: { type: string, description: JWT, ~15 min TTL }
+        refresh_token: { type: string, description: JWT, ~10080 min TTL }
+        scopes:
+          type: array
+          items: { type: string }
+          example: ["sender"]
+
+    # ---- Bank account ----
+    BankAccount:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        currency: { type: string, example: NGN }
+        bank_code: { type: string, example: "044" }
+        account_number: { type: string, example: "0123456789" }
+        account_name: { type: string, example: "Ada Lovelace" }
+        verified_at: { type: string, format: date-time }
+
+    # ---- Tap (phone-to-phone) ----
+    TapPaymentResponse:
+      type: object
+      properties:
+        order_id: { $ref: '#/components/schemas/UUID' }
+        checkout_url:
+          type: string
+          format: uri
+          example: https://checkout.zoracle.com/order/0e0e76d4-...
+        amount: { $ref: '#/components/schemas/DecimalString' }
+        currency: { type: string, example: NGN }
+        token: { type: string, example: USDC }
+        network: { type: string, example: sui-testnet }
+        rate: { type: string, example: "1530.50" }
+        expires_at: { type: string, format: date-time }
+
+    # ---- Tap Card (merchant) ----
+    TapCardNonce:
+      type: object
+      properties:
+        tier:
+          type: string
+          enum: [none, pin, step_up]
+        server_nonce:
+          $ref: '#/components/schemas/HexString'
+          description: 32-byte single-use nonce, 60s TTL.
+        step_up_url:
+          type: string
+          format: uri
+          description: Present when `tier=step_up`. QR target for cardholder PWA.
+        step_up_token:
+          type: string
+          description: Present when `tier=step_up`. Echo back on debit re-submit.
+
+    TapCardDebitRequest:
+      type: object
+      required: [card_uid_hash, current_token_ct, amount, currency, server_nonce]
+      properties:
+        card_uid_hash:
+          $ref: '#/components/schemas/HexString'
+          description: sha256 of the NTAG215 factory UID (64 hex chars).
+        current_token_ct:
+          $ref: '#/components/schemas/HexString'
+          description: Rotation token bytes the merchant app read off the card.
+        amount: { $ref: '#/components/schemas/DecimalString' }
+        currency: { type: string, example: NGN }
+        memo: { type: string }
+        server_nonce: { $ref: '#/components/schemas/HexString' }
+        pin_response:
+          $ref: '#/components/schemas/HexString'
+          description: |
+            `HMAC-SHA256(HMAC(K, PIN), server_nonce)` computed on the
+            merchant app. Null when `tier=none`. See
+            `rails/docs/tapp-card-spec.md` Appendix A.
+        step_up_token:
+          type: string
+          description: Echo of the token from `/nonce`; required for `tier=step_up`.
+
+    TapCardDebitResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [settled, processing] }
+        order_id: { $ref: '#/components/schemas/UUID' }
+        amount: { $ref: '#/components/schemas/DecimalString' }
+        currency: { type: string }
+        new_card_token:
+          $ref: '#/components/schemas/HexString'
+          description: Rotation token the merchant app writes back to the card.
+        card_password:
+          $ref: '#/components/schemas/HexString'
+          description: NTAG215 PWD for the write-back (4 bytes hex).
+        remaining_daily:
+          type: integer
+          format: int64
+          description: Subunit amount left under the daily cap.
+        tx_hash:
+          type: string
+          description: Sui transaction digest of the `tapp_card::debit` call.
+
+    # ---- Cards — cardholder ----
+    CardClaimResponse:
+      type: object
+      properties:
+        card_id: { $ref: '#/components/schemas/UUID' }
+        status: { type: string, enum: [claimed, live] }
+
+    CardLinkCompleteRequest:
+      type: object
+      required:
+        - card_uid_hash
+        - cap_object_id
+        - coin_type
+        - linking_proof
+        - pin_verifier
+        - card_password
+        - current_token_ct
+        - tx_digest
+        - daily_limit_subunit
+        - per_tap_limit_subunit
+        - step_up_threshold_subunit
+      properties:
+        card_uid_hash: { $ref: '#/components/schemas/HexString' }
+        cap_object_id:
+          type: string
+          example: "0xabc...123"
+          description: Sui object ID of the `CardSpendingCap<T>` created on-chain.
+        coin_type:
+          type: string
+          example: "0x...::usdc::USDC"
+        linking_proof:
+          $ref: '#/components/schemas/HexString'
+          description: HMAC(HMAC(K, PIN), "linking-anchor-v1"), 32 bytes.
+        pin_verifier:
+          $ref: '#/components/schemas/HexString'
+          description: HMAC(K, "tapp-card-verifier-v1"), 32 bytes.
+        card_password:
+          $ref: '#/components/schemas/HexString'
+          description: NTAG215 PWD set during the PWA write (4 bytes).
+        current_token_ct: { $ref: '#/components/schemas/HexString' }
+        tx_digest:
+          type: string
+          description: Sui digest of the `tapp_card::create_cap` PTB.
+        daily_limit_subunit: { type: integer, format: int64 }
+        per_tap_limit_subunit: { type: integer, format: int64 }
+        step_up_threshold_subunit: { type: integer, format: int64 }
+
+    CardSummary:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/UUID' }
+        status:
+          type: string
+          enum: [issued, claimed, live, revoked, locked]
+        cap_object_id: { type: string }
+        coin_type: { type: string }
+        daily_limit_subunit: { type: integer, format: int64 }
+        per_tap_limit_subunit: { type: integer, format: int64 }
+        step_up_threshold_subunit: { type: integer, format: int64 }
+        spent_today_subunit: { type: integer, format: int64 }
+        needs_resync: { type: boolean }
+        pin_attempts_remaining: { type: integer }
+
+    PtbSkeleton:
+      type: object
+      description: |
+        Move call descriptor the PWA hydrates into a `Transaction` and
+        zkLogin-signs. Server-built so the PWA doesn't need the full Sui SDK.
+      properties:
+        package_id: { type: string }
+        module: { type: string }
+        function: { type: string }
+        type_args:
+          type: array
+          items: { type: string }
+        args:
+          type: array
+          description: Move-call arguments; shape depends on the entry function.
+        note: { type: string }
+
+    ResyncPayload:
+      type: object
+      properties:
+        current_token_ct: { $ref: '#/components/schemas/HexString' }
+        card_password: { $ref: '#/components/schemas/HexString' }
+        resync_nonce:
+          type: string
+          description: One-shot nonce of shape `<expiry-unix>.<hex-mac>`. 5-min TTL.
+
+  # -------------------------------------------------------------------------
+  # Reusable parameters.
+  # -------------------------------------------------------------------------
+  parameters:
+    ClientTypeWebHeader:
+      name: Client-Type
+      in: header
+      required: true
+      description: |
+        Legacy client-type gate on `/v1/auth/*` (OnlyWebMiddleware).
+        Always send `web` from browsers or admin tools. Mobile apps
+        that call these endpoints must also send `web` — it's a
+        static string-match, not a real platform check.
+      schema:
+        type: string
+        enum: [web]
+        default: web
+
+  # -------------------------------------------------------------------------
+  # Reusable response shells — wrap data schemas in the standard envelope.
+  # -------------------------------------------------------------------------
+  responses:
+    Unauthorized:
+      description: Missing / expired / invalid auth credential.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+    BadRequest:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Envelope'
+              - properties:
+                  data: { $ref: '#/components/schemas/ErrorData' }
+    NotFound:
+      description: Resource not found.
+
+# ---------------------------------------------------------------------------
+# Paths — grouped by tag, in the order they appear above.
+# ---------------------------------------------------------------------------
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  live: { type: string, example: ok }
+
+  # ----- Auth -----
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a sender / provider account
+      description: |
+        Creates a `User` row with one or more of the following scopes:
+
+        - **`sender`** — merchant / Tapp Merchant app / any sender
+          integration. Gates `/v1/sender/*` + `/v1/sender/me/*`.
+        - **`provider`** — LP / Provider integration. Gates
+          `/v1/provider/*`.
+
+        A user can hold both scopes — pick `Both: sender + provider`
+        from the **Examples** dropdown above the body editor to do
+        that. The `cardholder` scope is not selectable here — it's
+        granted server-side on first `/v1/auth/google` sign-in.
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, lastName, email, password, scopes]
+              properties:
+                firstName: { type: string, example: Ada }
+                lastName: { type: string, example: Lovelace }
+                email: { type: string, format: email }
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                  maxLength: 20
+                currency: { type: string, example: NGN }
+                scopes:
+                  type: array
+                  description: |
+                    One or more of `sender` / `provider`. Use the
+                    **Examples** dropdown above to pre-fill the right
+                    body for the role you want.
+                  items: { type: string, enum: [sender, provider] }
+                  example: [sender]
+            examples:
+              sender:
+                summary: Register as a Sender (merchant)
+                description: |
+                  Use this for Tapp Merchant signups or any integration
+                  that initiates PaymentOrders.
+                value:
+                  firstName: Ada
+                  lastName: Lovelace
+                  email: ada@example.com
+                  password: abcd1234
+                  scopes: [sender]
+              provider:
+                summary: Register as a Provider (LP)
+                description: |
+                  Use this for liquidity providers fulfilling
+                  LockPaymentOrders on the provider side.
+                value:
+                  firstName: Babbage
+                  lastName: Charles
+                  email: lp@example.com
+                  password: abcd1234
+                  scopes: [provider]
+              both:
+                summary: Register with both scopes
+                description: |
+                  Single account holding both roles — JWT will carry
+                  `"sender provider"` in its `scope` claim.
+                value:
+                  firstName: Ada
+                  lastName: Lovelace
+                  email: dual@example.com
+                  password: abcd1234
+                  scopes: [sender, provider]
+      responses:
+        "201":
+          description: Account created; check email for verification.
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Email + password sign-in
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Tokens issued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AuthTokens' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/google:
+    post:
+      tags: [Auth]
+      summary: Exchange a Google ID token for a Rails JWT pair
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      description: |
+        Used by the Tapp PWA after Google OAuth completes. Server
+        verifies the ID token via Google's JWKS, finds-or-creates the
+        User with `cardholder` scope, returns the JWT pair.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token: { type: string }
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token: { type: string }
+                          refresh_token: { type: string }
+                          email: { type: string }
+                          scope: { type: string }
+                          is_new_user: { type: boolean }
+        "503":
+          description: Server-side Google OAuth not configured.
+
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Mint a new access token from a refresh token
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: Fresh access token.
+
+  /v1/auth/confirm-account:
+    post:
+      tags: [Auth]
+      summary: Confirm email via the token sent on register
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200": { description: Email confirmed. }
+
+  /v1/auth/resend-token:
+    post:
+      tags: [Auth]
+      summary: Resend the email-verification token
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses: { "200": { description: Sent. } }
+
+  /v1/auth/reset-password-token:
+    post:
+      tags: [Auth]
+      summary: Email a password-reset token
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses: { "200": { description: Sent. } }
+
+  /v1/auth/reset-password:
+    patch:
+      tags: [Auth]
+      summary: Reset password via the emailed token
+      parameters:
+        - $ref: '#/components/parameters/ClientTypeWebHeader'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string }
+      responses: { "200": { description: Reset. } }
+
+  /v1/auth/change-password:
+    patch:
+      tags: [Auth]
+      summary: Change password (authenticated)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password: { type: string }
+                new_password: { type: string }
+      responses: { "200": { description: Changed. } }
+
+  # ----- Catalog -----
+  /v1/currencies:
+    get:
+      tags: [Catalog]
+      summary: List supported fiat currencies
+      security: []
+      responses:
+        "200":
+          description: List of currencies with current market rates.
+
+  /v1/institutions/{currency_code}:
+    get:
+      tags: [Catalog]
+      summary: List supported institutions for a currency
+      security: []
+      parameters:
+        - in: path
+          name: currency_code
+          required: true
+          schema: { type: string, example: NGN }
+      responses: { "200": { description: List. } }
+
+  /v1/rates/{token}/{amount}/{fiat}:
+    get:
+      tags: [Catalog]
+      summary: Get the live conversion rate for token→fiat at a given amount
+      security: []
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string, example: USDC }
+        - in: path
+          name: amount
+          required: true
+          schema: { type: string, example: "100" }
+        - in: path
+          name: fiat
+          required: true
+          schema: { type: string, example: NGN }
+      responses: { "200": { description: Rate. } }
+
+  /v1/pubkey:
+    get:
+      tags: [Catalog]
+      summary: Aggregator RSA public key (used to seal recipient details)
+      security: []
+      responses: { "200": { description: PEM-encoded public key. } }
+
+  /v1/verify-account:
+    post:
+      tags: [Catalog]
+      summary: Resolve a bank account name (NGN — Smile Identity)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [institution, account_identifier, currency]
+              properties:
+                institution: { type: string, example: "044" }
+                account_identifier: { type: string, example: "0123456789" }
+                currency: { type: string, example: NGN }
+      responses:
+        "200": { description: account_name returned. }
+
+  /v1/orders/{id}:
+    get:
+      tags: [Catalog]
+      summary: Public order status lookup (no auth)
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses: { "200": { description: Order status. } }
+
+  /c/{token}:
+    get:
+      tags: [Cards — Public]
+      summary: Tap-to-URL redirect (302)
+      description: |
+        Public endpoint hit when a card is tapped. 302 to the Tapp PWA
+        based on the card's status:
+
+        - `issued`  → `<PWA>/link?token=<token>`
+        - `claimed` / `live` → `<PWA>/dashboard/cards/<id>`
+        - `revoked` / `locked` → `<PWA>/cards/unavailable?status=…`
+
+        Returns 404 for unknown tokens (opaque — no oracle).
+      security: []
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        "302": { description: Redirect to the PWA. }
+        "404": { description: Token not found. }
+
+  # ----- KYC -----
+  /v1/kyc:
+    post:
+      tags: [KYC]
+      summary: Kick off Smile Identity ID verification
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wallet_address]
+              properties:
+                wallet_address: { type: string }
+                country_code: { type: string }
+                id_type: { type: string }
+                id_number: { type: string }
+      responses: { "200": { description: KYC request created. } }
+
+  /v1/kyc/{wallet_address}:
+    get:
+      tags: [KYC]
+      summary: Poll KYC status for a wallet
+      security: []
+      parameters:
+        - in: path
+          name: wallet_address
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: Status. } }
+
+  /v1/kyc/webhook:
+    post:
+      tags: [KYC]
+      summary: Smile Identity webhook callback
+      security: []
+      responses: { "200": { description: Acknowledged. } }
+
+  # ----- Settings -----
+  /v1/me:
+    get:
+      tags: [Auth]
+      summary: Who am I? — the authenticated User row + presence flags
+      description: |
+        Cross-scope. Returns the User identified by the JWT, plus
+        `has_sender_profile` / `has_provider_profile` / `has_tapp_card`
+        booleans so the client can pick the right post-sign-in route
+        without a second round trip.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: User summary.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { $ref: '#/components/schemas/UUID' }
+                          email: { type: string, format: email }
+                          first_name: { type: string }
+                          last_name: { type: string }
+                          scopes:
+                            type: array
+                            items: { type: string, enum: [sender, provider, cardholder] }
+                          is_email_verified: { type: boolean }
+                          created_at: { type: string, format: date-time }
+                          updated_at: { type: string, format: date-time }
+                          has_sender_profile: { type: boolean }
+                          has_provider_profile: { type: boolean }
+                          has_tapp_card: { type: boolean }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/settings/sender:
+    get:
+      tags: [Settings]
+      summary: Get the authenticated sender profile
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: Profile. } }
+    patch:
+      tags: [Settings]
+      summary: Update sender profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses: { "200": { description: Updated. } }
+
+  /v1/settings/provider:
+    get:
+      tags: [Settings]
+      summary: Get the authenticated provider profile
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: Profile. } }
+    patch:
+      tags: [Settings]
+      summary: Update provider profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses: { "200": { description: Updated. } }
+
+  # ----- Sender — Orders -----
+  /v1/sender/orders:
+    post:
+      tags: [Sender — Orders]
+      summary: Initiate a Sui-native PaymentOrder (Route B, default)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, token, network, rate, recipient]
+              properties:
+                amount: { $ref: '#/components/schemas/DecimalString' }
+                token: { type: string, example: USDC }
+                network: { type: string, example: sui-testnet }
+                rate: { $ref: '#/components/schemas/DecimalString' }
+                reference: { type: string }
+                recipient:
+                  type: object
+                  properties:
+                    institution: { type: string }
+                    account_identifier: { type: string }
+                    account_name: { type: string }
+                    memo: { type: string }
+                    provider_id: { type: string }
+      responses: { "201": { description: Order initiated. } }
+    get:
+      tags: [Sender — Orders]
+      summary: List the authenticated sender's orders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: token
+          schema: { type: string }
+        - in: query
+          name: network
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: page_size
+          schema: { type: integer }
+      responses: { "200": { description: Paginated list. } }
+
+  /v1/sender/orders/route-a:
+    post:
+      tags: [Sender — Orders]
+      summary: Initiate a Route A (Sui→BSC bridge) PaymentOrder
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  properties:
+                    mode: { type: string, enum: [lp, treasury], default: treasury }
+      responses: { "201": { description: Route A order initiated. } }
+
+  /v1/sender/orders/{id}:
+    get:
+      tags: [Sender — Orders]
+      summary: Get a single order by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses: { "200": { description: Order. } }
+
+  /v1/sender/stats:
+    get:
+      tags: [Sender — Orders]
+      summary: Aggregated sender stats (volume, count, fees)
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: Stats. } }
+
+  # ----- Sender — Merchant (Tapp) -----
+  /v1/sender/me/bank-account:
+    post:
+      tags: [Sender — Merchant (Tapp)]
+      summary: Save (upsert) the merchant payout bank account
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, bank_code, account_number, account_name]
+              properties:
+                currency: { type: string, example: NGN }
+                bank_code: { type: string, example: "044" }
+                account_number: { type: string, example: "0123456789" }
+                account_name: { type: string, example: "Ada Lovelace" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/BankAccount' }
+    get:
+      tags: [Sender — Merchant (Tapp)]
+      summary: Get the merchant's saved bank account
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Bank. }
+        "404": { description: Not set. }
+
+  /v1/sender/me/tap:
+    post:
+      tags: [Sender — Merchant (Tapp)]
+      summary: One-shot PaymentOrder for a phone-to-phone tap
+      description: |
+        Server auto-picks USDC-on-Sui as the rail, derives crypto
+        amount from the fiat currency's current MarketRate, populates
+        the recipient from the saved MerchantBankAccount, returns a
+        checkout URL the merchant phone broadcasts via NFC HCE / QR.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { $ref: '#/components/schemas/DecimalString' }
+                currency: { type: string, example: NGN, default: NGN }
+                memo: { type: string }
+      responses:
+        "201":
+          description: Tap initiated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/TapPaymentResponse' }
+        "412": { description: Bank account not set. }
+        "424": { description: Market rate unavailable. }
+
+  /v1/sender/me/payments/stream:
+    get:
+      tags: [Sender — Merchant (Tapp)]
+      summary: SSE — real-time `payment.*` events for this merchant
+      description: |
+        `text/event-stream`. Server emits events as they happen, scoped
+        to the authenticated sender. Headers:
+
+        ```
+        Accept: text/event-stream
+        Authorization: Bearer <access_token>
+        ```
+
+        Events: `payment.deposited`, `payment.settled`, `payment.refunded`.
+        Heartbeats every 25s. Client honors `Last-Event-ID` on reconnect.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Stream opened.
+          content:
+            text/event-stream:
+              schema: { type: string }
+
+  # ----- Sender — Tap Card -----
+  /v1/sender/me/tap-card/nonce:
+    get:
+      tags: [Sender — Tap Card]
+      summary: Resolve auth tier + issue a single-use nonce
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: amount
+          required: true
+          schema: { $ref: '#/components/schemas/DecimalString' }
+        - in: query
+          name: card_uid_hash
+          required: true
+          schema: { $ref: '#/components/schemas/HexString' }
+      responses:
+        "200":
+          description: Nonce + tier.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/TapCardNonce' }
+        "404": { description: Card not found / not live. }
+
+  /v1/sender/me/tap-card:
+    post:
+      tags: [Sender — Tap Card]
+      summary: Debit a Tap Card (strict state machine — see spec)
+      description: |
+        Atomic state machine per `rails/docs/tapp-card-spec.md`:
+
+        1. Consume `server_nonce` (atomic UPDATE, defeats replay).
+        2. Card lookup by `card_uid_hash`.
+        3. Token match (no sliding window).
+        4. Tier check (`none` / `pin` / `step_up`).
+        5. Daily-limit pre-check.
+        6. Create `PaymentOrder`.
+        7. Submit `tapp_card::debit<T>` PTB.
+        8. Rotate token.
+
+        Token rotation only fires inside the success branch — failed
+        PIN never advances state, so cloned cards without the PIN
+        cannot burn the legit user's card.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TapCardDebitRequest' }
+      responses:
+        "200":
+          description: Debited.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/TapCardDebitResponse' }
+        "401": { description: Nonce consumed / expired. }
+        "402":
+          description: |
+            Soft block — either `step_up_required` (with token), or
+            `daily_limit_exceeded`. Client branches on `data.code`.
+        "403":
+          description: |
+            `token_invalid_resync_required`, `pin_invalid`, or step-up
+            grant missing.
+        "404": { description: Card unrecognized. }
+
+  /v1/sender/me/tap-card/{order_id}/token-ack:
+    post:
+      tags: [Sender — Tap Card]
+      summary: Acknowledge the rotation-token write to the card
+      description: |
+        `written: false` flips the card's `needs_resync` flag so the
+        cardholder PWA dashboard surfaces the resync prompt next time.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [written]
+              properties:
+                written: { type: boolean }
+      responses: { "200": { description: Acknowledged. } }
+
+  /v1/sender/me/tap-card/step-up:
+    get:
+      tags: [Sender — Tap Card]
+      summary: Poll the step-up grant state for a debit
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Status of the step-up grant.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [pending, granted, denied, expired]
+
+  # ----- Cards — Cardholder (PWA) -----
+  /v1/cards/link/claim:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Claim a freshly-issued card by its activation token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: Activation token from /c/:token URL. }
+      responses:
+        "200":
+          description: Claimed (or already claimed by you).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/CardClaimResponse' }
+        "404": { description: Token unknown. }
+        "409": { description: Already claimed by another user. }
+
+  /v1/cards/link/complete:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Final linking step — commit HMAC verifiers + on-chain digest
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CardLinkCompleteRequest' }
+      responses:
+        "200":
+          description: Card status flipped to `live`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          card_id: { $ref: '#/components/schemas/UUID' }
+                          status: { type: string, enum: [live] }
+        "400":
+          description: Validation / on-chain verify failed (`tx_verify_failed`, `coin_type_mismatch`, …).
+
+  /v1/cards/me:
+    get:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Cardholder dashboard summary
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Single card summary.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/CardSummary' }
+        "404": { description: No card linked. }
+
+  /v1/cards/top-up:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Return the PTB skeleton for `tapp_card::top_up`
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_subunit]
+              properties:
+                amount_subunit: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Skeleton for the PWA to zkLogin-sign.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/PtbSkeleton' }
+
+  /v1/cards/revoke:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Return the PTB skeleton for `tapp_card::set_revoked(true)`
+      description: |
+        Optimistically flips the local status to `revoked`; PWA signs
+        + submits the on-chain call. The indexer reconciles when the
+        on-chain state changes.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Skeleton.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/PtbSkeleton' }
+
+  /v1/cards/me/resync:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Torn-write recovery — issue the canonical token + one-shot nonce
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Resync payload.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/ResyncPayload' }
+
+  /v1/cards/me/resync/complete:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Confirm the PWA wrote the canonical token back to the card
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resync_nonce]
+              properties:
+                resync_nonce: { type: string }
+      responses:
+        "200": { description: needs_resync cleared. }
+        "401": { description: Nonce invalid or expired. }
+
+  /v1/cards/me/step-up/grant:
+    post:
+      tags: [Cards — Cardholder (PWA)]
+      summary: Cardholder approval of an above-threshold debit
+      description: |
+        Hit by the PWA after the cardholder completes WebAuthn /
+        biometric. Flips `step_up_granted_at` on the matching
+        CardServerNonce so the merchant-side poll returns granted.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: step_up_token from the merchant /nonce response. }
+                webauthn_assertion:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200": { description: Granted. }
+        "404": { description: Token not for this account. }
+        "410": { description: Token expired. }
+
+  # ----- Cards — Admin -----
+  /v1/cards/issue-batch:
+    post:
+      tags: [Cards — Admin]
+      summary: Mint N activation URLs (PoC — paste into NFC Tools)
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "201":
+          description: URLs minted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          urls:
+                            type: array
+                            items: { type: string, format: uri }
+
+  /v1/admin/cards/{id}/recovery:
+    post:
+      tags: [Cards — Admin]
+      summary: Email a 6-digit recovery code (iOS escape hatch)
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_email]
+              properties:
+                user_email: { type: string, format: email }
+      responses:
+        "200":
+          description: Code issued (and emailed if SENDGRID is configured).
+
+  # ----- Provider -----
+  /v1/provider/orders:
+    get:
+      tags: [Provider]
+      summary: List LockPaymentOrders assigned to this provider
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: List. } }
+
+  /v1/provider/orders/{id}/accept:
+    post:
+      tags: [Provider]
+      summary: Accept a LockPaymentOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses: { "200": { description: Accepted. } }
+
+  /v1/provider/orders/{id}/decline:
+    post:
+      tags: [Provider]
+      summary: Decline a LockPaymentOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses: { "200": { description: Declined. } }
+
+  /v1/provider/orders/{id}/fulfill:
+    post:
+      tags: [Provider]
+      summary: Mark a LockPaymentOrder as fiat-fulfilled
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses: { "200": { description: Fulfilled. } }
+
+  /v1/provider/orders/{id}/cancel:
+    post:
+      tags: [Provider]
+      summary: Cancel a LockPaymentOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses: { "200": { description: Cancelled. } }
+
+  /v1/provider/rates/{token}/{fiat}:
+    get:
+      tags: [Provider]
+      summary: Get the LP-side market rate for a token/fiat pair
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+        - in: path
+          name: fiat
+          required: true
+          schema: { type: string }
+      responses: { "200": { description: Rate. } }
+
+  /v1/provider/stats:
+    get:
+      tags: [Provider]
+      summary: Provider activity stats
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: Stats. } }
+
+  /v1/provider/node-info:
+    get:
+      tags: [Provider]
+      summary: Aggregator metadata the LP node needs at boot
+      security: [{ bearerAuth: [] }]
+      responses: { "200": { description: Info. } }

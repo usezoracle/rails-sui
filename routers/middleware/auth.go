@@ -336,12 +336,25 @@ func APIKeyMiddleware(c *gin.Context) {
 	c.Next()
 }
 
-// DynamicAuthMiddleware is a middleware that dynamically selects the authentication method
+// DynamicAuthMiddleware picks the auth strategy from the request shape:
+//
+//   1. `Authorization: Bearer …`            → JWT
+//   2. `Client-Type: web`                    → JWT (legacy gate, kept for back-compat)
+//   3. `API-Key` header on a /sender/ path   → API-Key auth
+//   4. otherwise                             → HMAC signature
+//
+// The Bearer-first rule eliminates a confusing class of 401s when
+// callers (mobile apps, Swagger UI, scripts) send a JWT but forget
+// the legacy `Client-Type: web` header.
 func DynamicAuthMiddleware(c *gin.Context) {
-	// Check the request headers to determine the desired authentication method
-	clientType := c.GetHeader("Client-Type")
+	authHeader := c.GetHeader("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		JWTMiddleware(c)
+		c.Next()
+		return
+	}
 
-	// Select the authentication middleware based on the client type
+	clientType := c.GetHeader("Client-Type")
 	switch clientType {
 	case "web":
 		JWTMiddleware(c)

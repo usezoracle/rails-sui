@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -86,6 +87,7 @@ func (ctrl *Controller) GetInstitutionsByCurrency(ctx *gin.Context) {
 	// Get currency code from the URL
 	currencyCode := ctx.Param("currency_code")
 
+	// Query institutions from the local database (seeded via SQL migrations)
 	institutions, err := storage.Client.Institution.
 		Query().
 		Where(institution.HasFiatCurrencyWith(
@@ -238,6 +240,49 @@ func (ctrl *Controller) VerifyAccount(ctx *gin.Context) {
 		return
 	}
 
+	if payload.AccountIdentifier == "" && payload.AccountIdentifierSnake != "" {
+		payload.AccountIdentifier = payload.AccountIdentifierSnake
+	}
+
+	if payload.AccountIdentifier == "" {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Failed to validate payload", []types.ErrorData{{
+			Field:   "AccountIdentifier",
+			Message: "AccountIdentifier (accountIdentifier or account_identifier) is required",
+		}})
+		return
+	}
+
+	// Try live-verifying with Paycrest API if configured
+	paycrestURL := serverConf.PaycrestAPIURL
+	if paycrestURL != "" {
+		pcPayload := map[string]string{
+			"institution":       payload.Institution,
+			"accountIdentifier": payload.AccountIdentifier,
+		}
+		res, err := fastshot.NewClient(paycrestURL).
+			Config().SetTimeout(15 * time.Second).
+			Header().Add("Content-Type", "application/json").
+			Build().POST("/v2/verify-account").
+			Body().AsJSON(pcPayload).
+			Send()
+		if err == nil {
+			defer res.RawResponse.Body.Close()
+			if res.StatusCode() == http.StatusOK {
+				var pcResp struct {
+					Status  string `json:"status"`
+					Message string `json:"message"`
+					Data    string `json:"data"`
+				}
+				if decodeErr := json.NewDecoder(res.RawResponse.Body).Decode(&pcResp); decodeErr == nil && pcResp.Status == "success" {
+					u.APIResponse(ctx, http.StatusOK, "success", "Account name was fetched successfully", pcResp.Data)
+					return
+				}
+			}
+		}
+		logger.Warnf("Paycrest live account verification failed, falling back: %v", err)
+	}
+
+	// Fallback to local database and provider profiles
 	institution, err := storage.Client.Institution.
 		Query().
 		Where(institution.CodeEQ(payload.Institution)).

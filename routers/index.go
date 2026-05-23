@@ -20,6 +20,13 @@ func RegisterRoutes(route *gin.Engine) {
 	})
 	route.GET("/health", func(ctx *gin.Context) { ctx.JSON(http.StatusOK, gin.H{"live": "ok"}) })
 
+	// API docs — public. Swagger UI shell loads SWG assets from a CDN
+	// and points at /openapi.yaml. The raw spec is hand-written at
+	// docs/openapi.yaml (single source of truth, no codegen).
+	docsCtrl := controllers.NewController()
+	route.GET("/docs", docsCtrl.ServeSwaggerUI)
+	route.GET("/openapi.yaml", docsCtrl.ServeOpenAPISpec)
+
 	// Add all routes
 	authRoutes(route)
 	senderRoutes(route)
@@ -94,6 +101,11 @@ func authRoutes(route *gin.Engine) {
 		middleware.OnlySenderMiddleware,
 		profileCtrl.UpdateSenderProfile,
 	)
+
+	// Cross-scope "who am I" — works for any authenticated user
+	// regardless of scope. Used by the merchant app + PWA right after
+	// sign-in to populate the session display + decide where to route.
+	v1.GET("me", middleware.JWTMiddleware, authCtrl.Me)
 }
 
 func senderRoutes(route *gin.Engine) {
@@ -161,6 +173,7 @@ func cardsRoutes(route *gin.Engine) {
 	cardholder.POST("revoke", cardsCtrl.Revoke)
 	cardholder.POST("me/resync", cardsCtrl.Resync)
 	cardholder.POST("me/resync/complete", cardsCtrl.ResyncComplete)
+	cardholder.POST("me/step-up/parse", cardsCtrl.StepUpParse)
 	cardholder.POST("me/step-up/grant", cardsCtrl.StepUpGrant)
 
 	// Admin: shared-secret-gated.

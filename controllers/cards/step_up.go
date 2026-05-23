@@ -29,6 +29,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
@@ -42,6 +43,91 @@ type stepUpGrantRequest struct {
 	// WebAuthn assertion the PWA produced from the platform
 	// authenticator. v1 accepts but doesn't verify — TODO below.
 	WebauthnAssertion map[string]any `json:"webauthn_assertion"`
+}
+
+type stepUpParseRequest struct {
+	Token string `json:"token" binding:"required"`
+}
+
+type stepUpParseResponse struct {
+	Amount       string    `json:"amount"`
+	Currency     string    `json:"currency"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	CardID       string    `json:"card_id"`
+	MerchantName string    `json:"merchant_name"`
+}
+
+// StepUpParse returns details about the step-up token for display in the PWA.
+func (ctrl *Controller) StepUpParse(ctx *gin.Context) {
+	var req stepUpParseRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Failed to validate payload", u.GetErrorData(err))
+		return
+	}
+	user, ok := userFromCtx(ctx)
+	if !ok {
+		return
+	}
+
+	nonceID, err := uuid.Parse(req.Token)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Invalid step-up token", nil)
+		return
+	}
+
+	// Load the nonce + its card + its sender profile + sender user, verify the card belongs to the
+	// authenticated user. Prevents one user from reading another
+	// user's step-up.
+	nonceRow, err := storage.Client.CardServerNonce.
+		Query().
+		Where(
+			cardservernonce.IDEQ(nonceID),
+			cardservernonce.TierEQ(cardservernonce.TierStepUp),
+			cardservernonce.HasCardWith(
+				tappcard.HasUserWith(userEnt.IDEQ(user.ID)),
+			),
+		).
+		WithCard().
+		WithSenderProfile(func(q *ent.SenderProfileQuery) {
+			q.WithUser()
+		}).
+		Only(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusNotFound, "error",
+			"Step-up token not found for this account",
+			map[string]any{"code": "step_up_token_invalid"})
+		return
+	}
+
+	if nonceRow.ExpiresAt.Before(time.Now()) {
+		u.APIResponse(ctx, http.StatusGone, "error",
+			"Step-up token expired",
+			map[string]any{"code": "step_up_token_expired"})
+		return
+	}
+
+	merchantName := "Unknown Merchant"
+	if nonceRow.Edges.SenderProfile != nil && nonceRow.Edges.SenderProfile.Edges.User != nil {
+		mu := nonceRow.Edges.SenderProfile.Edges.User
+		merchantName = mu.FirstName + " " + mu.LastName
+	}
+
+	cardID := ""
+	if nonceRow.Edges.Card != nil {
+		cardID = nonceRow.Edges.Card.ID.String()
+	}
+
+	resp := stepUpParseResponse{
+		Amount:       nonceRow.Amount,
+		Currency:     nonceRow.Currency,
+		ExpiresAt:    nonceRow.ExpiresAt,
+		CardID:       cardID,
+		MerchantName: merchantName,
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Step-up details loaded", resp)
 }
 
 // StepUpGrant flips the step_up_granted_at flag on the nonce so the

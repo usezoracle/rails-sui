@@ -23,7 +23,10 @@ func (Token) Mixin() []ent.Mixin {
 func (Token) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("symbol").MaxLen((10)),
-		field.String("contract_address").MaxLen(60),
+		// Holds either an EVM hex address (42 chars) or a Sui Move
+		// coin-type string (`0x<64>::<module>::<Type>`, often 80+
+		// chars). 200 leaves room for long module/type names.
+		field.String("contract_address").MaxLen(200),
 		field.Int8("decimals"),
 		field.Bool("is_enabled").Default(false),
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
+	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils/crypto"
@@ -31,20 +32,33 @@ func main() {
 	defer client.Close()
 	ctx := context.Background()
 
-	// Delete existing data
-	_, _ = client.Network.Delete().Exec(ctx)
-	_, _ = client.Token.Delete().Exec(ctx)
-	_, _ = client.FiatCurrency.Delete().Exec(ctx)
-	_, _ = client.ProvisionBucket.Delete().Exec(ctx)
-	_, _ = client.User.Delete().Exec(ctx)
-	_, _ = client.ProviderProfile.Delete().Exec(ctx)
+	// Delete existing data in correct dependency order to avoid foreign key violations
+	_, _ = client.APIKey.Delete().Exec(ctx)
+	_, _ = client.SenderOrderToken.Delete().Exec(ctx)
 	_, _ = client.ProviderOrderToken.Delete().Exec(ctx)
-	_, _ = client.SenderProfile.Delete().Exec(ctx)
+	_, _ = client.SuiReceiveAddress.Delete().Exec(ctx)
 	_, _ = client.ReceiveAddress.Delete().Exec(ctx)
+	_, _ = client.LockOrderFulfillment.Delete().Exec(ctx)
+	_, _ = client.LockPaymentOrder.Delete().Exec(ctx)
+	_, _ = client.PaymentOrderRecipient.Delete().Exec(ctx)
+	_, _ = client.PaymentOrder.Delete().Exec(ctx)
+	_, _ = client.MerchantBankAccount.Delete().Exec(ctx)
+	_, _ = client.IdentityVerificationRequest.Delete().Exec(ctx)
+	_, _ = client.TappCard.Delete().Exec(ctx)
+	_, _ = client.ProviderProfile.Delete().Exec(ctx)
+	_, _ = client.SenderProfile.Delete().Exec(ctx)
+	_, _ = client.Token.Delete().Exec(ctx)
+	_, _ = client.Network.Delete().Exec(ctx)
+	_, _ = client.ProvisionBucket.Delete().Exec(ctx)
+	_, _ = client.Institution.Delete().Exec(ctx)
+	_, _ = client.FiatCurrency.Delete().Exec(ctx)
+	_, _ = client.User.Delete().Exec(ctx)
 
-	// Seed Network
-	fmt.Println("seeding network...")
-	network, err := client.Network.
+	// Seed Networks — Sui-aligned for the post-fork stack. The legacy
+	// EVM network is kept for back-compat with existing fixtures, but
+	// the Tap + Tap Card flows look up sui-testnet by default.
+	fmt.Println("seeding networks...")
+	arbSepolia, err := client.Network.
 		Create().
 		SetIdentifier("arbitrum-sepolia").
 		SetChainID(11155111).
@@ -53,23 +67,51 @@ func main() {
 		SetIsTestnet(true).
 		Save(ctx)
 	if err != nil {
-		logger.Fatalf("failed seeding network: %s", err)
+		logger.Fatalf("failed seeding arbitrum-sepolia: %s", err)
 	}
 
-	// Seed Tokens
+	suiTestnet, err := client.Network.
+		Create().
+		SetIdentifier("sui-testnet").
+		SetChainID(0).
+		SetFee(decimal.NewFromInt(0)).
+		SetRPCEndpoint("https://fullnode.testnet.sui.io:443").
+		SetIsTestnet(true).
+		Save(ctx)
+	if err != nil {
+		logger.Fatalf("failed seeding sui-testnet: %s", err)
+	}
+
+	// Seed Tokens — keep the legacy 6TEST row for existing tests, add
+	// USDC on Sui as the cards-flow rail.
 	fmt.Println("seeding tokens...")
 	_, err = client.Token.
 		Create().
 		SetSymbol("6TEST").
 		SetContractAddress("0x3870419Ba2BBf0127060bCB37f69A1b1C090992B").
 		SetDecimals(6).
-		SetNetwork(network).
+		SetNetwork(arbSepolia).
 		SetIsEnabled(true).
 		Save(ctx)
 	if err != nil {
 		logger.Fatalf("failed seeding 6TEST: %s", err)
 	}
 
+	// USDC on Sui — coin type per Sui's testnet USDC package
+	// (placeholder; replace with the real coin type once you publish
+	// or import a faucet USDC). The merchant /tap + Tap Card debit
+	// look this up via SymbolEQ("USDC") + NetworkIdentifierHasPrefix("sui-").
+	_, err = client.Token.
+		Create().
+		SetSymbol("USDC").
+		SetContractAddress("0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC").
+		SetDecimals(6).
+		SetNetwork(suiTestnet).
+		SetIsEnabled(true).
+		Save(ctx)
+	if err != nil {
+		logger.Fatalf("failed seeding USDC: %s", err)
+	}
 	// Seed Fiat Currencies and Provision Buckets
 	fmt.Println("fiat currencies and provision buckets...")
 	currencies := []types.SupportedCurrencies{
@@ -87,6 +129,21 @@ func main() {
 			).
 			Only(ctx)
 		if ent.IsNotFound(err) {
+			// Seed access bank and MTN momo institutions
+			momo, _ := client.Institution.
+				Create().
+				SetName("MTN Momo").
+				SetCode("MOMONGPC").
+				SetType(institution.TypeMobileMoney).
+				Save(ctx)
+
+			access, _ := client.Institution.
+				Create().
+				SetName("Access Bank").
+				SetCode("ABNGNGLA").
+				SetType(institution.TypeBank).
+				Save(ctx)
+
 			currency, _ = client.FiatCurrency.
 				Create().
 				SetCode(currencyVal.Code).
@@ -95,6 +152,7 @@ func main() {
 				SetName(currencyVal.Name).
 				SetMarketRate(currencyVal.MarketRate).
 				SetIsEnabled(true).
+				AddInstitutions(momo, access).
 				Save(ctx)
 		}
 
@@ -178,6 +236,25 @@ func seedSender(ctx context.Context, client *ent.Client, serial string) (string,
 		Save(ctx)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed creating sender profile: %s", err)
+	}
+
+	// Seed SenderOrderTokens for all enabled tokens so that the sender can actually initiate orders
+	tokens, err := client.Token.Query().All(ctx)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed querying tokens for sender order token config: %s", err)
+	}
+	for _, t := range tokens {
+		_, err = client.SenderOrderToken.
+			Create().
+			SetSender(sender).
+			SetToken(t).
+			SetFeePercent(decimal.NewFromFloat(0.01)). // 1% fee
+			SetFeeAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"). // Example fee address
+			SetRefundAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"). // Example refund address
+			Save(ctx)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed creating sender order token: %s", err)
+		}
 	}
 
 	apiKeyCreate, secretKey, encodedSecret, err := initAPIKeyCreate(client)

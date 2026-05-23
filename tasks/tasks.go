@@ -768,12 +768,21 @@ func StartCronJobs() {
 	if serverConf.Environment != "production" {
 		suiNetwork = "sui-testnet"
 	}
-	suiIndexer := services.NewSuiEventIndexer(orderConf.SuiRpcURL, orderConf.SuiGatewayPackageID, suiNetwork)
-	go func() {
-		if err := suiIndexer.Start(context.Background()); err != nil && err != context.Canceled {
-			logger.Errorf("StartCronJobs: sui event indexer exited: %v", err)
-		}
-	}()
+	// Skip the indexer entirely if the Move package isn't deployed yet —
+	// without a package ID it can't subscribe to anything useful, and
+	// the block-vision SDK's WS error path will take down the process
+	// when handed an HTTPS URL instead of WSS. Lets local dev boot
+	// against a non-deployed Gateway.
+	if orderConf.SuiGatewayPackageID != "" {
+		suiIndexer := services.NewSuiEventIndexer(orderConf.SuiRpcURL, orderConf.SuiGatewayPackageID, suiNetwork)
+		go func() {
+			if err := suiIndexer.Start(context.Background()); err != nil && err != context.Canceled {
+				logger.Errorf("StartCronJobs: sui event indexer exited: %v", err)
+			}
+		}()
+	} else {
+		logger.Infof("StartCronJobs: SUI_GATEWAY_PACKAGE_ID empty — skipping event indexer")
+	}
 
 	// Compute market rate every 30 minutes.
 	if _, err := scheduler.Cron("*/30 * * * *").Do(ComputeMarketRate); err != nil {
@@ -801,13 +810,22 @@ func StartCronJobs() {
 	// forwards via OrderSui.CreateOrder into the Gateway escrow. Path-2
 	// (exchange / external wallet) deposit flow only; Path-1 PTB-direct
 	// deposits arrive via the SuiEventIndexer's OrderCreated subscription.
-	depositWatcher := services.NewSuiDepositWatcher()
-	if _, err := scheduler.Cron("*/1 * * * *").Do(func() {
-		if err := depositWatcher.CheckDeposits(context.Background()); err != nil {
-			logger.Errorf("StartCronJobs: sui deposit watcher: %v", err)
+	//
+	// Same gate as the indexer above — `sui.NewSuiClient` internally
+	// initializes a WebSocket subscriber that calls `log.Fatalf` on
+	// an https:// URL (block-vision SDK behavior). Without the
+	// Gateway deployed the watcher has nothing to do anyway.
+	if orderConf.SuiGatewayPackageID != "" {
+		depositWatcher := services.NewSuiDepositWatcher()
+		if _, err := scheduler.Cron("*/1 * * * *").Do(func() {
+			if err := depositWatcher.CheckDeposits(context.Background()); err != nil {
+				logger.Errorf("StartCronJobs: sui deposit watcher: %v", err)
+			}
+		}); err != nil {
+			logger.Errorf("StartCronJobs: %v", err)
 		}
-	}); err != nil {
-		logger.Errorf("StartCronJobs: %v", err)
+	} else {
+		logger.Infof("StartCronJobs: SUI_GATEWAY_PACKAGE_ID empty — skipping deposit watcher")
 	}
 
 	// Route A dispatcher — every minute, advances RouteAOrder rows through

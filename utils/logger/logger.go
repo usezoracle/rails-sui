@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,7 +56,7 @@ func init() {
 
 		file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err == nil {
-			logger.Out = file
+			logger.Out = io.MultiWriter(os.Stderr, file)
 		} else {
 			logger.Errorf("Failed to open logs.txt: %v", err)
 		}

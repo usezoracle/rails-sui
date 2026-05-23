@@ -213,10 +213,7 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		UpdatedAt: user.UpdatedAt,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-	}
-
-	if !user.IsEmailVerified {
-		response.Email = user.Email
+		Email:     user.Email,
 	}
 
 	u.APIResponse(ctx, http.StatusCreated, "success", "User created successfully", response)

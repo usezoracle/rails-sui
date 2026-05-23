@@ -634,8 +634,9 @@ type ProviderStatsResponse struct {
 
 // VerifyAccountRequest is the request for account verification of an institution
 type VerifyAccountRequest struct {
-	Institution       string `json:"institution" binding:"required"`
-	AccountIdentifier string `json:"accountIdentifier" binding:"required"`
+	Institution            string `json:"institution" binding:"required"`
+	AccountIdentifier      string `json:"accountIdentifier"`
+	AccountIdentifierSnake string `json:"account_identifier"`
 }
 
 // NewIDVerificationRequest is the request for a new identity verification request
