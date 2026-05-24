@@ -50,6 +50,13 @@ func RegisterRoutes(route *gin.Engine) {
 	v1.GET("pubkey", ctrl.GetAggregatorPublicKey)
 	v1.POST("verify-account", ctrl.VerifyAccount)
 	v1.GET("orders/:id", ctrl.GetLockPaymentOrderStatus)
+	// Public order-scoped SSE — customer checkout PWA subscribes after
+	// submitting their on-chain payment to advance through the bridge
+	// → settle pipeline in real time.
+	v1.GET("orders/:id/stream", ctrl.StreamOrderStatus)
+	// Customer "I sent it" ack — pre-emits payment.deposited so the
+	// merchant UI advances without waiting for the Sui indexer.
+	v1.POST("orders/:id/confirm", ctrl.ConfirmOrderPayment)
 	v1.POST("gas-station/sponsor", middleware.JWTMiddleware, ctrl.SponsorTransaction)
 
 	// KYC routes

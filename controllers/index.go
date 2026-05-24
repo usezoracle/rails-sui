@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -419,6 +420,12 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 		Reference       string  `json:"reference"`
 		ExpiresAt       int64   `json:"expires_at"`
 		StepUpRequired  bool    `json:"step_up_required"`
+
+		// On-chain deposit target. The customer's wallet sends
+		// `amount_subunit` of `coin_type` to this Sui address; the
+		// indexer picks the deposit up and advances the order state.
+		ReceiveAddress string `json:"receive_address,omitempty"`
+		CoinType       string `json:"coin_type,omitempty"`
 	}
 
 	// First, try to fetch related lock payment orders from the database
@@ -487,6 +494,8 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 		var reference string
 		var expiresAt int64
 		var ngnRate float64
+		var receiveAddress string
+		var coinType string
 
 		poID, err := uuid.Parse(orders[0].GatewayID)
 		if err == nil {
@@ -503,6 +512,8 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 				reference = po.Reference
 				if po.Edges.SuiReceiveAddress != nil {
 					expiresAt = po.Edges.SuiReceiveAddress.ValidUntil.UnixMilli()
+					receiveAddress = po.Edges.SuiReceiveAddress.Address
+					coinType = po.Edges.SuiReceiveAddress.CoinType
 				} else {
 					expiresAt = po.CreatedAt.Add(1 * time.Hour).UnixMilli()
 				}
@@ -546,6 +557,8 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 			Reference:      reference,
 			ExpiresAt:      expiresAt,
 			StepUpRequired: false,
+			ReceiveAddress: receiveAddress,
+			CoinType:       coinType,
 		}
 
 		u.APIResponse(ctx, http.StatusOK, "success", "Order status fetched successfully", response)
@@ -600,8 +613,12 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 	}
 
 	expiresAt := po.CreatedAt.Add(1 * time.Hour).UnixMilli()
+	var receiveAddress string
+	var coinType string
 	if po.Edges.SuiReceiveAddress != nil {
 		expiresAt = po.Edges.SuiReceiveAddress.ValidUntil.UnixMilli()
+		receiveAddress = po.Edges.SuiReceiveAddress.Address
+		coinType = po.Edges.SuiReceiveAddress.CoinType
 	}
 
 	ngnRate, _ := po.Rate.Float64()
@@ -647,6 +664,8 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 		Reference:      po.Reference,
 		ExpiresAt:      expiresAt,
 		StepUpRequired: false,
+		ReceiveAddress: receiveAddress,
+		CoinType:       coinType,
 	}
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Order status fetched successfully", response)
@@ -1128,4 +1147,201 @@ func getSmileLinkStatus(linkID string) (string, error) {
 	}
 
 	return "", nil
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public order endpoints (customer-facing checkout PWA).
+// /v1/orders/:id is already public; the two below extend the same path
+// with a confirm-after-pay ack and a per-order SSE stream so the
+// customer's UI can mirror the merchant's bridge → settle progress
+// without exposing the sender's other orders.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type confirmOrderPayload struct {
+	TxDigest string `json:"txDigest" binding:"required"`
+}
+
+// ConfirmOrderPayment is the customer-side "I sent the USDC" ack.
+//
+// The Sui event indexer is authoritative — it watches the order's
+// receive_address and will eventually fire payment.deposited on its own.
+// This endpoint exists to (1) shave seconds off the merchant's UI by
+// pre-emitting payment.deposited the moment the customer signs, and
+// (2) capture tx_hash for support/debug without scanning the chain.
+//
+// We do NOT validate the digest on-chain here — the indexer does, and a
+// fake digest can't move a customer's balance. The status update happens
+// only when the indexer confirms the deposit; this endpoint just emits
+// an optimistic SSE event the customer's own page subscribes to.
+func (ctrl *Controller) ConfirmOrderPayment(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	orderID, err := uuid.Parse(idStr)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid order id", nil)
+		return
+	}
+
+	var payload confirmOrderPayload
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Failed to validate payload", u.GetErrorData(err))
+		return
+	}
+
+	po, err := storage.Client.PaymentOrder.
+		Query().
+		Where(paymentorder.IDEQ(orderID)).
+		WithSenderProfile().
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "Order not found", nil)
+			return
+		}
+		logger.Errorf("ConfirmOrderPayment.query: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to record confirmation", nil)
+		return
+	}
+
+	// Idempotent — same digest reposted is a no-op success.
+	if po.TxHash == "" {
+		if _, err := po.Update().SetTxHash(payload.TxDigest).Save(ctx); err != nil {
+			logger.Errorf("ConfirmOrderPayment.update: %v", err)
+			// Keep going — we still want to emit the SSE event so the
+			// merchant UI advances. The tx_hash is observability nice-to-
+			// have; the indexer will fill it in when it confirms.
+		}
+	}
+
+	// Pre-emit a payment.deposited event so the merchant's SSE (and the
+	// customer's new /v1/orders/:id/stream below) advance immediately.
+	// The indexer will fire its own payment.deposited later when it sees
+	// the on-chain effect; subscribers must tolerate duplicates (the
+	// existing useTapBroadcast/PaymentsRealtimeProvider already do —
+	// state transitions are idempotent).
+	if po.Edges.SenderProfile != nil {
+		svc.Bus().Publish(po.Edges.SenderProfile.ID, "payment.deposited", map[string]any{
+			"order_id":    po.ID.String(),
+			"sui_tx_hash": payload.TxDigest,
+		})
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Confirmation recorded", gin.H{
+		"id":     po.ID,
+		"status": po.Status,
+	})
+}
+
+// StreamOrderStatus is a per-ORDER SSE stream — unauthenticated, scoped
+// to one order ID. The customer-facing checkout PWA subscribes here
+// after submitting their on-chain payment so the success screen can
+// advance through Rails' bridge → settle pipeline in real time.
+//
+// Security: we look the order up, get its sender, subscribe to that
+// sender's event bus, and filter events server-side to only those whose
+// payload.order_id matches the URL param. The customer never sees other
+// orders' events even though we're piggy-backing on the sender bus.
+//
+// Knowing an order's UUID is treated as the auth here — the same way
+// the existing public GET /v1/orders/:id does. Order IDs are
+// unguessable v4 UUIDs (~122 bits); guessing one is computationally
+// infeasible.
+func (ctrl *Controller) StreamOrderStatus(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	orderID, err := uuid.Parse(idStr)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid order id", nil)
+		return
+	}
+
+	po, err := storage.Client.PaymentOrder.
+		Query().
+		Where(paymentorder.IDEQ(orderID)).
+		WithSenderProfile().
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "Order not found", nil)
+			return
+		}
+		logger.Errorf("StreamOrderStatus.query: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to open stream", nil)
+		return
+	}
+	if po.Edges.SenderProfile == nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Order has no owner", nil)
+		return
+	}
+	orderIDStr := po.ID.String()
+
+	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
+	ctx.Writer.Header().Set("Cache-Control", "no-cache")
+	ctx.Writer.Header().Set("Connection", "keep-alive")
+	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
+	ctx.Writer.WriteHeader(http.StatusOK)
+
+	flusher, isFlusher := ctx.Writer.(http.Flusher)
+	if !isFlusher {
+		_, _ = io.WriteString(ctx.Writer, "event: error\ndata: streaming not supported\n\n")
+		return
+	}
+
+	lastEventID := ctx.GetHeader("Last-Event-ID")
+	events, replay, unsubscribe := svc.Bus().Subscribe(po.Edges.SenderProfile.ID, lastEventID)
+	defer unsubscribe()
+
+	_, _ = io.WriteString(ctx.Writer, ": connected\n\n")
+	flusher.Flush()
+
+	// Replay matching events from the ring buffer (drops events for
+	// other orders on this sender).
+	for _, ev := range replay {
+		if eventOrderID(ev) == orderIDStr {
+			writeOrderSSE(ctx.Writer, ev)
+			flusher.Flush()
+		}
+	}
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	clientGone := ctx.Request.Context().Done()
+	for {
+		select {
+		case <-clientGone:
+			return
+		case <-heartbeat.C:
+			if _, err := io.WriteString(ctx.Writer, ": heartbeat\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		case ev, open := <-events:
+			if !open {
+				return
+			}
+			if eventOrderID(ev) != orderIDStr {
+				// Different order on the same sender — skip.
+				continue
+			}
+			writeOrderSSE(ctx.Writer, ev)
+			flusher.Flush()
+		}
+	}
+}
+
+func eventOrderID(ev svc.PaymentEvent) string {
+	if v, ok := ev.Payload["order_id"]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func writeOrderSSE(w io.Writer, ev svc.PaymentEvent) {
+	data, err := json.Marshal(ev.Payload)
+	if err != nil {
+		logger.Errorf("OrderSSE marshal: %v", err)
+		return
+	}
+	_, _ = fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", ev.ID, ev.Name, data)
 }
