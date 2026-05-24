@@ -17,17 +17,22 @@ package accounts
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/api/idtoken"
 
 	"github.com/usezoracle/rails-sui/config"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
+	authSvc "github.com/usezoracle/rails-sui/services/auth"
 	db "github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
 	"github.com/usezoracle/rails-sui/utils/token"
 )
+
+// authConf is declared in auth.go (same package).
+var _ = config.AuthConfig
 
 const cardholderScope = "cardholder"
 
@@ -121,9 +126,24 @@ func (ctrl *AuthController) GoogleAuth(ctx *gin.Context) {
 		}
 	}
 
-	access, refresh, err := token.GeneratePairJWT(user.ID.String(), user.Scope)
+	// Stateless access JWT + stateful opaque refresh token (rotation).
+	access, err := token.GenerateAccessJWT(user.ID.String(), user.Scope)
 	if err != nil {
 		logger.Errorf("jwt mint: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			"Failed to mint session", nil)
+		return
+	}
+	refreshTTL := time.Duration(authConf.JwtRefreshLifespan) * time.Minute
+	issued, err := authSvc.IssueNewFamily(
+		ctx,
+		user.ID,
+		refreshTTL,
+		ctx.GetHeader("User-Agent"),
+		ctx.ClientIP(),
+	)
+	if err != nil {
+		logger.Errorf("refresh mint: %v", err)
 		u.APIResponse(ctx, http.StatusInternalServerError, "error",
 			"Failed to mint session", nil)
 		return
@@ -132,7 +152,7 @@ func (ctrl *AuthController) GoogleAuth(ctx *gin.Context) {
 	u.APIResponse(ctx, http.StatusOK, "success", "Signed in with Google",
 		&googleAuthResponse{
 			AccessToken:  access,
-			RefreshToken: refresh,
+			RefreshToken: issued.Raw,
 			Email:        user.Email,
 			Scope:        user.Scope,
 			IsNewUser:    isNewUser,

@@ -31,6 +31,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
@@ -404,6 +405,24 @@ func (ctrl *SenderController) InitiateTapPayment(ctx *gin.Context) {
 		SetPaymentOrder(po).
 		Save(ctx); err != nil {
 		logger.Errorf("InitiateTapPayment: recipient: %v", err)
+		_ = tx.Rollback()
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			"Failed to initiate payment", nil)
+		return
+	}
+
+	// Enrol the order in Route A (Sui USDC → Base via LiFi → fiat via the
+	// settlement aggregator). Without this row the dispatcher never sees
+	// the order and the customer's USDC sits at the receive address.
+	// Mode = "lp" because the merchant flow always settles to a real bank
+	// account; "treasury" is reserved for protocol-internal sweeps.
+	if _, err := tx.RouteAOrder.
+		Create().
+		SetMode(routeaorder.ModeLp).
+		SetBridgeStatus(routeaorder.BridgeStatusPending).
+		SetPaymentOrder(po).
+		Save(ctx); err != nil {
+		logger.Errorf("InitiateTapPayment: route_a_order: %v", err)
 		_ = tx.Rollback()
 		u.APIResponse(ctx, http.StatusInternalServerError, "error",
 			"Failed to initiate payment", nil)

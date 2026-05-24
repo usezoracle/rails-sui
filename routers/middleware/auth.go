@@ -67,18 +67,23 @@ func JWTMiddleware(c *gin.Context) {
 
 	senderAndProvider := strings.Contains(scope, "sender") && strings.Contains(scope, "provider")
 
-	// Set user profiles based on scope
+	// Set user profiles based on scope.
+	//
+	// Previous version always called c.Set("sender", senderProfile) even
+	// when the query errored — the second Set overwrote the nil set in the
+	// error branch with the *typed* nil from the failed query, which
+	// passed OnlySenderMiddleware's `!ok && scope == nil` guard
+	// (ok is true because the key exists) and let nil profiles slip
+	// through to downstream type assertions. Set only on success.
 	if scope == "sender" || senderAndProvider {
 		senderProfile, err := storage.Client.SenderProfile.
 			Query().
 			Where(senderprofile.HasUserWith(user.IDEQ(userUUID))).
 			WithOrderTokens().
 			Only(c)
-		if err != nil {
-			c.Set("sender", nil)
+		if err == nil && senderProfile != nil {
+			c.Set("sender", senderProfile)
 		}
-
-		c.Set("sender", senderProfile)
 	}
 
 	if scope == "provider" || senderAndProvider {
@@ -86,11 +91,9 @@ func JWTMiddleware(c *gin.Context) {
 			Query().
 			Where(providerprofile.HasUserWith(user.IDEQ(userUUID))).
 			Only(c)
-		if err != nil && !senderAndProvider {
-			c.Set("provider", nil)
+		if err == nil && providerProfile != nil {
+			c.Set("provider", providerProfile)
 		}
-
-		c.Set("provider", providerProfile)
 	}
 
 	c.Next()
@@ -343,14 +346,15 @@ func APIKeyMiddleware(c *gin.Context) {
 //   3. `API-Key` header on a /sender/ path   → API-Key auth
 //   4. otherwise                             → HMAC signature
 //
-// The Bearer-first rule eliminates a confusing class of 401s when
-// callers (mobile apps, Swagger UI, scripts) send a JWT but forget
-// the legacy `Client-Type: web` header.
+// IMPORTANT: each strategy middleware (JWTMiddleware, APIKeyMiddleware,
+// HMACVerificationMiddleware) already calls c.Next() on success or
+// c.Abort() on failure. We must NOT call c.Next() here too — doing so
+// would re-enter the remaining handler chain after each strategy
+// returns, double-executing OnlySenderMiddleware + the controller.
 func DynamicAuthMiddleware(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if strings.HasPrefix(authHeader, "Bearer ") {
 		JWTMiddleware(c)
-		c.Next()
 		return
 	}
 
@@ -358,54 +362,53 @@ func DynamicAuthMiddleware(c *gin.Context) {
 	switch clientType {
 	case "web":
 		JWTMiddleware(c)
-	default:
-		if strings.Contains(c.Request.URL.Path, "/sender/") && c.GetHeader("API-Key") != "" {
-			APIKeyMiddleware(c)
-		} else {
-			HMACVerificationMiddleware(c)
-		}
+		return
 	}
 
-	c.Next()
+	if strings.Contains(c.Request.URL.Path, "/sender/") && c.GetHeader("API-Key") != "" {
+		APIKeyMiddleware(c)
+		return
+	}
+
+	HMACVerificationMiddleware(c)
 }
 
-// OnlySenderMiddleware is a middleware that checks if the user scope is sender.
+// OnlySenderMiddleware gates handlers that require an authenticated sender.
+// Pairs with JWTMiddleware (or APIKeyMiddleware) which sets the "sender"
+// context key only when a valid, non-nil *ent.SenderProfile was loaded.
+//
+// Previously the guard was `!ok && v == nil`, which silently passed nil
+// profiles set by the earlier nil-set race. We now require the key to
+// exist AND hold a non-nil typed value.
 func OnlySenderMiddleware(c *gin.Context) {
-	scope, ok := c.Get("sender")
-
-	if !ok && scope == nil {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Invalid API key or token", nil)
+	v, ok := c.Get("sender")
+	if !ok || v == nil {
+		u.APIResponse(c, http.StatusUnauthorized, "error", "Sender profile required", nil)
 		c.Abort()
 		return
 	}
-
+	if profile, isProfile := v.(*ent.SenderProfile); !isProfile || profile == nil {
+		u.APIResponse(c, http.StatusUnauthorized, "error", "Sender profile required", nil)
+		c.Abort()
+		return
+	}
 	c.Next()
 }
 
-// OnlyProviderMiddleware is a middleware that checks if the user scope is provider.
+// OnlyProviderMiddleware — same shape as OnlySenderMiddleware but for the
+// provider scope.
 func OnlyProviderMiddleware(c *gin.Context) {
-	scope, ok := c.Get("provider")
-
-	if !ok && scope == nil {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Invalid API key or token", nil)
+	v, ok := c.Get("provider")
+	if !ok || v == nil {
+		u.APIResponse(c, http.StatusUnauthorized, "error", "Provider profile required", nil)
 		c.Abort()
 		return
 	}
-
-	c.Next()
-}
-
-// OnlyWebMiddleware is a middle that checks your Client-Type and allows for auth
-func OnlyWebMiddleware(c *gin.Context) {
-	// Check the request headers to determine the desired authentication method
-	clientType := c.GetHeader("Client-Type")
-
-	if clientType != "web" {
-		u.APIResponse(c, http.StatusUnauthorized, "error", "Unrecognized Client-Type", nil)
+	if profile, isProfile := v.(*ent.ProviderProfile); !isProfile || profile == nil {
+		u.APIResponse(c, http.StatusUnauthorized, "error", "Provider profile required", nil)
 		c.Abort()
 		return
 	}
-
 	c.Next()
 }
 

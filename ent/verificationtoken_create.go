@@ -108,9 +108,7 @@ func (vtc *VerificationTokenCreate) Mutation() *VerificationTokenMutation {
 
 // Save creates the VerificationToken in the database.
 func (vtc *VerificationTokenCreate) Save(ctx context.Context) (*VerificationToken, error) {
-	if err := vtc.defaults(); err != nil {
-		return nil, err
-	}
+	vtc.defaults()
 	return withHooks(ctx, vtc.sqlSave, vtc.mutation, vtc.hooks)
 }
 
@@ -137,18 +135,12 @@ func (vtc *VerificationTokenCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (vtc *VerificationTokenCreate) defaults() error {
+func (vtc *VerificationTokenCreate) defaults() {
 	if _, ok := vtc.mutation.CreatedAt(); !ok {
-		if verificationtoken.DefaultCreatedAt == nil {
-			return fmt.Errorf("ent: uninitialized verificationtoken.DefaultCreatedAt (forgotten import ent/runtime?)")
-		}
 		v := verificationtoken.DefaultCreatedAt()
 		vtc.mutation.SetCreatedAt(v)
 	}
 	if _, ok := vtc.mutation.UpdatedAt(); !ok {
-		if verificationtoken.DefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized verificationtoken.DefaultUpdatedAt (forgotten import ent/runtime?)")
-		}
 		v := verificationtoken.DefaultUpdatedAt()
 		vtc.mutation.SetUpdatedAt(v)
 	}
@@ -157,13 +149,9 @@ func (vtc *VerificationTokenCreate) defaults() error {
 		vtc.mutation.SetExpiryAt(v)
 	}
 	if _, ok := vtc.mutation.ID(); !ok {
-		if verificationtoken.DefaultID == nil {
-			return fmt.Errorf("ent: uninitialized verificationtoken.DefaultID (forgotten import ent/runtime?)")
-		}
 		v := verificationtoken.DefaultID()
 		vtc.mutation.SetID(v)
 	}
-	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.

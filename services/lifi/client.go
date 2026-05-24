@@ -15,7 +15,19 @@ import (
 // https://li.quest/v1/chains?chainTypes=MVM
 const SuiChainID int64 = 9270000000000000
 
-// BSC chain id (target for Route A bridging).
+// Base chain ids — destination for Route A bridging.
+//
+// Both mainnet and Sepolia are real LiFi destinations; pick the matching
+// one when calling GetQuote based on which settlement Gateway you're going
+// to call afterwards. v1 production = BaseChainID; testnet = BaseSepoliaChainID.
+const (
+	BaseChainID        int64 = 8453
+	BaseSepoliaChainID int64 = 84532
+)
+
+// BSCChainID is kept around for any legacy callers; the Route A
+// dispatcher no longer uses it (we switched to Base for cheaper gas +
+// native 6-dec USDC). Remove once no callsites reference it.
 const BSCChainID int64 = 56
 
 // DefaultBaseURL is LiFi's public API root.

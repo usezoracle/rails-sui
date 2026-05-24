@@ -103,6 +103,7 @@ type OrderService interface {
 	CreateOrder(ctx context.Context, orderID uuid.UUID) error
 	RefundOrder(ctx context.Context, orderID string) error
 	SettleOrder(ctx context.Context, orderID uuid.UUID) error
+	SponsorTransaction(ctx context.Context, txBytes string, sender string) (string, string, error)
 }
 
 // SuiOrderCreatedEvent decodes the rails::events::OrderCreated event emitted
@@ -164,19 +165,21 @@ type RegisterPayload struct {
 	FirstName string   `json:"firstName" binding:"required"`
 	LastName  string   `json:"lastName" binding:"required"`
 	Email     string   `json:"email" binding:"required,email"`
-	Password  string   `json:"password" binding:"required,min=6,max=20"`
+	Password  string   `json:"password" binding:"required,min=8,max=128"`
 	Currency  string   `json:"currency"`
 	Scopes    []string `json:"scopes" binding:"required,dive,oneof=sender provider"`
 }
 
 // RegisterResponse is the response for the register endpoint
 type RegisterResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	FirstName string    `json:"firstName"`
-	LastName  string    `json:"lastName"`
-	Email     string    `json:"email"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	FirstName    string    `json:"firstName"`
+	LastName     string    `json:"lastName"`
+	Email        string    `json:"email"`
+	AccessToken  string    `json:"accessToken,omitempty"`
+	RefreshToken string    `json:"refreshToken,omitempty"`
 }
 
 // LockOrderResponse is the response for the lock payment order model
@@ -217,7 +220,7 @@ type CancelLockOrderPayload struct {
 // LoginPayload is the payload for the login endpoint
 type LoginPayload struct {
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6,max=20"`
+	Password string `json:"password" binding:"required,min=8,max=128"`
 }
 
 // LoginResponse is the response for the login endpoint
@@ -332,9 +335,21 @@ type SenderProfileResponse struct {
 	IsActive         bool                       `json:"isActive"`
 }
 
-// RefreshResponse is the response for the refresh endpoint
+// RefreshResponse is the response for the refresh endpoint.
+// Refresh-token rotation: every successful /auth/refresh issues a NEW
+// refresh token in the same family and revokes the one that was
+// presented. Clients MUST persist the returned refreshToken — re-using
+// the old one will be treated as a replay attack and revoke the family.
 type RefreshResponse struct {
-	AccessToken string `json:"accessToken"`
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+}
+
+// LogoutPayload — POST /v1/auth/logout body.
+// Token is optional; when present we revoke just that family. Absent →
+// revoke every active session for the authenticated user.
+type LogoutPayload struct {
+	RefreshToken string `json:"refreshToken"`
 }
 
 // APIKeyResponse is the response type for an API key
@@ -587,7 +602,7 @@ type ErrorData struct {
 
 // Payload for reset password request
 type ResetPasswordPayload struct {
-	Password   string `json:"password" binding:"required,min=6,max=20"`
+	Password   string `json:"password" binding:"required,min=8,max=128"`
 	ResetToken string `json:"resetToken" binding:"required"`
 }
 
@@ -614,8 +629,8 @@ type SenderPaymentOrderList struct {
 
 // ChangePasswordPayload is the payload for the change password endpoint
 type ChangePasswordPayload struct {
-	OldPassword string `json:"oldPassword" binding:"required,min=6,max=20"`
-	NewPassword string `json:"newPassword" binding:"required,min=6,max=20"`
+	OldPassword string `json:"oldPassword" binding:"required,min=8,max=128"`
+	NewPassword string `json:"newPassword" binding:"required,min=8,max=128"`
 }
 
 // SenderStatsResponse is the response for the sender stats endpoint

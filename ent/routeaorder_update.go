@@ -111,23 +111,23 @@ func (rau *RouteAOrderUpdate) ClearBridgeTxSui() *RouteAOrderUpdate {
 	return rau
 }
 
-// SetBridgeTxBsc sets the "bridge_tx_bsc" field.
-func (rau *RouteAOrderUpdate) SetBridgeTxBsc(s string) *RouteAOrderUpdate {
-	rau.mutation.SetBridgeTxBsc(s)
+// SetBridgeTxDest sets the "bridge_tx_dest" field.
+func (rau *RouteAOrderUpdate) SetBridgeTxDest(s string) *RouteAOrderUpdate {
+	rau.mutation.SetBridgeTxDest(s)
 	return rau
 }
 
-// SetNillableBridgeTxBsc sets the "bridge_tx_bsc" field if the given value is not nil.
-func (rau *RouteAOrderUpdate) SetNillableBridgeTxBsc(s *string) *RouteAOrderUpdate {
+// SetNillableBridgeTxDest sets the "bridge_tx_dest" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableBridgeTxDest(s *string) *RouteAOrderUpdate {
 	if s != nil {
-		rau.SetBridgeTxBsc(*s)
+		rau.SetBridgeTxDest(*s)
 	}
 	return rau
 }
 
-// ClearBridgeTxBsc clears the value of the "bridge_tx_bsc" field.
-func (rau *RouteAOrderUpdate) ClearBridgeTxBsc() *RouteAOrderUpdate {
-	rau.mutation.ClearBridgeTxBsc()
+// ClearBridgeTxDest clears the value of the "bridge_tx_dest" field.
+func (rau *RouteAOrderUpdate) ClearBridgeTxDest() *RouteAOrderUpdate {
+	rau.mutation.ClearBridgeTxDest()
 	return rau
 }
 
@@ -145,23 +145,117 @@ func (rau *RouteAOrderUpdate) SetNillableBridgeStatus(rs *routeaorder.BridgeStat
 	return rau
 }
 
-// SetBscOrderID sets the "bsc_order_id" field.
-func (rau *RouteAOrderUpdate) SetBscOrderID(s string) *RouteAOrderUpdate {
-	rau.mutation.SetBscOrderID(s)
+// SetGatewayOrderID sets the "gateway_order_id" field.
+func (rau *RouteAOrderUpdate) SetGatewayOrderID(s string) *RouteAOrderUpdate {
+	rau.mutation.SetGatewayOrderID(s)
 	return rau
 }
 
-// SetNillableBscOrderID sets the "bsc_order_id" field if the given value is not nil.
-func (rau *RouteAOrderUpdate) SetNillableBscOrderID(s *string) *RouteAOrderUpdate {
+// SetNillableGatewayOrderID sets the "gateway_order_id" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableGatewayOrderID(s *string) *RouteAOrderUpdate {
 	if s != nil {
-		rau.SetBscOrderID(*s)
+		rau.SetGatewayOrderID(*s)
 	}
 	return rau
 }
 
-// ClearBscOrderID clears the value of the "bsc_order_id" field.
-func (rau *RouteAOrderUpdate) ClearBscOrderID() *RouteAOrderUpdate {
-	rau.mutation.ClearBscOrderID()
+// ClearGatewayOrderID clears the value of the "gateway_order_id" field.
+func (rau *RouteAOrderUpdate) ClearGatewayOrderID() *RouteAOrderUpdate {
+	rau.mutation.ClearGatewayOrderID()
+	return rau
+}
+
+// SetGatewayChainID sets the "gateway_chain_id" field.
+func (rau *RouteAOrderUpdate) SetGatewayChainID(u uint64) *RouteAOrderUpdate {
+	rau.mutation.ResetGatewayChainID()
+	rau.mutation.SetGatewayChainID(u)
+	return rau
+}
+
+// SetNillableGatewayChainID sets the "gateway_chain_id" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableGatewayChainID(u *uint64) *RouteAOrderUpdate {
+	if u != nil {
+		rau.SetGatewayChainID(*u)
+	}
+	return rau
+}
+
+// AddGatewayChainID adds u to the "gateway_chain_id" field.
+func (rau *RouteAOrderUpdate) AddGatewayChainID(u int64) *RouteAOrderUpdate {
+	rau.mutation.AddGatewayChainID(u)
+	return rau
+}
+
+// ClearGatewayChainID clears the value of the "gateway_chain_id" field.
+func (rau *RouteAOrderUpdate) ClearGatewayChainID() *RouteAOrderUpdate {
+	rau.mutation.ClearGatewayChainID()
+	return rau
+}
+
+// SetSenderFeeSubunit sets the "sender_fee_subunit" field.
+func (rau *RouteAOrderUpdate) SetSenderFeeSubunit(d decimal.Decimal) *RouteAOrderUpdate {
+	rau.mutation.ResetSenderFeeSubunit()
+	rau.mutation.SetSenderFeeSubunit(d)
+	return rau
+}
+
+// SetNillableSenderFeeSubunit sets the "sender_fee_subunit" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableSenderFeeSubunit(d *decimal.Decimal) *RouteAOrderUpdate {
+	if d != nil {
+		rau.SetSenderFeeSubunit(*d)
+	}
+	return rau
+}
+
+// AddSenderFeeSubunit adds d to the "sender_fee_subunit" field.
+func (rau *RouteAOrderUpdate) AddSenderFeeSubunit(d decimal.Decimal) *RouteAOrderUpdate {
+	rau.mutation.AddSenderFeeSubunit(d)
+	return rau
+}
+
+// ClearSenderFeeSubunit clears the value of the "sender_fee_subunit" field.
+func (rau *RouteAOrderUpdate) ClearSenderFeeSubunit() *RouteAOrderUpdate {
+	rau.mutation.ClearSenderFeeSubunit()
+	return rau
+}
+
+// SetSettlementStatus sets the "settlement_status" field.
+func (rau *RouteAOrderUpdate) SetSettlementStatus(s string) *RouteAOrderUpdate {
+	rau.mutation.SetSettlementStatus(s)
+	return rau
+}
+
+// SetNillableSettlementStatus sets the "settlement_status" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableSettlementStatus(s *string) *RouteAOrderUpdate {
+	if s != nil {
+		rau.SetSettlementStatus(*s)
+	}
+	return rau
+}
+
+// ClearSettlementStatus clears the value of the "settlement_status" field.
+func (rau *RouteAOrderUpdate) ClearSettlementStatus() *RouteAOrderUpdate {
+	rau.mutation.ClearSettlementStatus()
+	return rau
+}
+
+// SetSettlementPolledAt sets the "settlement_polled_at" field.
+func (rau *RouteAOrderUpdate) SetSettlementPolledAt(t time.Time) *RouteAOrderUpdate {
+	rau.mutation.SetSettlementPolledAt(t)
+	return rau
+}
+
+// SetNillableSettlementPolledAt sets the "settlement_polled_at" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableSettlementPolledAt(t *time.Time) *RouteAOrderUpdate {
+	if t != nil {
+		rau.SetSettlementPolledAt(*t)
+	}
+	return rau
+}
+
+// ClearSettlementPolledAt clears the value of the "settlement_polled_at" field.
+func (rau *RouteAOrderUpdate) ClearSettlementPolledAt() *RouteAOrderUpdate {
+	rau.mutation.ClearSettlementPolledAt()
 	return rau
 }
 
@@ -344,20 +438,50 @@ func (rau *RouteAOrderUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if rau.mutation.BridgeTxSuiCleared() {
 		_spec.ClearField(routeaorder.FieldBridgeTxSui, field.TypeString)
 	}
-	if value, ok := rau.mutation.BridgeTxBsc(); ok {
-		_spec.SetField(routeaorder.FieldBridgeTxBsc, field.TypeString, value)
+	if value, ok := rau.mutation.BridgeTxDest(); ok {
+		_spec.SetField(routeaorder.FieldBridgeTxDest, field.TypeString, value)
 	}
-	if rau.mutation.BridgeTxBscCleared() {
-		_spec.ClearField(routeaorder.FieldBridgeTxBsc, field.TypeString)
+	if rau.mutation.BridgeTxDestCleared() {
+		_spec.ClearField(routeaorder.FieldBridgeTxDest, field.TypeString)
 	}
 	if value, ok := rau.mutation.BridgeStatus(); ok {
 		_spec.SetField(routeaorder.FieldBridgeStatus, field.TypeEnum, value)
 	}
-	if value, ok := rau.mutation.BscOrderID(); ok {
-		_spec.SetField(routeaorder.FieldBscOrderID, field.TypeString, value)
+	if value, ok := rau.mutation.GatewayOrderID(); ok {
+		_spec.SetField(routeaorder.FieldGatewayOrderID, field.TypeString, value)
 	}
-	if rau.mutation.BscOrderIDCleared() {
-		_spec.ClearField(routeaorder.FieldBscOrderID, field.TypeString)
+	if rau.mutation.GatewayOrderIDCleared() {
+		_spec.ClearField(routeaorder.FieldGatewayOrderID, field.TypeString)
+	}
+	if value, ok := rau.mutation.GatewayChainID(); ok {
+		_spec.SetField(routeaorder.FieldGatewayChainID, field.TypeUint64, value)
+	}
+	if value, ok := rau.mutation.AddedGatewayChainID(); ok {
+		_spec.AddField(routeaorder.FieldGatewayChainID, field.TypeUint64, value)
+	}
+	if rau.mutation.GatewayChainIDCleared() {
+		_spec.ClearField(routeaorder.FieldGatewayChainID, field.TypeUint64)
+	}
+	if value, ok := rau.mutation.SenderFeeSubunit(); ok {
+		_spec.SetField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64, value)
+	}
+	if value, ok := rau.mutation.AddedSenderFeeSubunit(); ok {
+		_spec.AddField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64, value)
+	}
+	if rau.mutation.SenderFeeSubunitCleared() {
+		_spec.ClearField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64)
+	}
+	if value, ok := rau.mutation.SettlementStatus(); ok {
+		_spec.SetField(routeaorder.FieldSettlementStatus, field.TypeString, value)
+	}
+	if rau.mutation.SettlementStatusCleared() {
+		_spec.ClearField(routeaorder.FieldSettlementStatus, field.TypeString)
+	}
+	if value, ok := rau.mutation.SettlementPolledAt(); ok {
+		_spec.SetField(routeaorder.FieldSettlementPolledAt, field.TypeTime, value)
+	}
+	if rau.mutation.SettlementPolledAtCleared() {
+		_spec.ClearField(routeaorder.FieldSettlementPolledAt, field.TypeTime)
 	}
 	if value, ok := rau.mutation.TreasuryPayoutRef(); ok {
 		_spec.SetField(routeaorder.FieldTreasuryPayoutRef, field.TypeString, value)
@@ -509,23 +633,23 @@ func (rauo *RouteAOrderUpdateOne) ClearBridgeTxSui() *RouteAOrderUpdateOne {
 	return rauo
 }
 
-// SetBridgeTxBsc sets the "bridge_tx_bsc" field.
-func (rauo *RouteAOrderUpdateOne) SetBridgeTxBsc(s string) *RouteAOrderUpdateOne {
-	rauo.mutation.SetBridgeTxBsc(s)
+// SetBridgeTxDest sets the "bridge_tx_dest" field.
+func (rauo *RouteAOrderUpdateOne) SetBridgeTxDest(s string) *RouteAOrderUpdateOne {
+	rauo.mutation.SetBridgeTxDest(s)
 	return rauo
 }
 
-// SetNillableBridgeTxBsc sets the "bridge_tx_bsc" field if the given value is not nil.
-func (rauo *RouteAOrderUpdateOne) SetNillableBridgeTxBsc(s *string) *RouteAOrderUpdateOne {
+// SetNillableBridgeTxDest sets the "bridge_tx_dest" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableBridgeTxDest(s *string) *RouteAOrderUpdateOne {
 	if s != nil {
-		rauo.SetBridgeTxBsc(*s)
+		rauo.SetBridgeTxDest(*s)
 	}
 	return rauo
 }
 
-// ClearBridgeTxBsc clears the value of the "bridge_tx_bsc" field.
-func (rauo *RouteAOrderUpdateOne) ClearBridgeTxBsc() *RouteAOrderUpdateOne {
-	rauo.mutation.ClearBridgeTxBsc()
+// ClearBridgeTxDest clears the value of the "bridge_tx_dest" field.
+func (rauo *RouteAOrderUpdateOne) ClearBridgeTxDest() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearBridgeTxDest()
 	return rauo
 }
 
@@ -543,23 +667,117 @@ func (rauo *RouteAOrderUpdateOne) SetNillableBridgeStatus(rs *routeaorder.Bridge
 	return rauo
 }
 
-// SetBscOrderID sets the "bsc_order_id" field.
-func (rauo *RouteAOrderUpdateOne) SetBscOrderID(s string) *RouteAOrderUpdateOne {
-	rauo.mutation.SetBscOrderID(s)
+// SetGatewayOrderID sets the "gateway_order_id" field.
+func (rauo *RouteAOrderUpdateOne) SetGatewayOrderID(s string) *RouteAOrderUpdateOne {
+	rauo.mutation.SetGatewayOrderID(s)
 	return rauo
 }
 
-// SetNillableBscOrderID sets the "bsc_order_id" field if the given value is not nil.
-func (rauo *RouteAOrderUpdateOne) SetNillableBscOrderID(s *string) *RouteAOrderUpdateOne {
+// SetNillableGatewayOrderID sets the "gateway_order_id" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableGatewayOrderID(s *string) *RouteAOrderUpdateOne {
 	if s != nil {
-		rauo.SetBscOrderID(*s)
+		rauo.SetGatewayOrderID(*s)
 	}
 	return rauo
 }
 
-// ClearBscOrderID clears the value of the "bsc_order_id" field.
-func (rauo *RouteAOrderUpdateOne) ClearBscOrderID() *RouteAOrderUpdateOne {
-	rauo.mutation.ClearBscOrderID()
+// ClearGatewayOrderID clears the value of the "gateway_order_id" field.
+func (rauo *RouteAOrderUpdateOne) ClearGatewayOrderID() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearGatewayOrderID()
+	return rauo
+}
+
+// SetGatewayChainID sets the "gateway_chain_id" field.
+func (rauo *RouteAOrderUpdateOne) SetGatewayChainID(u uint64) *RouteAOrderUpdateOne {
+	rauo.mutation.ResetGatewayChainID()
+	rauo.mutation.SetGatewayChainID(u)
+	return rauo
+}
+
+// SetNillableGatewayChainID sets the "gateway_chain_id" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableGatewayChainID(u *uint64) *RouteAOrderUpdateOne {
+	if u != nil {
+		rauo.SetGatewayChainID(*u)
+	}
+	return rauo
+}
+
+// AddGatewayChainID adds u to the "gateway_chain_id" field.
+func (rauo *RouteAOrderUpdateOne) AddGatewayChainID(u int64) *RouteAOrderUpdateOne {
+	rauo.mutation.AddGatewayChainID(u)
+	return rauo
+}
+
+// ClearGatewayChainID clears the value of the "gateway_chain_id" field.
+func (rauo *RouteAOrderUpdateOne) ClearGatewayChainID() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearGatewayChainID()
+	return rauo
+}
+
+// SetSenderFeeSubunit sets the "sender_fee_subunit" field.
+func (rauo *RouteAOrderUpdateOne) SetSenderFeeSubunit(d decimal.Decimal) *RouteAOrderUpdateOne {
+	rauo.mutation.ResetSenderFeeSubunit()
+	rauo.mutation.SetSenderFeeSubunit(d)
+	return rauo
+}
+
+// SetNillableSenderFeeSubunit sets the "sender_fee_subunit" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableSenderFeeSubunit(d *decimal.Decimal) *RouteAOrderUpdateOne {
+	if d != nil {
+		rauo.SetSenderFeeSubunit(*d)
+	}
+	return rauo
+}
+
+// AddSenderFeeSubunit adds d to the "sender_fee_subunit" field.
+func (rauo *RouteAOrderUpdateOne) AddSenderFeeSubunit(d decimal.Decimal) *RouteAOrderUpdateOne {
+	rauo.mutation.AddSenderFeeSubunit(d)
+	return rauo
+}
+
+// ClearSenderFeeSubunit clears the value of the "sender_fee_subunit" field.
+func (rauo *RouteAOrderUpdateOne) ClearSenderFeeSubunit() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearSenderFeeSubunit()
+	return rauo
+}
+
+// SetSettlementStatus sets the "settlement_status" field.
+func (rauo *RouteAOrderUpdateOne) SetSettlementStatus(s string) *RouteAOrderUpdateOne {
+	rauo.mutation.SetSettlementStatus(s)
+	return rauo
+}
+
+// SetNillableSettlementStatus sets the "settlement_status" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableSettlementStatus(s *string) *RouteAOrderUpdateOne {
+	if s != nil {
+		rauo.SetSettlementStatus(*s)
+	}
+	return rauo
+}
+
+// ClearSettlementStatus clears the value of the "settlement_status" field.
+func (rauo *RouteAOrderUpdateOne) ClearSettlementStatus() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearSettlementStatus()
+	return rauo
+}
+
+// SetSettlementPolledAt sets the "settlement_polled_at" field.
+func (rauo *RouteAOrderUpdateOne) SetSettlementPolledAt(t time.Time) *RouteAOrderUpdateOne {
+	rauo.mutation.SetSettlementPolledAt(t)
+	return rauo
+}
+
+// SetNillableSettlementPolledAt sets the "settlement_polled_at" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableSettlementPolledAt(t *time.Time) *RouteAOrderUpdateOne {
+	if t != nil {
+		rauo.SetSettlementPolledAt(*t)
+	}
+	return rauo
+}
+
+// ClearSettlementPolledAt clears the value of the "settlement_polled_at" field.
+func (rauo *RouteAOrderUpdateOne) ClearSettlementPolledAt() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearSettlementPolledAt()
 	return rauo
 }
 
@@ -772,20 +990,50 @@ func (rauo *RouteAOrderUpdateOne) sqlSave(ctx context.Context) (_node *RouteAOrd
 	if rauo.mutation.BridgeTxSuiCleared() {
 		_spec.ClearField(routeaorder.FieldBridgeTxSui, field.TypeString)
 	}
-	if value, ok := rauo.mutation.BridgeTxBsc(); ok {
-		_spec.SetField(routeaorder.FieldBridgeTxBsc, field.TypeString, value)
+	if value, ok := rauo.mutation.BridgeTxDest(); ok {
+		_spec.SetField(routeaorder.FieldBridgeTxDest, field.TypeString, value)
 	}
-	if rauo.mutation.BridgeTxBscCleared() {
-		_spec.ClearField(routeaorder.FieldBridgeTxBsc, field.TypeString)
+	if rauo.mutation.BridgeTxDestCleared() {
+		_spec.ClearField(routeaorder.FieldBridgeTxDest, field.TypeString)
 	}
 	if value, ok := rauo.mutation.BridgeStatus(); ok {
 		_spec.SetField(routeaorder.FieldBridgeStatus, field.TypeEnum, value)
 	}
-	if value, ok := rauo.mutation.BscOrderID(); ok {
-		_spec.SetField(routeaorder.FieldBscOrderID, field.TypeString, value)
+	if value, ok := rauo.mutation.GatewayOrderID(); ok {
+		_spec.SetField(routeaorder.FieldGatewayOrderID, field.TypeString, value)
 	}
-	if rauo.mutation.BscOrderIDCleared() {
-		_spec.ClearField(routeaorder.FieldBscOrderID, field.TypeString)
+	if rauo.mutation.GatewayOrderIDCleared() {
+		_spec.ClearField(routeaorder.FieldGatewayOrderID, field.TypeString)
+	}
+	if value, ok := rauo.mutation.GatewayChainID(); ok {
+		_spec.SetField(routeaorder.FieldGatewayChainID, field.TypeUint64, value)
+	}
+	if value, ok := rauo.mutation.AddedGatewayChainID(); ok {
+		_spec.AddField(routeaorder.FieldGatewayChainID, field.TypeUint64, value)
+	}
+	if rauo.mutation.GatewayChainIDCleared() {
+		_spec.ClearField(routeaorder.FieldGatewayChainID, field.TypeUint64)
+	}
+	if value, ok := rauo.mutation.SenderFeeSubunit(); ok {
+		_spec.SetField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64, value)
+	}
+	if value, ok := rauo.mutation.AddedSenderFeeSubunit(); ok {
+		_spec.AddField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64, value)
+	}
+	if rauo.mutation.SenderFeeSubunitCleared() {
+		_spec.ClearField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64)
+	}
+	if value, ok := rauo.mutation.SettlementStatus(); ok {
+		_spec.SetField(routeaorder.FieldSettlementStatus, field.TypeString, value)
+	}
+	if rauo.mutation.SettlementStatusCleared() {
+		_spec.ClearField(routeaorder.FieldSettlementStatus, field.TypeString)
+	}
+	if value, ok := rauo.mutation.SettlementPolledAt(); ok {
+		_spec.SetField(routeaorder.FieldSettlementPolledAt, field.TypeTime, value)
+	}
+	if rauo.mutation.SettlementPolledAtCleared() {
+		_spec.ClearField(routeaorder.FieldSettlementPolledAt, field.TypeTime)
 	}
 	if value, ok := rauo.mutation.TreasuryPayoutRef(); ok {
 		_spec.SetField(routeaorder.FieldTreasuryPayoutRef, field.TypeString, value)

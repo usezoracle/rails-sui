@@ -55,9 +55,7 @@ func (vtu *VerificationTokenUpdate) Mutation() *VerificationTokenMutation {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (vtu *VerificationTokenUpdate) Save(ctx context.Context) (int, error) {
-	if err := vtu.defaults(); err != nil {
-		return 0, err
-	}
+	vtu.defaults()
 	return withHooks(ctx, vtu.sqlSave, vtu.mutation, vtu.hooks)
 }
 
@@ -84,15 +82,11 @@ func (vtu *VerificationTokenUpdate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (vtu *VerificationTokenUpdate) defaults() error {
+func (vtu *VerificationTokenUpdate) defaults() {
 	if _, ok := vtu.mutation.UpdatedAt(); !ok {
-		if verificationtoken.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized verificationtoken.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
-		}
 		v := verificationtoken.UpdateDefaultUpdatedAt()
 		vtu.mutation.SetUpdatedAt(v)
 	}
-	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -186,9 +180,7 @@ func (vtuo *VerificationTokenUpdateOne) Select(field string, fields ...string) *
 
 // Save executes the query and returns the updated VerificationToken entity.
 func (vtuo *VerificationTokenUpdateOne) Save(ctx context.Context) (*VerificationToken, error) {
-	if err := vtuo.defaults(); err != nil {
-		return nil, err
-	}
+	vtuo.defaults()
 	return withHooks(ctx, vtuo.sqlSave, vtuo.mutation, vtuo.hooks)
 }
 
@@ -215,15 +207,11 @@ func (vtuo *VerificationTokenUpdateOne) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (vtuo *VerificationTokenUpdateOne) defaults() error {
+func (vtuo *VerificationTokenUpdateOne) defaults() {
 	if _, ok := vtuo.mutation.UpdatedAt(); !ok {
-		if verificationtoken.UpdateDefaultUpdatedAt == nil {
-			return fmt.Errorf("ent: uninitialized verificationtoken.UpdateDefaultUpdatedAt (forgotten import ent/runtime?)")
-		}
 		v := verificationtoken.UpdateDefaultUpdatedAt()
 		vtuo.mutation.SetUpdatedAt(v)
 	}
-	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.

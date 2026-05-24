@@ -2,6 +2,7 @@ package routers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/usezoracle/rails-sui/controllers"
@@ -49,6 +50,7 @@ func RegisterRoutes(route *gin.Engine) {
 	v1.GET("pubkey", ctrl.GetAggregatorPublicKey)
 	v1.POST("verify-account", ctrl.VerifyAccount)
 	v1.GET("orders/:id", ctrl.GetLockPaymentOrderStatus)
+	v1.POST("gas-station/sponsor", middleware.JWTMiddleware, ctrl.SponsorTransaction)
 
 	// KYC routes
 	v1.POST("kyc", ctrl.RequestIDVerification)
@@ -61,27 +63,40 @@ func authRoutes(route *gin.Engine) {
 	authCtrl := accounts.NewAuthController()
 	var profileCtrl accounts.ProfileController
 
+	// OnlyWebMiddleware was retired — mobile clients are first-class now.
+	// The previous gate required all callers to send `Client-Type: web`,
+	// which mobile apps had to spoof for no security gain. Auth + scope
+	// middleware handle access control; transport headers aren't auth.
+	//
+	// Rate limits are per-IP (fixed-window via Redis). Tunable
+	// per-bucket; the limits below are tight enough to stop password
+	// spraying but generous enough that an honest user fat-fingering
+	// won't get locked out.
 	v1 := route.Group("/v1/")
-	v1.POST("auth/register", middleware.OnlyWebMiddleware, authCtrl.Register)
-	v1.POST("auth/login", middleware.OnlyWebMiddleware, authCtrl.Login)
-	v1.POST("auth/google", middleware.OnlyWebMiddleware, authCtrl.GoogleAuth)
-	v1.POST("auth/confirm-account", middleware.OnlyWebMiddleware, authCtrl.ConfirmEmail)
-	v1.POST("auth/resend-token", middleware.OnlyWebMiddleware, authCtrl.ResendVerificationToken)
-	v1.POST("auth/refresh", middleware.OnlyWebMiddleware, authCtrl.RefreshJWT)
-	v1.POST("auth/reset-password-token", middleware.OnlyWebMiddleware, authCtrl.ResetPasswordToken)
-	v1.PATCH("auth/reset-password", middleware.OnlyWebMiddleware, authCtrl.ResetPassword)
+	v1.POST("auth/register", middleware.RateLimit("auth.register", 5, time.Hour, nil), authCtrl.Register)
+	v1.POST("auth/login", middleware.RateLimit("auth.login", 10, 15*time.Minute, nil), authCtrl.Login)
+	v1.POST("auth/google", middleware.RateLimit("auth.google", 20, 15*time.Minute, nil), authCtrl.GoogleAuth)
+	v1.POST("auth/confirm-account", middleware.RateLimit("auth.confirm", 10, 10*time.Minute, nil), authCtrl.ConfirmEmail)
+	v1.POST("auth/resend-token", middleware.RateLimit("auth.resend", 3, 10*time.Minute, nil), authCtrl.ResendVerificationToken)
+	v1.POST("auth/refresh", middleware.RateLimit("auth.refresh", 60, time.Minute, nil), authCtrl.RefreshJWT)
+	// Logout is intentionally unauthenticated. It revokes the refresh
+	// token in the request body (idempotent), so a client whose access
+	// JWT is already expired can still sign out cleanly. Returning 401
+	// here would force the client to give up + clear local anyway —
+	// just do the revocation.
+	v1.POST("auth/logout", middleware.RateLimit("auth.logout", 30, time.Minute, nil), authCtrl.Logout)
+	v1.POST("auth/reset-password-token", middleware.RateLimit("auth.reset.request", 3, time.Hour, nil), authCtrl.ResetPasswordToken)
+	v1.PATCH("auth/reset-password", middleware.RateLimit("auth.reset.submit", 10, time.Hour, nil), authCtrl.ResetPassword)
 	v1.PATCH("auth/change-password", middleware.JWTMiddleware, authCtrl.ChangePassword)
 
 	v1.GET(
 		"settings/provider",
-		middleware.OnlyWebMiddleware,
 		middleware.JWTMiddleware,
 		middleware.OnlyProviderMiddleware,
 		profileCtrl.GetProviderProfile,
 	)
 	v1.PATCH(
 		"settings/provider",
-		middleware.OnlyWebMiddleware,
 		middleware.JWTMiddleware,
 		middleware.OnlyProviderMiddleware,
 		profileCtrl.UpdateProviderProfile,
@@ -89,23 +104,19 @@ func authRoutes(route *gin.Engine) {
 
 	v1.GET(
 		"settings/sender",
-		middleware.OnlyWebMiddleware,
 		middleware.JWTMiddleware,
 		middleware.OnlySenderMiddleware,
 		profileCtrl.GetSenderProfile,
 	)
 	v1.PATCH(
 		"settings/sender",
-		middleware.OnlyWebMiddleware,
 		middleware.JWTMiddleware,
 		middleware.OnlySenderMiddleware,
 		profileCtrl.UpdateSenderProfile,
 	)
 
-	// Cross-scope "who am I" — works for any authenticated user
-	// regardless of scope. Used by the merchant app + PWA right after
-	// sign-in to populate the session display + decide where to route.
 	v1.GET("me", middleware.JWTMiddleware, authCtrl.Me)
+	v1.PATCH("me", middleware.JWTMiddleware, authCtrl.UpdateMe)
 }
 
 func senderRoutes(route *gin.Engine) {
@@ -119,6 +130,7 @@ func senderRoutes(route *gin.Engine) {
 	v1.POST("orders/route-a", senderCtrl.InitiateRouteAOrder)
 	v1.GET("orders/:id", senderCtrl.GetPaymentOrderByID)
 	v1.GET("orders", senderCtrl.GetPaymentOrders)
+	v1.POST("orders/:id/cancel", senderCtrl.CancelOrder)
 	v1.GET("stats", senderCtrl.Stats)
 
 	// Tapp Merchant — mobile-first merchant API.

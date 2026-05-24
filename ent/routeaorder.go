@@ -32,16 +32,24 @@ type RouteAOrder struct {
 	LifiTool string `json:"lifi_tool,omitempty"`
 	// BridgeTxSui holds the value of the "bridge_tx_sui" field.
 	BridgeTxSui string `json:"bridge_tx_sui,omitempty"`
-	// BridgeTxBsc holds the value of the "bridge_tx_bsc" field.
-	BridgeTxBsc string `json:"bridge_tx_bsc,omitempty"`
+	// BridgeTxDest holds the value of the "bridge_tx_dest" field.
+	BridgeTxDest string `json:"bridge_tx_dest,omitempty"`
 	// BridgeStatus holds the value of the "bridge_status" field.
 	BridgeStatus routeaorder.BridgeStatus `json:"bridge_status,omitempty"`
-	// BscOrderID holds the value of the "bsc_order_id" field.
-	BscOrderID string `json:"bsc_order_id,omitempty"`
+	// GatewayOrderID holds the value of the "gateway_order_id" field.
+	GatewayOrderID string `json:"gateway_order_id,omitempty"`
+	// GatewayChainID holds the value of the "gateway_chain_id" field.
+	GatewayChainID uint64 `json:"gateway_chain_id,omitempty"`
+	// SenderFeeSubunit holds the value of the "sender_fee_subunit" field.
+	SenderFeeSubunit *decimal.Decimal `json:"sender_fee_subunit,omitempty"`
+	// SettlementStatus holds the value of the "settlement_status" field.
+	SettlementStatus string `json:"settlement_status,omitempty"`
+	// SettlementPolledAt holds the value of the "settlement_polled_at" field.
+	SettlementPolledAt *time.Time `json:"settlement_polled_at,omitempty"`
 	// TreasuryPayoutRef holds the value of the "treasury_payout_ref" field.
 	TreasuryPayoutRef string `json:"treasury_payout_ref,omitempty"`
 	// BridgedAmount holds the value of the "bridged_amount" field.
-	BridgedAmount decimal.Decimal `json:"bridged_amount,omitempty"`
+	BridgedAmount *decimal.Decimal `json:"bridged_amount,omitempty"`
 	// FailureReason holds the value of the "failure_reason" field.
 	FailureReason string `json:"failure_reason,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -76,13 +84,13 @@ func (*RouteAOrder) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case routeaorder.FieldBridgedAmount:
-			values[i] = new(decimal.Decimal)
-		case routeaorder.FieldID:
+		case routeaorder.FieldSenderFeeSubunit, routeaorder.FieldBridgedAmount:
+			values[i] = &sql.NullScanner{S: new(decimal.Decimal)}
+		case routeaorder.FieldID, routeaorder.FieldGatewayChainID:
 			values[i] = new(sql.NullInt64)
-		case routeaorder.FieldMode, routeaorder.FieldLifiQuoteID, routeaorder.FieldLifiTool, routeaorder.FieldBridgeTxSui, routeaorder.FieldBridgeTxBsc, routeaorder.FieldBridgeStatus, routeaorder.FieldBscOrderID, routeaorder.FieldTreasuryPayoutRef, routeaorder.FieldFailureReason:
+		case routeaorder.FieldMode, routeaorder.FieldLifiQuoteID, routeaorder.FieldLifiTool, routeaorder.FieldBridgeTxSui, routeaorder.FieldBridgeTxDest, routeaorder.FieldBridgeStatus, routeaorder.FieldGatewayOrderID, routeaorder.FieldSettlementStatus, routeaorder.FieldTreasuryPayoutRef, routeaorder.FieldFailureReason:
 			values[i] = new(sql.NullString)
-		case routeaorder.FieldCreatedAt, routeaorder.FieldUpdatedAt:
+		case routeaorder.FieldCreatedAt, routeaorder.FieldUpdatedAt, routeaorder.FieldSettlementPolledAt:
 			values[i] = new(sql.NullTime)
 		case routeaorder.ForeignKeys[0]: // payment_order_route_a_order
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
@@ -143,11 +151,11 @@ func (ra *RouteAOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				ra.BridgeTxSui = value.String
 			}
-		case routeaorder.FieldBridgeTxBsc:
+		case routeaorder.FieldBridgeTxDest:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field bridge_tx_bsc", values[i])
+				return fmt.Errorf("unexpected type %T for field bridge_tx_dest", values[i])
 			} else if value.Valid {
-				ra.BridgeTxBsc = value.String
+				ra.BridgeTxDest = value.String
 			}
 		case routeaorder.FieldBridgeStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -155,11 +163,37 @@ func (ra *RouteAOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				ra.BridgeStatus = routeaorder.BridgeStatus(value.String)
 			}
-		case routeaorder.FieldBscOrderID:
+		case routeaorder.FieldGatewayOrderID:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field bsc_order_id", values[i])
+				return fmt.Errorf("unexpected type %T for field gateway_order_id", values[i])
 			} else if value.Valid {
-				ra.BscOrderID = value.String
+				ra.GatewayOrderID = value.String
+			}
+		case routeaorder.FieldGatewayChainID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field gateway_chain_id", values[i])
+			} else if value.Valid {
+				ra.GatewayChainID = uint64(value.Int64)
+			}
+		case routeaorder.FieldSenderFeeSubunit:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field sender_fee_subunit", values[i])
+			} else if value.Valid {
+				ra.SenderFeeSubunit = new(decimal.Decimal)
+				*ra.SenderFeeSubunit = *value.S.(*decimal.Decimal)
+			}
+		case routeaorder.FieldSettlementStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field settlement_status", values[i])
+			} else if value.Valid {
+				ra.SettlementStatus = value.String
+			}
+		case routeaorder.FieldSettlementPolledAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field settlement_polled_at", values[i])
+			} else if value.Valid {
+				ra.SettlementPolledAt = new(time.Time)
+				*ra.SettlementPolledAt = value.Time
 			}
 		case routeaorder.FieldTreasuryPayoutRef:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -168,10 +202,11 @@ func (ra *RouteAOrder) assignValues(columns []string, values []any) error {
 				ra.TreasuryPayoutRef = value.String
 			}
 		case routeaorder.FieldBridgedAmount:
-			if value, ok := values[i].(*decimal.Decimal); !ok {
+			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field bridged_amount", values[i])
-			} else if value != nil {
-				ra.BridgedAmount = *value
+			} else if value.Valid {
+				ra.BridgedAmount = new(decimal.Decimal)
+				*ra.BridgedAmount = *value.S.(*decimal.Decimal)
 			}
 		case routeaorder.FieldFailureReason:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -245,20 +280,38 @@ func (ra *RouteAOrder) String() string {
 	builder.WriteString("bridge_tx_sui=")
 	builder.WriteString(ra.BridgeTxSui)
 	builder.WriteString(", ")
-	builder.WriteString("bridge_tx_bsc=")
-	builder.WriteString(ra.BridgeTxBsc)
+	builder.WriteString("bridge_tx_dest=")
+	builder.WriteString(ra.BridgeTxDest)
 	builder.WriteString(", ")
 	builder.WriteString("bridge_status=")
 	builder.WriteString(fmt.Sprintf("%v", ra.BridgeStatus))
 	builder.WriteString(", ")
-	builder.WriteString("bsc_order_id=")
-	builder.WriteString(ra.BscOrderID)
+	builder.WriteString("gateway_order_id=")
+	builder.WriteString(ra.GatewayOrderID)
+	builder.WriteString(", ")
+	builder.WriteString("gateway_chain_id=")
+	builder.WriteString(fmt.Sprintf("%v", ra.GatewayChainID))
+	builder.WriteString(", ")
+	if v := ra.SenderFeeSubunit; v != nil {
+		builder.WriteString("sender_fee_subunit=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("settlement_status=")
+	builder.WriteString(ra.SettlementStatus)
+	builder.WriteString(", ")
+	if v := ra.SettlementPolledAt; v != nil {
+		builder.WriteString("settlement_polled_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("treasury_payout_ref=")
 	builder.WriteString(ra.TreasuryPayoutRef)
 	builder.WriteString(", ")
-	builder.WriteString("bridged_amount=")
-	builder.WriteString(fmt.Sprintf("%v", ra.BridgedAmount))
+	if v := ra.BridgedAmount; v != nil {
+		builder.WriteString("bridged_amount=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("failure_reason=")
 	builder.WriteString(ra.FailureReason)

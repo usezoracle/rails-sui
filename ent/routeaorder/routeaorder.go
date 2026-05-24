@@ -27,12 +27,20 @@ const (
 	FieldLifiTool = "lifi_tool"
 	// FieldBridgeTxSui holds the string denoting the bridge_tx_sui field in the database.
 	FieldBridgeTxSui = "bridge_tx_sui"
-	// FieldBridgeTxBsc holds the string denoting the bridge_tx_bsc field in the database.
-	FieldBridgeTxBsc = "bridge_tx_bsc"
+	// FieldBridgeTxDest holds the string denoting the bridge_tx_dest field in the database.
+	FieldBridgeTxDest = "bridge_tx_dest"
 	// FieldBridgeStatus holds the string denoting the bridge_status field in the database.
 	FieldBridgeStatus = "bridge_status"
-	// FieldBscOrderID holds the string denoting the bsc_order_id field in the database.
-	FieldBscOrderID = "bsc_order_id"
+	// FieldGatewayOrderID holds the string denoting the gateway_order_id field in the database.
+	FieldGatewayOrderID = "gateway_order_id"
+	// FieldGatewayChainID holds the string denoting the gateway_chain_id field in the database.
+	FieldGatewayChainID = "gateway_chain_id"
+	// FieldSenderFeeSubunit holds the string denoting the sender_fee_subunit field in the database.
+	FieldSenderFeeSubunit = "sender_fee_subunit"
+	// FieldSettlementStatus holds the string denoting the settlement_status field in the database.
+	FieldSettlementStatus = "settlement_status"
+	// FieldSettlementPolledAt holds the string denoting the settlement_polled_at field in the database.
+	FieldSettlementPolledAt = "settlement_polled_at"
 	// FieldTreasuryPayoutRef holds the string denoting the treasury_payout_ref field in the database.
 	FieldTreasuryPayoutRef = "treasury_payout_ref"
 	// FieldBridgedAmount holds the string denoting the bridged_amount field in the database.
@@ -61,9 +69,13 @@ var Columns = []string{
 	FieldLifiQuoteID,
 	FieldLifiTool,
 	FieldBridgeTxSui,
-	FieldBridgeTxBsc,
+	FieldBridgeTxDest,
 	FieldBridgeStatus,
-	FieldBscOrderID,
+	FieldGatewayOrderID,
+	FieldGatewayChainID,
+	FieldSenderFeeSubunit,
+	FieldSettlementStatus,
+	FieldSettlementPolledAt,
 	FieldTreasuryPayoutRef,
 	FieldBridgedAmount,
 	FieldFailureReason,
@@ -139,6 +151,7 @@ const (
 	BridgeStatusDispatching BridgeStatus = "dispatching"
 	BridgeStatusSettled     BridgeStatus = "settled"
 	BridgeStatusFailed      BridgeStatus = "failed"
+	BridgeStatusRefunded    BridgeStatus = "refunded"
 )
 
 func (bs BridgeStatus) String() string {
@@ -148,7 +161,7 @@ func (bs BridgeStatus) String() string {
 // BridgeStatusValidator is a validator for the "bridge_status" field enum values. It is called by the builders before save.
 func BridgeStatusValidator(bs BridgeStatus) error {
 	switch bs {
-	case BridgeStatusPending, BridgeStatusBridging, BridgeStatusBridged, BridgeStatusDispatching, BridgeStatusSettled, BridgeStatusFailed:
+	case BridgeStatusPending, BridgeStatusBridging, BridgeStatusBridged, BridgeStatusDispatching, BridgeStatusSettled, BridgeStatusFailed, BridgeStatusRefunded:
 		return nil
 	default:
 		return fmt.Errorf("routeaorder: invalid enum value for bridge_status field: %q", bs)
@@ -193,9 +206,9 @@ func ByBridgeTxSui(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBridgeTxSui, opts...).ToFunc()
 }
 
-// ByBridgeTxBsc orders the results by the bridge_tx_bsc field.
-func ByBridgeTxBsc(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldBridgeTxBsc, opts...).ToFunc()
+// ByBridgeTxDest orders the results by the bridge_tx_dest field.
+func ByBridgeTxDest(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBridgeTxDest, opts...).ToFunc()
 }
 
 // ByBridgeStatus orders the results by the bridge_status field.
@@ -203,9 +216,29 @@ func ByBridgeStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBridgeStatus, opts...).ToFunc()
 }
 
-// ByBscOrderID orders the results by the bsc_order_id field.
-func ByBscOrderID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldBscOrderID, opts...).ToFunc()
+// ByGatewayOrderID orders the results by the gateway_order_id field.
+func ByGatewayOrderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGatewayOrderID, opts...).ToFunc()
+}
+
+// ByGatewayChainID orders the results by the gateway_chain_id field.
+func ByGatewayChainID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGatewayChainID, opts...).ToFunc()
+}
+
+// BySenderFeeSubunit orders the results by the sender_fee_subunit field.
+func BySenderFeeSubunit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSenderFeeSubunit, opts...).ToFunc()
+}
+
+// BySettlementStatus orders the results by the settlement_status field.
+func BySettlementStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSettlementStatus, opts...).ToFunc()
+}
+
+// BySettlementPolledAt orders the results by the settlement_polled_at field.
+func BySettlementPolledAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSettlementPolledAt, opts...).ToFunc()
 }
 
 // ByTreasuryPayoutRef orders the results by the treasury_payout_ref field.

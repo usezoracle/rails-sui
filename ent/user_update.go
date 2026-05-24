@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
+	"github.com/usezoracle/rails-sui/ent/refreshtoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -190,6 +191,21 @@ func (uu *UserUpdate) AddVerificationToken(v ...*VerificationToken) *UserUpdate 
 	return uu.AddVerificationTokenIDs(ids...)
 }
 
+// AddRefreshTokenIDs adds the "refresh_tokens" edge to the RefreshToken entity by IDs.
+func (uu *UserUpdate) AddRefreshTokenIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddRefreshTokenIDs(ids...)
+	return uu
+}
+
+// AddRefreshTokens adds the "refresh_tokens" edges to the RefreshToken entity.
+func (uu *UserUpdate) AddRefreshTokens(r ...*RefreshToken) *UserUpdate {
+	ids := make([]uuid.UUID, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return uu.AddRefreshTokenIDs(ids...)
+}
+
 // AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by IDs.
 func (uu *UserUpdate) AddTappCardIDs(ids ...uuid.UUID) *UserUpdate {
 	uu.mutation.AddTappCardIDs(ids...)
@@ -241,6 +257,27 @@ func (uu *UserUpdate) RemoveVerificationToken(v ...*VerificationToken) *UserUpda
 		ids[i] = v[i].ID
 	}
 	return uu.RemoveVerificationTokenIDs(ids...)
+}
+
+// ClearRefreshTokens clears all "refresh_tokens" edges to the RefreshToken entity.
+func (uu *UserUpdate) ClearRefreshTokens() *UserUpdate {
+	uu.mutation.ClearRefreshTokens()
+	return uu
+}
+
+// RemoveRefreshTokenIDs removes the "refresh_tokens" edge to RefreshToken entities by IDs.
+func (uu *UserUpdate) RemoveRefreshTokenIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveRefreshTokenIDs(ids...)
+	return uu
+}
+
+// RemoveRefreshTokens removes "refresh_tokens" edges to RefreshToken entities.
+func (uu *UserUpdate) RemoveRefreshTokens(r ...*RefreshToken) *UserUpdate {
+	ids := make([]uuid.UUID, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return uu.RemoveRefreshTokenIDs(ids...)
 }
 
 // ClearTappCards clears all "tapp_cards" edges to the TappCard entity.
@@ -453,6 +490,51 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(verificationtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.RefreshTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedRefreshTokensIDs(); len(nodes) > 0 && !uu.mutation.RefreshTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RefreshTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -682,6 +764,21 @@ func (uuo *UserUpdateOne) AddVerificationToken(v ...*VerificationToken) *UserUpd
 	return uuo.AddVerificationTokenIDs(ids...)
 }
 
+// AddRefreshTokenIDs adds the "refresh_tokens" edge to the RefreshToken entity by IDs.
+func (uuo *UserUpdateOne) AddRefreshTokenIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddRefreshTokenIDs(ids...)
+	return uuo
+}
+
+// AddRefreshTokens adds the "refresh_tokens" edges to the RefreshToken entity.
+func (uuo *UserUpdateOne) AddRefreshTokens(r ...*RefreshToken) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return uuo.AddRefreshTokenIDs(ids...)
+}
+
 // AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by IDs.
 func (uuo *UserUpdateOne) AddTappCardIDs(ids ...uuid.UUID) *UserUpdateOne {
 	uuo.mutation.AddTappCardIDs(ids...)
@@ -733,6 +830,27 @@ func (uuo *UserUpdateOne) RemoveVerificationToken(v ...*VerificationToken) *User
 		ids[i] = v[i].ID
 	}
 	return uuo.RemoveVerificationTokenIDs(ids...)
+}
+
+// ClearRefreshTokens clears all "refresh_tokens" edges to the RefreshToken entity.
+func (uuo *UserUpdateOne) ClearRefreshTokens() *UserUpdateOne {
+	uuo.mutation.ClearRefreshTokens()
+	return uuo
+}
+
+// RemoveRefreshTokenIDs removes the "refresh_tokens" edge to RefreshToken entities by IDs.
+func (uuo *UserUpdateOne) RemoveRefreshTokenIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveRefreshTokenIDs(ids...)
+	return uuo
+}
+
+// RemoveRefreshTokens removes "refresh_tokens" edges to RefreshToken entities.
+func (uuo *UserUpdateOne) RemoveRefreshTokens(r ...*RefreshToken) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return uuo.RemoveRefreshTokenIDs(ids...)
 }
 
 // ClearTappCards clears all "tapp_cards" edges to the TappCard entity.
@@ -975,6 +1093,51 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(verificationtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.RefreshTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedRefreshTokensIDs(); len(nodes) > 0 && !uuo.mutation.RefreshTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RefreshTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

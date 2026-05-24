@@ -1,6 +1,6 @@
 // Package lifi is the Go client for the LiFi cross-chain bridge aggregator
-// (https://li.quest/v1). Used in Route A to bridge Sui USDC to BSC USDC
-// before fiat dispatch.
+// (https://li.quest/v1). Used in Route A to bridge Sui USDC to Base USDC
+// before fiat dispatch through settlement's Gateway.
 //
 // LiFi-on-Sui specifics:
 //
@@ -17,15 +17,15 @@ package lifi
 
 // QuoteRequest mirrors LiFi's /quote query parameters. Sui-side fields use
 // the Sui chain id (9270000000000000) and Move-type tokens. Destination
-// fields use the standard EVM addressing for BSC = chain id 56.
+// fields use standard EVM addressing — Base mainnet = 8453, Sepolia = 84532.
 type QuoteRequest struct {
 	FromChain    string  `json:"fromChain"`             // Sui = "9270000000000000"
-	ToChain      string  `json:"toChain"`               // BSC = "56"
+	ToChain      string  `json:"toChain"`               // Base = "8453", Base Sepolia = "84532"
 	FromToken    string  `json:"fromToken"`             // Sui: "0x...::usdc::USDC"
-	ToToken      string  `json:"toToken"`               // BSC: "0x..." (20-byte)
+	ToToken      string  `json:"toToken"`               // EVM USDC: "0x..." (20-byte)
 	FromAmount   string  `json:"fromAmount"`            // in smallest unit (USDC: 6 decimals)
 	FromAddress  string  `json:"fromAddress"`           // sender on Sui (our bridge hot wallet)
-	ToAddress    string  `json:"toAddress"`             // recipient on BSC (our BSC hot wallet)
+	ToAddress    string  `json:"toAddress"`             // recipient on destination chain (our EVM hot wallet)
 	Slippage     float64 `json:"slippage,omitempty"`    // e.g. 0.003 = 0.3%; default 0.003
 	IntegratorID string  `json:"integrator,omitempty"`  // optional LiFi integrator id (rate-limit allocation)
 }

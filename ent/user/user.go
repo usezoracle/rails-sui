@@ -40,6 +40,8 @@ const (
 	EdgeProviderProfile = "provider_profile"
 	// EdgeVerificationToken holds the string denoting the verification_token edge name in mutations.
 	EdgeVerificationToken = "verification_token"
+	// EdgeRefreshTokens holds the string denoting the refresh_tokens edge name in mutations.
+	EdgeRefreshTokens = "refresh_tokens"
 	// EdgeTappCards holds the string denoting the tapp_cards edge name in mutations.
 	EdgeTappCards = "tapp_cards"
 	// Table holds the table name of the user in the database.
@@ -65,6 +67,13 @@ const (
 	VerificationTokenInverseTable = "verification_tokens"
 	// VerificationTokenColumn is the table column denoting the verification_token relation/edge.
 	VerificationTokenColumn = "user_verification_token"
+	// RefreshTokensTable is the table that holds the refresh_tokens relation/edge.
+	RefreshTokensTable = "refresh_tokens"
+	// RefreshTokensInverseTable is the table name for the RefreshToken entity.
+	// It exists in this package in order to avoid circular dependency with the "refreshtoken" package.
+	RefreshTokensInverseTable = "refresh_tokens"
+	// RefreshTokensColumn is the table column denoting the refresh_tokens relation/edge.
+	RefreshTokensColumn = "user_refresh_tokens"
 	// TappCardsTable is the table that holds the tapp_cards relation/edge.
 	TappCardsTable = "tapp_cards"
 	// TappCardsInverseTable is the table name for the TappCard entity.
@@ -204,6 +213,20 @@ func ByVerificationToken(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	}
 }
 
+// ByRefreshTokensCount orders the results by refresh_tokens count.
+func ByRefreshTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRefreshTokensStep(), opts...)
+	}
+}
+
+// ByRefreshTokens orders the results by refresh_tokens terms.
+func ByRefreshTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRefreshTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByTappCardsCount orders the results by tapp_cards count.
 func ByTappCardsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -236,6 +259,13 @@ func newVerificationTokenStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(VerificationTokenInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, VerificationTokenTable, VerificationTokenColumn),
+	)
+}
+func newRefreshTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RefreshTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RefreshTokensTable, RefreshTokensColumn),
 	)
 }
 func newTappCardsStep() *sqlgraph.Step {

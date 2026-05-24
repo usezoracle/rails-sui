@@ -55,6 +55,8 @@ func (User) Edges() []ent.Edge {
 			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("verification_token", VerificationToken.Type).
 			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("refresh_tokens", RefreshToken.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("tapp_cards", TappCard.Type).
 			Annotations(entsql.OnDelete(entsql.SetNull)),
 	}
@@ -79,9 +81,13 @@ func (User) Hooks() []ent.Hook {
 func hashPasswordHook() ent.Hook {
 	return func(next ent.Mutator) ent.Mutator {
 		return hook.UserFunc(func(ctx context.Context, m *gen.UserMutation) (ent.Value, error) {
-			// Hash the password if it's set in the mutation.
+			// Hash the password if it's set in the mutation. Cost 12 is
+			// the OWASP 2023 recommendation — strong enough that a
+			// modern GPU rig still takes years to brute-force a single
+			// password, light enough that login can rate-limit cheaply
+			// (no need to thread-pool a 1.3s hash like cost 14).
 			if password, ok := m.Field("password"); ok {
-				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password.(string)), 14)
+				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password.(string)), 12)
 				if err != nil {
 					return nil, err
 				}

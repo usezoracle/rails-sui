@@ -107,16 +107,16 @@ func (rac *RouteAOrderCreate) SetNillableBridgeTxSui(s *string) *RouteAOrderCrea
 	return rac
 }
 
-// SetBridgeTxBsc sets the "bridge_tx_bsc" field.
-func (rac *RouteAOrderCreate) SetBridgeTxBsc(s string) *RouteAOrderCreate {
-	rac.mutation.SetBridgeTxBsc(s)
+// SetBridgeTxDest sets the "bridge_tx_dest" field.
+func (rac *RouteAOrderCreate) SetBridgeTxDest(s string) *RouteAOrderCreate {
+	rac.mutation.SetBridgeTxDest(s)
 	return rac
 }
 
-// SetNillableBridgeTxBsc sets the "bridge_tx_bsc" field if the given value is not nil.
-func (rac *RouteAOrderCreate) SetNillableBridgeTxBsc(s *string) *RouteAOrderCreate {
+// SetNillableBridgeTxDest sets the "bridge_tx_dest" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableBridgeTxDest(s *string) *RouteAOrderCreate {
 	if s != nil {
-		rac.SetBridgeTxBsc(*s)
+		rac.SetBridgeTxDest(*s)
 	}
 	return rac
 }
@@ -135,16 +135,72 @@ func (rac *RouteAOrderCreate) SetNillableBridgeStatus(rs *routeaorder.BridgeStat
 	return rac
 }
 
-// SetBscOrderID sets the "bsc_order_id" field.
-func (rac *RouteAOrderCreate) SetBscOrderID(s string) *RouteAOrderCreate {
-	rac.mutation.SetBscOrderID(s)
+// SetGatewayOrderID sets the "gateway_order_id" field.
+func (rac *RouteAOrderCreate) SetGatewayOrderID(s string) *RouteAOrderCreate {
+	rac.mutation.SetGatewayOrderID(s)
 	return rac
 }
 
-// SetNillableBscOrderID sets the "bsc_order_id" field if the given value is not nil.
-func (rac *RouteAOrderCreate) SetNillableBscOrderID(s *string) *RouteAOrderCreate {
+// SetNillableGatewayOrderID sets the "gateway_order_id" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableGatewayOrderID(s *string) *RouteAOrderCreate {
 	if s != nil {
-		rac.SetBscOrderID(*s)
+		rac.SetGatewayOrderID(*s)
+	}
+	return rac
+}
+
+// SetGatewayChainID sets the "gateway_chain_id" field.
+func (rac *RouteAOrderCreate) SetGatewayChainID(u uint64) *RouteAOrderCreate {
+	rac.mutation.SetGatewayChainID(u)
+	return rac
+}
+
+// SetNillableGatewayChainID sets the "gateway_chain_id" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableGatewayChainID(u *uint64) *RouteAOrderCreate {
+	if u != nil {
+		rac.SetGatewayChainID(*u)
+	}
+	return rac
+}
+
+// SetSenderFeeSubunit sets the "sender_fee_subunit" field.
+func (rac *RouteAOrderCreate) SetSenderFeeSubunit(d decimal.Decimal) *RouteAOrderCreate {
+	rac.mutation.SetSenderFeeSubunit(d)
+	return rac
+}
+
+// SetNillableSenderFeeSubunit sets the "sender_fee_subunit" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableSenderFeeSubunit(d *decimal.Decimal) *RouteAOrderCreate {
+	if d != nil {
+		rac.SetSenderFeeSubunit(*d)
+	}
+	return rac
+}
+
+// SetSettlementStatus sets the "settlement_status" field.
+func (rac *RouteAOrderCreate) SetSettlementStatus(s string) *RouteAOrderCreate {
+	rac.mutation.SetSettlementStatus(s)
+	return rac
+}
+
+// SetNillableSettlementStatus sets the "settlement_status" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableSettlementStatus(s *string) *RouteAOrderCreate {
+	if s != nil {
+		rac.SetSettlementStatus(*s)
+	}
+	return rac
+}
+
+// SetSettlementPolledAt sets the "settlement_polled_at" field.
+func (rac *RouteAOrderCreate) SetSettlementPolledAt(t time.Time) *RouteAOrderCreate {
+	rac.mutation.SetSettlementPolledAt(t)
+	return rac
+}
+
+// SetNillableSettlementPolledAt sets the "settlement_polled_at" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableSettlementPolledAt(t *time.Time) *RouteAOrderCreate {
+	if t != nil {
+		rac.SetSettlementPolledAt(*t)
 	}
 	return rac
 }
@@ -332,17 +388,33 @@ func (rac *RouteAOrderCreate) createSpec() (*RouteAOrder, *sqlgraph.CreateSpec) 
 		_spec.SetField(routeaorder.FieldBridgeTxSui, field.TypeString, value)
 		_node.BridgeTxSui = value
 	}
-	if value, ok := rac.mutation.BridgeTxBsc(); ok {
-		_spec.SetField(routeaorder.FieldBridgeTxBsc, field.TypeString, value)
-		_node.BridgeTxBsc = value
+	if value, ok := rac.mutation.BridgeTxDest(); ok {
+		_spec.SetField(routeaorder.FieldBridgeTxDest, field.TypeString, value)
+		_node.BridgeTxDest = value
 	}
 	if value, ok := rac.mutation.BridgeStatus(); ok {
 		_spec.SetField(routeaorder.FieldBridgeStatus, field.TypeEnum, value)
 		_node.BridgeStatus = value
 	}
-	if value, ok := rac.mutation.BscOrderID(); ok {
-		_spec.SetField(routeaorder.FieldBscOrderID, field.TypeString, value)
-		_node.BscOrderID = value
+	if value, ok := rac.mutation.GatewayOrderID(); ok {
+		_spec.SetField(routeaorder.FieldGatewayOrderID, field.TypeString, value)
+		_node.GatewayOrderID = value
+	}
+	if value, ok := rac.mutation.GatewayChainID(); ok {
+		_spec.SetField(routeaorder.FieldGatewayChainID, field.TypeUint64, value)
+		_node.GatewayChainID = value
+	}
+	if value, ok := rac.mutation.SenderFeeSubunit(); ok {
+		_spec.SetField(routeaorder.FieldSenderFeeSubunit, field.TypeFloat64, value)
+		_node.SenderFeeSubunit = &value
+	}
+	if value, ok := rac.mutation.SettlementStatus(); ok {
+		_spec.SetField(routeaorder.FieldSettlementStatus, field.TypeString, value)
+		_node.SettlementStatus = value
+	}
+	if value, ok := rac.mutation.SettlementPolledAt(); ok {
+		_spec.SetField(routeaorder.FieldSettlementPolledAt, field.TypeTime, value)
+		_node.SettlementPolledAt = &value
 	}
 	if value, ok := rac.mutation.TreasuryPayoutRef(); ok {
 		_spec.SetField(routeaorder.FieldTreasuryPayoutRef, field.TypeString, value)
@@ -350,7 +422,7 @@ func (rac *RouteAOrderCreate) createSpec() (*RouteAOrder, *sqlgraph.CreateSpec) 
 	}
 	if value, ok := rac.mutation.BridgedAmount(); ok {
 		_spec.SetField(routeaorder.FieldBridgedAmount, field.TypeFloat64, value)
-		_node.BridgedAmount = value
+		_node.BridgedAmount = &value
 	}
 	if value, ok := rac.mutation.FailureReason(); ok {
 		_spec.SetField(routeaorder.FieldFailureReason, field.TypeString, value)

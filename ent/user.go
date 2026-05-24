@@ -52,11 +52,13 @@ type UserEdges struct {
 	ProviderProfile *ProviderProfile `json:"provider_profile,omitempty"`
 	// VerificationToken holds the value of the verification_token edge.
 	VerificationToken []*VerificationToken `json:"verification_token,omitempty"`
+	// RefreshTokens holds the value of the refresh_tokens edge.
+	RefreshTokens []*RefreshToken `json:"refresh_tokens,omitempty"`
 	// TappCards holds the value of the tapp_cards edge.
 	TappCards []*TappCard `json:"tapp_cards,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // SenderProfileOrErr returns the SenderProfile value or an error if the edge
@@ -90,10 +92,19 @@ func (e UserEdges) VerificationTokenOrErr() ([]*VerificationToken, error) {
 	return nil, &NotLoadedError{edge: "verification_token"}
 }
 
+// RefreshTokensOrErr returns the RefreshTokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) RefreshTokensOrErr() ([]*RefreshToken, error) {
+	if e.loadedTypes[3] {
+		return e.RefreshTokens, nil
+	}
+	return nil, &NotLoadedError{edge: "refresh_tokens"}
+}
+
 // TappCardsOrErr returns the TappCards value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) TappCardsOrErr() ([]*TappCard, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.TappCards, nil
 	}
 	return nil, &NotLoadedError{edge: "tapp_cards"}
@@ -213,6 +224,11 @@ func (u *User) QueryProviderProfile() *ProviderProfileQuery {
 // QueryVerificationToken queries the "verification_token" edge of the User entity.
 func (u *User) QueryVerificationToken() *VerificationTokenQuery {
 	return NewUserClient(u.config).QueryVerificationToken(u)
+}
+
+// QueryRefreshTokens queries the "refresh_tokens" edge of the User entity.
+func (u *User) QueryRefreshTokens() *RefreshTokenQuery {
+	return NewUserClient(u.config).QueryRefreshTokens(u)
 }
 
 // QueryTappCards queries the "tapp_cards" edge of the User entity.

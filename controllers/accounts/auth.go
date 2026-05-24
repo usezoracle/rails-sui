@@ -15,6 +15,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/verificationtoken"
 	svc "github.com/usezoracle/rails-sui/services"
 	db "github.com/usezoracle/rails-sui/storage"
+	authSvc "github.com/usezoracle/rails-sui/services/auth"
 	"github.com/usezoracle/rails-sui/types"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/crypto"
@@ -96,22 +97,30 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	// Send verification email
-	verificationToken, err := tx.VerificationToken.
-		Create().
-		SetOwner(user).
-		SetScope(verificationtoken.ScopeEmailVerification).
-		SetExpiryAt(time.Now().Add(authConf.PasswordResetLifespan)).
-		Save(ctx)
+	// Issue verification token. We store SHA-256(raw) in the DB and email
+	// the raw token to the user. On confirm, we hash the submitted token
+	// and compare.
+	rawToken, err := token.GenerateOpaqueToken()
 	if err != nil {
 		logger.Errorf("error: %v", err)
+		_ = tx.Rollback()
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to create new user", nil)
+		return
+	}
+	_, vtErr := tx.VerificationToken.
+		Create().
+		SetOwner(user).
+		SetToken(token.HashToken(rawToken)).
+		SetScope(verificationtoken.ScopeEmailVerification).
+		SetExpiryAt(time.Now().Add(authConf.EmailVerificationLifespan)).
+		Save(ctx)
+	if vtErr != nil {
+		logger.Errorf("error: %v", vtErr)
 	}
 
-	if serverConf.Environment == "production" {
-		if verificationToken != nil {
-			if _, err := ctrl.emailService.SendVerificationEmail(ctx, verificationToken.Token, user.Email, user.FirstName); err != nil {
-				logger.Errorf("error: %v", err)
-			}
+	if serverConf.Environment == "production" && vtErr == nil {
+		if _, err := ctrl.emailService.SendVerificationEmail(ctx, rawToken, user.Email, user.FirstName); err != nil {
+			logger.Errorf("error: %v", err)
 		}
 	}
 
@@ -207,13 +216,41 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
+	var accessToken, refreshToken string
+	if serverConf.Environment != "production" {
+		var err error
+		accessToken, err = token.GenerateAccessJWT(user.ID.String(), user.Scope)
+		if err != nil {
+			logger.Errorf("error: %v", err)
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate access token on registration", nil)
+			return
+		}
+
+		refreshTTL := time.Duration(authConf.JwtRefreshLifespan) * time.Minute
+		issued, err := authSvc.IssueNewFamily(
+			ctx,
+			user.ID,
+			refreshTTL,
+			ctx.GetHeader("User-Agent"),
+			ctx.ClientIP(),
+		)
+		if err != nil {
+			logger.Errorf("error: %v", err)
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate refresh token on registration", nil)
+			return
+		}
+		refreshToken = issued.Raw
+	}
+
 	response := &types.RegisterResponse{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Email:     user.Email,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		FirstName:    user.FirstName,
+		LastName:     user.LastName,
+		Email:        user.Email,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}
 
 	u.APIResponse(ctx, http.StatusCreated, "success", "User created successfully", response)
@@ -260,66 +297,105 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// Generate JWT pair
-	accessToken, refreshToken, err := token.GeneratePairJWT(user.ID.String(), user.Scope)
-
-	if err != nil {
-		logger.Errorf("error: %v", err)
-		u.APIResponse(ctx, http.StatusInternalServerError, "error",
-			"Failed to create token pair", nil,
-		)
-		return
-	}
-
-	// Check if user's email is verified
-	if !user.IsEmailVerified {
+	// Verify email BEFORE issuing any credentials in production — don't
+	// burn a token row + access JWT just to reject the response.
+	if serverConf.Environment == "production" && !user.IsEmailVerified {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
 			"Email is not verified, please verify your email", nil,
 		)
 		return
 	}
 
+	// Stateless short-lived access JWT.
+	accessToken, err := token.GenerateAccessJWT(user.ID.String(), user.Scope)
+	if err != nil {
+		logger.Errorf("error: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			"Failed to create access token", nil,
+		)
+		return
+	}
+
+	// Stateful opaque refresh token — issued in a new family. Revocable
+	// via /auth/logout, rotated on every /auth/refresh.
+	refreshTTL := time.Duration(authConf.JwtRefreshLifespan) * time.Minute
+	issued, err := authSvc.IssueNewFamily(
+		ctx,
+		user.ID,
+		refreshTTL,
+		ctx.GetHeader("User-Agent"),
+		ctx.ClientIP(),
+	)
+	if err != nil {
+		logger.Errorf("error: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			"Failed to create refresh token", nil,
+		)
+		return
+	}
+
 	u.APIResponse(ctx, http.StatusOK, "success", "Successfully logged in", &types.LoginResponse{
 		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		RefreshToken: issued.Raw,
 		Scopes:       strings.Split(user.Scope, " "),
 	})
 }
 
-// RefreshJWT controller returns a new access token given a valid refresh token.
+// RefreshJWT rotates the refresh token and returns a fresh (access,
+// refresh) pair. The old refresh is revoked atomically with the issue.
+// Replay of a revoked token revokes the whole family — the user (and
+// any attacker holding a copy) must re-login.
 func (ctrl *AuthController) RefreshJWT(ctx *gin.Context) {
 	var payload types.RefreshJWTPayload
-
 	if err := ctx.ShouldBindJSON(&payload); err != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
 			"Failed to validate payload", u.GetErrorData(err))
 		return
 	}
 
-	// Validate the refresh token
-	claims, err := token.ValidateJWT(payload.RefreshToken)
-	userID, ok := claims["sub"].(string)
-	if err != nil || !ok {
-		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Invalid or expired refresh token", nil)
-		return
-	}
-	scope, ok := claims["scope"].(string)
-	if !ok {
+	refreshTTL := time.Duration(authConf.JwtRefreshLifespan) * time.Minute
+	issued, user, err := authSvc.Rotate(
+		ctx,
+		payload.RefreshToken,
+		refreshTTL,
+		ctx.GetHeader("User-Agent"),
+		ctx.ClientIP(),
+	)
+	if err != nil {
 		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Invalid or expired refresh token", nil)
 		return
 	}
 
-	// Generate a new access token
-	accessToken, err := token.GenerateAccessJWT(userID, scope)
+	accessToken, err := token.GenerateAccessJWT(user.ID.String(), user.Scope)
 	if err != nil {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate access token", nil)
 		return
 	}
 
-	// Return the new access token
 	u.APIResponse(ctx, http.StatusOK, "success", "Successfully refreshed access token", &types.RefreshResponse{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
+		RefreshToken: issued.Raw,
 	})
+}
+
+// Logout revokes the presented refresh-token family. Unauthenticated +
+// idempotent — always returns 200 so:
+//
+//   - a client whose access JWT has expired can still sign out cleanly
+//   - we don't leak whether the refresh token was valid/known
+//   - hitting it without a body is safe (no-op)
+//
+// Rate-limited at the route level to stop someone hammering it as a
+// crude revocation oracle.
+func (ctrl *AuthController) Logout(ctx *gin.Context) {
+	var payload types.LogoutPayload
+	_ = ctx.ShouldBindJSON(&payload)
+
+	if payload.RefreshToken != "" {
+		_ = authSvc.RevokeByRaw(ctx, payload.RefreshToken)
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Logged out", nil)
 }
 
 // ConfirmEmail controller validates the payload and confirm the users email.
@@ -332,11 +408,12 @@ func (ctrl *AuthController) ConfirmEmail(ctx *gin.Context) {
 		return
 	}
 
-	// Fetch verification token
+	// Hash the submitted token and compare against the at-rest hash.
+	// `verificationtoken.token` column holds SHA-256(raw), not raw.
 	verificationToken, vtErr := db.Client.VerificationToken.
 		Query().
 		Where(
-			verificationtoken.TokenEQ(payload.Token),
+			verificationtoken.TokenEQ(token.HashToken(payload.Token)),
 			verificationtoken.HasOwnerWith(userEnt.EmailEQ(payload.Email)),
 		).
 		WithOwner().
@@ -390,21 +467,35 @@ func (ctrl *AuthController) ResendVerificationToken(ctx *gin.Context) {
 	user, userErr := db.Client.User.Query().Where(userEnt.EmailEQ(payload.Email)).Only(ctx)
 	if userErr != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid credential", userErr.Error())
+		return
 	}
 
-	// Generate VerificationToken.
-	verificationtoken, vtErr := db.Client.VerificationToken.
+	// Generate VerificationToken — store hash, email raw.
+	rawToken, err := token.GenerateOpaqueToken()
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate verification token", err.Error())
+		return
+	}
+	// Verification tokens get a longer TTL (24h) than password-reset
+	// tokens (15min) — different threat model. Verification can sit in
+	// an inbox; reset is short-lived because the user should act now.
+	ttl := authConf.EmailVerificationLifespan
+	if verificationtoken.Scope(payload.Scope) == verificationtoken.ScopeResetPassword {
+		ttl = authConf.PasswordResetLifespan
+	}
+	_, vtErr := db.Client.VerificationToken.
 		Create().
 		SetOwner(user).
+		SetToken(token.HashToken(rawToken)).
 		SetScope(verificationtoken.Scope(payload.Scope)).
-		SetExpiryAt(time.Now().Add(authConf.PasswordResetLifespan)).
+		SetExpiryAt(time.Now().Add(ttl)).
 		Save(ctx)
 	if vtErr != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Failed to generate verification token", vtErr.Error())
 		return
 	}
 
-	if _, err := ctrl.emailService.SendVerificationEmail(ctx, verificationtoken.Token, user.Email, user.FirstName); err != nil {
+	if _, err := ctrl.emailService.SendVerificationEmail(ctx, rawToken, user.Email, user.FirstName); err != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Failed to send verification email", err.Error())
 		return
 	}
@@ -424,22 +515,22 @@ func (ctrl *AuthController) ResetPassword(ctx *gin.Context) {
 	}
 
 	// Verify reset token
-	token, err := db.Client.VerificationToken.
+	resetTokenRow, err := db.Client.VerificationToken.
 		Query().
 		Where(
-			verificationtoken.TokenEQ(payload.ResetToken),
+			verificationtoken.TokenEQ(token.HashToken(payload.ResetToken)),
 			verificationtoken.ScopeEQ(verificationtoken.ScopeResetPassword),
 		).
 		WithOwner().
 		Only(ctx)
-	if err != nil || token == nil || token.Edges.Owner == nil {
+	if err != nil || resetTokenRow == nil || resetTokenRow.Edges.Owner == nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid password reset token", nil)
 		return
 	}
 
-	if time.Now().After(token.ExpiryAt) {
+	if time.Now().After(resetTokenRow.ExpiryAt) {
 		err := db.Client.VerificationToken.
-			DeleteOneID(token.ID).Exec(ctx)
+			DeleteOneID(resetTokenRow.ID).Exec(ctx)
 		if err != nil {
 			logger.Errorf("ResetPasswordError.VerificationToken.Delete: %v", err)
 		}
@@ -448,7 +539,7 @@ func (ctrl *AuthController) ResetPassword(ctx *gin.Context) {
 	}
 
 	_, err = db.Client.User.
-		UpdateOne(token.Edges.Owner).
+		UpdateOne(resetTokenRow.Edges.Owner).
 		SetPassword(payload.Password).
 		Save(ctx)
 	if err != nil {
@@ -456,14 +547,21 @@ func (ctrl *AuthController) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	// Delete verification token
+	// Delete verification token — single-use.
 	verificationErr := db.Client.VerificationToken.
-		DeleteOneID(token.ID).Exec(ctx)
+		DeleteOneID(resetTokenRow.ID).Exec(ctx)
 	if verificationErr != nil {
 		logger.Errorf("ResetPasswordError.VerificationToken.Delete: %v", verificationErr)
 	}
 
-	// Return a success response
+	// Industry-standard hygiene: revoke EVERY active refresh-token
+	// family for this user. If the original account was compromised,
+	// the attacker's session is killed alongside the legitimate ones —
+	// the user logs back in fresh on each device after the reset.
+	if revokeErr := authSvc.RevokeAllForUser(ctx, resetTokenRow.Edges.Owner.ID); revokeErr != nil {
+		logger.Errorf("ResetPasswordError.RevokeRefreshTokens: %v", revokeErr)
+	}
+
 	u.APIResponse(ctx, http.StatusOK, "success", "Password reset was successful", nil)
 }
 
@@ -484,21 +582,27 @@ func (ctrl *AuthController) ResetPasswordToken(ctx *gin.Context) {
 		Only(ctx)
 	if userErr != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Email does not belong to any user", nil)
+		return
 	}
 
-	// Generate password reset token.
-	passwordResetToken, rtErr := db.Client.VerificationToken.
+	// Generate password reset token — store hash, email raw.
+	rawResetToken, err := token.GenerateOpaqueToken()
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate reset password token", nil)
+		return
+	}
+	if _, rtErr := db.Client.VerificationToken.
 		Create().
 		SetOwner(user).
+		SetToken(token.HashToken(rawResetToken)).
 		SetScope(verificationtoken.ScopeResetPassword).
 		SetExpiryAt(time.Now().Add(authConf.PasswordResetLifespan)).
-		Save(ctx)
-	if rtErr != nil || passwordResetToken == nil {
+		Save(ctx); rtErr != nil {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate reset password token", nil)
 		return
 	}
 
-	if _, err := ctrl.emailService.SendPasswordResetEmail(ctx, passwordResetToken.Token, user.Email, user.FirstName); err != nil {
+	if _, err := ctrl.emailService.SendPasswordResetEmail(ctx, rawResetToken, user.Email, user.FirstName); err != nil {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to send reset password token", nil)
 		return
 	}
@@ -523,6 +627,7 @@ func (ctrl *AuthController) ChangePassword(ctx *gin.Context) {
 	userID, err := uuid.Parse(user_id)
 	if err != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid credential", nil)
+		return
 	}
 
 	// Fetch user account.
@@ -532,6 +637,7 @@ func (ctrl *AuthController) ChangePassword(ctx *gin.Context) {
 		Only(ctx)
 	if err != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid credential", nil)
+		return
 	}
 
 	// Check if the old password is correct

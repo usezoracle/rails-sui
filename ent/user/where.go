@@ -595,6 +595,29 @@ func HasVerificationTokenWith(preds ...predicate.VerificationToken) predicate.Us
 	})
 }
 
+// HasRefreshTokens applies the HasEdge predicate on the "refresh_tokens" edge.
+func HasRefreshTokens() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RefreshTokensTable, RefreshTokensColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRefreshTokensWith applies the HasEdge predicate on the "refresh_tokens" edge with a given conditions (other predicates).
+func HasRefreshTokensWith(preds ...predicate.RefreshToken) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newRefreshTokensStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasTappCards applies the HasEdge predicate on the "tapp_cards" edge.
 func HasTappCards() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

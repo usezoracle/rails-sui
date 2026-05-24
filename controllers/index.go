@@ -229,6 +229,39 @@ func (ctrl *Controller) GetAggregatorPublicKey(ctx *gin.Context) {
 	u.APIResponse(ctx, http.StatusOK, "success", "OK", cryptoConf.AggregatorPublicKey)
 }
 
+type sponsorTransactionRequest struct {
+	TxBytes string `json:"txBytes" binding:"required"`
+	Sender  string `json:"sender" binding:"required"`
+}
+
+type sponsorTransactionResponse struct {
+	SponsoredTxBytes string `json:"sponsoredTxBytes"`
+	SponsorSignature string `json:"sponsorSignature"`
+}
+
+// SponsorTransaction handles POST /v1/gas-station/sponsor.
+func (ctrl *Controller) SponsorTransaction(ctx *gin.Context) {
+	var req sponsorTransactionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Failed to validate payload", u.GetErrorData(err))
+		return
+	}
+
+	sponsoredTxBytes, sponsorSignature, err := ctrl.orderService.SponsorTransaction(ctx.Request.Context(), req.TxBytes, req.Sender)
+	if err != nil {
+		logger.Errorf("SponsorTransaction failed: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			fmt.Sprintf("Gas station failed: %v", err), nil)
+		return
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Transaction sponsored", sponsorTransactionResponse{
+		SponsoredTxBytes: sponsoredTxBytes,
+		SponsorSignature: sponsorSignature,
+	})
+}
+
 // VerifyAccount controller verifies an account of a given institution
 func (ctrl *Controller) VerifyAccount(ctx *gin.Context) {
 	var payload types.VerifyAccountRequest
@@ -252,14 +285,18 @@ func (ctrl *Controller) VerifyAccount(ctx *gin.Context) {
 		return
 	}
 
-	// Try live-verifying with Paycrest API if configured
-	paycrestURL := serverConf.PaycrestAPIURL
-	if paycrestURL != "" {
+	// Try live-verifying with settlement API if configured.
+	// SETTLEMENT_API_URL is the versioned root (e.g. "https://api.paycrest.io/v1")
+	// per services/settlement convention, but verify-account lives at
+	// /v2/verify-account — so we strip the trailing /v1 before composing.
+	// Stay aligned with services/settlement/client.go FetchRate's URL build.
+	settlementURL := strings.TrimSuffix(serverConf.SettlementAPIURL, "/v1")
+	if settlementURL != "" {
 		pcPayload := map[string]string{
 			"institution":       payload.Institution,
 			"accountIdentifier": payload.AccountIdentifier,
 		}
-		res, err := fastshot.NewClient(paycrestURL).
+		res, err := fastshot.NewClient(settlementURL).
 			Config().SetTimeout(15 * time.Second).
 			Header().Add("Content-Type", "application/json").
 			Build().POST("/v2/verify-account").
@@ -277,9 +314,13 @@ func (ctrl *Controller) VerifyAccount(ctx *gin.Context) {
 					u.APIResponse(ctx, http.StatusOK, "success", "Account name was fetched successfully", pcResp.Data)
 					return
 				}
+				logger.Warnf("settlement verify-account returned 200 but unexpected body — falling back")
+			} else {
+				logger.Warnf("settlement verify-account http %d — falling back", res.StatusCode())
 			}
+		} else {
+			logger.Warnf("settlement verify-account transport error: %v — falling back", err)
 		}
-		logger.Warnf("Paycrest live account verification failed, falling back: %v", err)
 	}
 
 	// Fallback to local database and provider profiles

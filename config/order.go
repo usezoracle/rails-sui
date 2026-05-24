@@ -35,11 +35,25 @@ type OrderConfiguration struct {
 	LiFiBaseURL  string
 	LiFiAPIKey   string // optional; free tier when empty (rate-limited)
 
-	// BSC (Route A destination). The BSC USDC type used as LiFi's toToken
-	// is hard-coded since Circle's address is canonical and immutable.
-	BSCRpcURL              string
-	BSCAggregatorAddress   string // our BSC hot wallet, receives bridged USDC
-	BSCGatewayContract     string // existing EVM Gateway address (for mode=lp dispatch)
+	// Base — Route A's EVM destination chain. Same env block works for
+	// Base mainnet (8453) and Base Sepolia (84532); flip BASE_CHAIN_ID
+	// + BASE_GATEWAY_CONTRACT + BASE_USDC_CONTRACT + BASE_RPC_URL to
+	// switch networks. USDC on Base is 6-decimal native Circle.
+	BaseRpcURL              string
+	BaseAggregatorAddress   string // our Base hot wallet; receives bridged USDC
+	BaseGatewayContract     string // settlement Gateway proxy on the active network
+	BaseUSDCContract        string // Circle USDC ERC-20 on the active network
+	BaseChainID             int64  // 8453 mainnet, 84532 Sepolia
+	BaseSignerKey           string // hex private key for the aggregator wallet (signs approve + createOrder)
+	BaseSenderFeeBPS        int64  // sender fee skim charged on each order, in basis points (50 = 0.5%)
+	BaseNativeLowThresholdWei string // big.Int as string; below this we Slack-alert ops (native = ETH on Base)
+	BaseUSDCDecimals        int    // 6 on Base for Circle native USDC
+
+	// Settlement aggregator (default upstream: api.paycrest.io).
+	SettlementAPIURL           string
+	SettlementPubkeyTTLSeconds int
+	SettlementSenderAPIKeyID   string        // UUID identifying our sender for attribution + LP routing
+	SettlementPollInterval     time.Duration // cadence for advanceDispatching status polling
 }
 
 // OrderConfig sets the order configuration
@@ -54,7 +68,14 @@ func OrderConfig() *OrderConfiguration {
 	viper.SetDefault("PERCENT_DEVIATION_FROM_MARKET_RATE", 0.1)
 	viper.SetDefault("SUI_RPC_URL", "https://fullnode.testnet.sui.io:443")
 	viper.SetDefault("LIFI_BASE_URL", "https://li.quest/v1")
-	viper.SetDefault("BSC_RPC_URL", "https://bsc-dataseed.bnbchain.org")
+	viper.SetDefault("BASE_RPC_URL", "https://sepolia.base.org")                       // Sepolia default; mainnet = https://mainnet.base.org
+	viper.SetDefault("BASE_CHAIN_ID", 84532)                                           // Base Sepolia; mainnet = 8453
+	viper.SetDefault("BASE_SENDER_FEE_BPS", 50)                                        // 0.5% sender fee
+	viper.SetDefault("BASE_NATIVE_LOW_THRESHOLD_WEI", "10000000000000000")             // 0.01 ETH (Base L2 gas is cheap)
+	viper.SetDefault("BASE_USDC_DECIMALS", 6)
+	viper.SetDefault("SETTLEMENT_API_URL", "https://api.paycrest.io")
+	viper.SetDefault("SETTLEMENT_PUBKEY_CACHE_TTL_SECONDS", 3600)
+	viper.SetDefault("SETTLEMENT_POLL_INTERVAL_SECONDS", 30)
 
 	// SUI_AGGREGATOR_PRIVATE_KEY is expected hex-encoded; decoded once at startup.
 	aggregatorKeyHex := viper.GetString("SUI_AGGREGATOR_PRIVATE_KEY")
@@ -82,9 +103,19 @@ func OrderConfig() *OrderConfiguration {
 		SuiAggregatorPrivateKey:          aggregatorKey,
 		LiFiBaseURL:                      viper.GetString("LIFI_BASE_URL"),
 		LiFiAPIKey:                       viper.GetString("LIFI_API_KEY"),
-		BSCRpcURL:                        viper.GetString("BSC_RPC_URL"),
-		BSCAggregatorAddress:             viper.GetString("BSC_AGGREGATOR_ADDRESS"),
-		BSCGatewayContract:               viper.GetString("BSC_GATEWAY_CONTRACT"),
+		BaseRpcURL:                       viper.GetString("BASE_RPC_URL"),
+		BaseAggregatorAddress:            viper.GetString("BASE_AGGREGATOR_ADDRESS"),
+		BaseGatewayContract:              viper.GetString("BASE_GATEWAY_CONTRACT"),
+		BaseUSDCContract:                 viper.GetString("BASE_USDC_CONTRACT"),
+		BaseChainID:                      viper.GetInt64("BASE_CHAIN_ID"),
+		BaseSignerKey:                    viper.GetString("BASE_SIGNER_KEY"),
+		BaseSenderFeeBPS:                 viper.GetInt64("BASE_SENDER_FEE_BPS"),
+		BaseNativeLowThresholdWei:        viper.GetString("BASE_NATIVE_LOW_THRESHOLD_WEI"),
+		BaseUSDCDecimals:                 viper.GetInt("BASE_USDC_DECIMALS"),
+		SettlementAPIURL:                 viper.GetString("SETTLEMENT_API_URL"),
+		SettlementPubkeyTTLSeconds:       viper.GetInt("SETTLEMENT_PUBKEY_CACHE_TTL_SECONDS"),
+		SettlementSenderAPIKeyID:         viper.GetString("SETTLEMENT_SENDER_API_KEY_ID"),
+		SettlementPollInterval:           time.Duration(viper.GetInt("SETTLEMENT_POLL_INTERVAL_SECONDS")) * time.Second,
 	}
 }
 

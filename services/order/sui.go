@@ -24,7 +24,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"github.com/block-vision/sui-go-sdk/constant"
 	"github.com/block-vision/sui-go-sdk/models"
+	"github.com/block-vision/sui-go-sdk/mystenbcs"
 	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/block-vision/sui-go-sdk/transaction"
@@ -740,4 +742,68 @@ func isTxSuccess(resp *models.SuiTransactionBlockResponse) bool {
 		return true // some endpoints don't populate Status; presence of a digest is the signal
 	}
 	return resp.Effects.Status.Status == "success"
+}
+
+// SponsorTransaction takes base64-encoded TransactionKind bytes, wraps them in a sponsored transaction paid by the aggregator, signs them, and returns base64-encoded sponsored transaction bytes and the sponsor's signature.
+func (s *OrderSui) SponsorTransaction(
+	ctx context.Context,
+	txBytes string,
+	sender string,
+) (string, string, error) {
+	if s.signer == nil {
+		return "", "", ErrAggregatorNotConfigured
+	}
+
+	// 1. Decode transaction kind bytes
+	decodedKindBytes, err := base64.StdEncoding.DecodeString(txBytes)
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: decode txBytes: %w", err)
+	}
+
+	// 2. Unmarshal into TransactionKind struct
+	var kind transaction.TransactionKind
+	_, err = mystenbcs.Unmarshal(decodedKindBytes, &kind)
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: unmarshal transaction kind: %w", err)
+	}
+
+	// 3. Fetch reference gas price
+	gasPriceResp, err := s.client.SuiXGetReferenceGasPrice(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: get reference gas price: %w", err)
+	}
+	gasPrice, err := strconv.ParseUint(fmt.Sprint(gasPriceResp), 10, 64)
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: parse gas price: %w", err)
+	}
+
+	// 4. Select gas coin from aggregator wallet
+	gasCoin, err := s.selectGasCoin(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: select aggregator gas coin: %w", err)
+	}
+
+	// 5. Construct Transaction Data
+	tx := transaction.NewTransaction()
+	tx.Data.V1.Kind = &kind
+	tx.SetSender(models.SuiAddress(sender))
+	tx.SetGasOwner(models.SuiAddress(s.signer.Address))
+	tx.SetGasPrice(gasPrice)
+	tx.SetGasBudget(defaultGasBudget)
+	tx.SetGasPayment([]transaction.SuiObjectRef{*gasCoin})
+
+	// 6. Marshal transaction data to BCS bytes
+	txDataBytes, err := tx.Data.Marshal()
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: marshal transaction data: %w", err)
+	}
+	b64TxDataBytes := base64.StdEncoding.EncodeToString(txDataBytes)
+
+	// 7. Sign transaction data as sponsor
+	signedMsg, err := s.signer.SignMessage(b64TxDataBytes, constant.TransactionDataIntentScope)
+	if err != nil {
+		return "", "", fmt.Errorf("sponsor_tx: sign message: %w", err)
+	}
+
+	return b64TxDataBytes, signedMsg.Signature, nil
 }

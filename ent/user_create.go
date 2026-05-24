@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
+	"github.com/usezoracle/rails-sui/ent/refreshtoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -176,6 +177,21 @@ func (uc *UserCreate) AddVerificationToken(v ...*VerificationToken) *UserCreate 
 		ids[i] = v[i].ID
 	}
 	return uc.AddVerificationTokenIDs(ids...)
+}
+
+// AddRefreshTokenIDs adds the "refresh_tokens" edge to the RefreshToken entity by IDs.
+func (uc *UserCreate) AddRefreshTokenIDs(ids ...uuid.UUID) *UserCreate {
+	uc.mutation.AddRefreshTokenIDs(ids...)
+	return uc
+}
+
+// AddRefreshTokens adds the "refresh_tokens" edges to the RefreshToken entity.
+func (uc *UserCreate) AddRefreshTokens(r ...*RefreshToken) *UserCreate {
+	ids := make([]uuid.UUID, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return uc.AddRefreshTokenIDs(ids...)
 }
 
 // AddTappCardIDs adds the "tapp_cards" edge to the TappCard entity by IDs.
@@ -413,6 +429,22 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(verificationtoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.RefreshTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RefreshTokensTable,
+			Columns: []string{user.RefreshTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

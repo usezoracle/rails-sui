@@ -17,51 +17,46 @@ import (
 
 var conf = config.AuthConfig()
 
-// GenerateAccessJWT generates an access token with a short expiry time ~ 15 minutes
+// GenerateAccessJWT issues a short-lived access token with the full
+// RFC-7519 claim set (sub, iat, nbf, exp, iss, aud, jti, scope).
+//
+// jti is included so individual access tokens can be denylisted in
+// future (e.g. compromise-revoke) without needing a JWT-replacement.
+// iss/aud anchor validation to this deployment — tokens from a sibling
+// service would fail to validate.
 func GenerateAccessJWT(userID string, scope string) (string, error) {
+	now := time.Now()
+	jti, err := newJTI()
+	if err != nil {
+		return "", err
+	}
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
-	claims["sub"] = userID
+	claims["sub"]   = userID
 	claims["scope"] = scope
-	claims["exp"] = time.Now().Add(conf.JwtAccessLifespan).Unix()
-
-	return token.SignedString([]byte(conf.Secret))
+	claims["iat"]   = now.Unix()
+	claims["nbf"]   = now.Unix()
+	claims["exp"]   = now.Add(conf.JwtAccessLifespan).Unix()
+	claims["iss"]   = conf.JwtIssuer
+	claims["aud"]   = conf.JwtAudience
+	claims["jti"]   = jti
+	return token.SignedString([]byte(conf.JwtSigningKey))
 }
 
-// GenerateRefreshJWT generates a refresh token with a long expiry time >= 24 hours
-func GenerateRefreshJWT(userID string, scope string) (string, error) {
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["sub"] = userID
-	claims["scope"] = scope
-	claims["exp"] = time.Now().Add(conf.JwtRefreshLifespan).Unix()
-
-	return token.SignedString([]byte(conf.Secret))
-}
-
-// GeneratePairJWT generates a pair of access and refresh tokens
-func GeneratePairJWT(userID string, scope string) (string, string, error) {
-	access, err := GenerateAccessJWT(userID, scope)
-	if err != nil {
-		return "", "", err
-	}
-
-	refresh, err := GenerateRefreshJWT(userID, scope)
-	if err != nil {
-		return "", "", err
-	}
-
-	return access, refresh, nil
-}
-
-// ValidateJWT validates the JWT token string and returns the claims if valid.
+// ValidateJWT validates the token string and returns its claims.
+// Requires iss/aud to match the deployment so tokens minted by another
+// service can't slip through.
 func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(conf.Secret), nil
-	}, jwt.WithValidMethods([]string{"HS256"}))
+		return []byte(conf.JwtSigningKey), nil
+	},
+		jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithIssuer(conf.JwtIssuer),
+		jwt.WithAudience(conf.JwtAudience),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +67,15 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 	}
 
 	return claims, nil
+}
+
+// newJTI returns a random 128-bit token id, hex-encoded.
+func newJTI() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // GeneratePrivateKey generates a private key (Secret Key).

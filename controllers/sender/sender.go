@@ -22,6 +22,7 @@ import (
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	svc "github.com/usezoracle/rails-sui/services"
+	"github.com/usezoracle/rails-sui/services/settlement"
 	"github.com/usezoracle/rails-sui/types"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -415,7 +416,7 @@ func (ctrl *SenderController) InitiatePaymentOrder(ctx *gin.Context) {
 }
 
 // InitiateRouteAOrder creates a Route A payment order (Sui USDC bridged to
-// BSC via LiFi, then dispatched to fiat). Path-2 (receive-address) deposit
+// Base via LiFi, then dispatched to fiat via settlement). Path-2 (receive-address) deposit
 // flow only in v1 — the user sends Sui USDC from any wallet/exchange to the
 // returned receive address; the deposit watcher detects it, forwards via
 // OrderSui.CreateOrder (embedding the PaymentOrder UUID in message_hash);
@@ -465,6 +466,28 @@ func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "Token is not supported", nil)
 		return
 	}
+
+	// Auto-override the user-supplied rate with settlement's current LP
+	// rate. Orders submitted above the LP ceiling auto-refund after
+	// refundTimeoutMinutes (typically 2 min) — quoting from the
+	// aggregator at order creation and locking that rate avoids the
+	// dead-tx loop. v1 hardcodes (network="base", currency="NGN") since
+	// Route A always bridges to Base + only NGN institutions are wired.
+	// Derive both from destination chain + recipient.institution in v1.5.
+	settlementTTL := time.Duration(orderConf.SettlementPubkeyTTLSeconds) * time.Second
+	quote, err := settlement.New(orderConf.SettlementAPIURL, settlementTTL).
+		FetchRate(ctx, "base", strings.ToUpper(payload.Token), payload.Amount, "NGN")
+	if err != nil {
+		logger.Errorf("InitiateRouteAOrder.fetch_rate: %v", err)
+		u.APIResponse(ctx, http.StatusBadGateway, "error",
+			"Couldn't fetch settlement rate — try again in a moment", nil)
+		return
+	}
+	if !payload.Rate.Equal(quote.Rate) {
+		logger.Infof("route-a: rate override token=%s requested=%s lp=%s providers=%v",
+			payload.Token, payload.Rate.String(), quote.Rate.String(), quote.ProviderIDs)
+	}
+	payload.Rate = quote.Rate
 
 	address, encryptedSeed, err := ctrl.receiveAddressService.CreateSuiReceiveAddress(ctx)
 	if err != nil {
@@ -844,46 +867,72 @@ func (ctrl *SenderController) GetPaymentOrders(ctx *gin.Context) {
 
 // Stats controller fetches sender stats
 func (ctrl *SenderController) Stats(ctx *gin.Context) {
-	// Get sender profile from the context
 	senderCtx, ok := ctx.Get("sender")
 	if !ok {
-		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Invalid API key or token", nil)
+		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Sender profile required", nil)
 		return
 	}
 	sender := senderCtx.(*ent.SenderProfile)
 
-	// Aggregate sender stats from db
+	// Optional `?period=today` filter. Default (omitted / "all") returns
+	// lifetime totals, preserving the historical API shape.
+	var (
+		periodSince *time.Time
+		now         = time.Now()
+	)
+	switch strings.ToLower(ctx.Query("period")) {
+	case "today":
+		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		periodSince = &start
+	case "week":
+		start := now.AddDate(0, 0, -7)
+		periodSince = &start
+	case "month":
+		start := now.AddDate(0, -1, 0)
+		periodSince = &start
+	case "all", "":
+		periodSince = nil
+	default:
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "period must be one of: today, week, month, all", nil)
+		return
+	}
+
+	// Volume + sender fees over settled orders in the period.
+	volQuery := storage.Client.PaymentOrder.Query().Where(
+		paymentorder.HasSenderProfileWith(senderprofile.IDEQ(sender.ID)),
+		paymentorder.StatusEQ(paymentorder.StatusSettled),
+	)
+	if periodSince != nil {
+		volQuery = volQuery.Where(paymentorder.CreatedAtGTE(*periodSince))
+	}
 
 	var w []struct {
 		Sum               decimal.Decimal
 		SumFieldSenderFee decimal.Decimal
 	}
-	err := storage.Client.PaymentOrder.
-		Query().
-		Where(paymentorder.HasSenderProfileWith(senderprofile.IDEQ(sender.ID)), paymentorder.StatusEQ(paymentorder.StatusSettled)).
+	if err := volQuery.
 		Aggregate(
 			ent.Sum(paymentorder.FieldAmount),
 			ent.As(ent.Sum(paymentorder.FieldSenderFee), "SumFieldSenderFee"),
 		).
-		Scan(ctx, &w)
-	if err != nil {
-		logger.Errorf("error: %v", err)
+		Scan(ctx, &w); err != nil {
+		logger.Errorf("Stats.volume: %v", err)
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to fetch sender stats", nil)
 		return
 	}
 
-	var v []struct {
-		Count int
+	// Order count over the same period — across all statuses so an
+	// abandoned-cart count doesn't drop to zero on a slow day.
+	countQuery := storage.Client.PaymentOrder.Query().Where(
+		paymentorder.HasSenderProfileWith(senderprofile.IDEQ(sender.ID)),
+	)
+	if periodSince != nil {
+		countQuery = countQuery.Where(paymentorder.CreatedAtGTE(*periodSince))
 	}
-	err = storage.Client.PaymentOrder.
-		Query().
-		Where(paymentorder.HasSenderProfileWith(senderprofile.IDEQ(sender.ID))).
-		Aggregate(
-			ent.Count(),
-		).
-		Scan(ctx, &v)
-	if err != nil {
-		logger.Errorf("error: %v", err)
+
+	var v []struct{ Count int }
+	if err := countQuery.Aggregate(ent.Count()).Scan(ctx, &v); err != nil {
+		logger.Errorf("Stats.count: %v", err)
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to fetch sender stats", nil)
 		return
 	}
@@ -893,4 +942,68 @@ func (ctrl *SenderController) Stats(ctx *gin.Context) {
 		TotalOrderVolume: w[0].Sum,
 		TotalFeeEarnings: w[0].SumFieldSenderFee,
 	})
+}
+
+// CancelOrder lets the sender abandon an in-flight PaymentOrder before
+// the customer pays. Allowed only on orders the merchant actually owns,
+// and only while the order is still in `initiated` or `pending` state —
+// once settlement begins it's too late to cancel client-side.
+//
+// Idempotent: cancelling an already-cancelled / expired / settled order
+// is a no-op 200 with the current state surfaced in the body, so the
+// merchant app's tear-down path (back button, broadcast timeout) doesn't
+// have to special-case 409s.
+func (ctrl *SenderController) CancelOrder(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	orderID, err := uuid.Parse(idStr)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid order id", nil)
+		return
+	}
+
+	sender, ok := ctx.Get("sender")
+	if !ok || sender == nil {
+		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Sender profile required", nil)
+		return
+	}
+	senderProfile := sender.(*ent.SenderProfile)
+
+	order, err := storage.Client.PaymentOrder.
+		Query().
+		Where(
+			paymentorder.IDEQ(orderID),
+			paymentorder.HasSenderProfileWith(senderprofile.IDEQ(senderProfile.ID)),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "Order not found", nil)
+			return
+		}
+		logger.Errorf("CancelOrder.query: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to cancel order", nil)
+		return
+	}
+
+	// Idempotent — already in a terminal state.
+	switch order.Status {
+	case paymentorder.StatusCancelled, paymentorder.StatusExpired,
+		paymentorder.StatusSettled, paymentorder.StatusRefunded:
+		u.APIResponse(ctx, http.StatusOK, "success", "Order is already final",
+			gin.H{"id": order.ID, "status": order.Status})
+		return
+	}
+
+	// Active orders can be cancelled.
+	updated, err := order.Update().
+		SetStatus(paymentorder.StatusCancelled).
+		Save(ctx)
+	if err != nil {
+		logger.Errorf("CancelOrder.update: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to cancel order", nil)
+		return
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Order cancelled",
+		gin.H{"id": updated.ID, "status": updated.Status})
 }

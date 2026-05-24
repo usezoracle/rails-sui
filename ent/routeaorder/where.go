@@ -81,14 +81,34 @@ func BridgeTxSui(v string) predicate.RouteAOrder {
 	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeTxSui, v))
 }
 
-// BridgeTxBsc applies equality check predicate on the "bridge_tx_bsc" field. It's identical to BridgeTxBscEQ.
-func BridgeTxBsc(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeTxBsc, v))
+// BridgeTxDest applies equality check predicate on the "bridge_tx_dest" field. It's identical to BridgeTxDestEQ.
+func BridgeTxDest(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeTxDest, v))
 }
 
-// BscOrderID applies equality check predicate on the "bsc_order_id" field. It's identical to BscOrderIDEQ.
-func BscOrderID(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldEQ(FieldBscOrderID, v))
+// GatewayOrderID applies equality check predicate on the "gateway_order_id" field. It's identical to GatewayOrderIDEQ.
+func GatewayOrderID(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldGatewayOrderID, v))
+}
+
+// GatewayChainID applies equality check predicate on the "gateway_chain_id" field. It's identical to GatewayChainIDEQ.
+func GatewayChainID(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldGatewayChainID, v))
+}
+
+// SenderFeeSubunit applies equality check predicate on the "sender_fee_subunit" field. It's identical to SenderFeeSubunitEQ.
+func SenderFeeSubunit(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldSenderFeeSubunit, v))
+}
+
+// SettlementStatus applies equality check predicate on the "settlement_status" field. It's identical to SettlementStatusEQ.
+func SettlementStatus(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldSettlementStatus, v))
+}
+
+// SettlementPolledAt applies equality check predicate on the "settlement_polled_at" field. It's identical to SettlementPolledAtEQ.
+func SettlementPolledAt(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldSettlementPolledAt, v))
 }
 
 // TreasuryPayoutRef applies equality check predicate on the "treasury_payout_ref" field. It's identical to TreasuryPayoutRefEQ.
@@ -431,79 +451,79 @@ func BridgeTxSuiContainsFold(v string) predicate.RouteAOrder {
 	return predicate.RouteAOrder(sql.FieldContainsFold(FieldBridgeTxSui, v))
 }
 
-// BridgeTxBscEQ applies the EQ predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscEQ(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeTxBsc, v))
+// BridgeTxDestEQ applies the EQ predicate on the "bridge_tx_dest" field.
+func BridgeTxDestEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscNEQ applies the NEQ predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscNEQ(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldNEQ(FieldBridgeTxBsc, v))
+// BridgeTxDestNEQ applies the NEQ predicate on the "bridge_tx_dest" field.
+func BridgeTxDestNEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscIn applies the In predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscIn(vs ...string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldIn(FieldBridgeTxBsc, vs...))
+// BridgeTxDestIn applies the In predicate on the "bridge_tx_dest" field.
+func BridgeTxDestIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldBridgeTxDest, vs...))
 }
 
-// BridgeTxBscNotIn applies the NotIn predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscNotIn(vs ...string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldNotIn(FieldBridgeTxBsc, vs...))
+// BridgeTxDestNotIn applies the NotIn predicate on the "bridge_tx_dest" field.
+func BridgeTxDestNotIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldBridgeTxDest, vs...))
 }
 
-// BridgeTxBscGT applies the GT predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscGT(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldGT(FieldBridgeTxBsc, v))
+// BridgeTxDestGT applies the GT predicate on the "bridge_tx_dest" field.
+func BridgeTxDestGT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscGTE applies the GTE predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscGTE(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldGTE(FieldBridgeTxBsc, v))
+// BridgeTxDestGTE applies the GTE predicate on the "bridge_tx_dest" field.
+func BridgeTxDestGTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscLT applies the LT predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscLT(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldLT(FieldBridgeTxBsc, v))
+// BridgeTxDestLT applies the LT predicate on the "bridge_tx_dest" field.
+func BridgeTxDestLT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscLTE applies the LTE predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscLTE(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldLTE(FieldBridgeTxBsc, v))
+// BridgeTxDestLTE applies the LTE predicate on the "bridge_tx_dest" field.
+func BridgeTxDestLTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscContains applies the Contains predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscContains(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldContains(FieldBridgeTxBsc, v))
+// BridgeTxDestContains applies the Contains predicate on the "bridge_tx_dest" field.
+func BridgeTxDestContains(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContains(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscHasPrefix applies the HasPrefix predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscHasPrefix(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldHasPrefix(FieldBridgeTxBsc, v))
+// BridgeTxDestHasPrefix applies the HasPrefix predicate on the "bridge_tx_dest" field.
+func BridgeTxDestHasPrefix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasPrefix(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscHasSuffix applies the HasSuffix predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscHasSuffix(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldHasSuffix(FieldBridgeTxBsc, v))
+// BridgeTxDestHasSuffix applies the HasSuffix predicate on the "bridge_tx_dest" field.
+func BridgeTxDestHasSuffix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasSuffix(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscIsNil applies the IsNil predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscIsNil() predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldIsNull(FieldBridgeTxBsc))
+// BridgeTxDestIsNil applies the IsNil predicate on the "bridge_tx_dest" field.
+func BridgeTxDestIsNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIsNull(FieldBridgeTxDest))
 }
 
-// BridgeTxBscNotNil applies the NotNil predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscNotNil() predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldNotNull(FieldBridgeTxBsc))
+// BridgeTxDestNotNil applies the NotNil predicate on the "bridge_tx_dest" field.
+func BridgeTxDestNotNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotNull(FieldBridgeTxDest))
 }
 
-// BridgeTxBscEqualFold applies the EqualFold predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscEqualFold(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldEqualFold(FieldBridgeTxBsc, v))
+// BridgeTxDestEqualFold applies the EqualFold predicate on the "bridge_tx_dest" field.
+func BridgeTxDestEqualFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEqualFold(FieldBridgeTxDest, v))
 }
 
-// BridgeTxBscContainsFold applies the ContainsFold predicate on the "bridge_tx_bsc" field.
-func BridgeTxBscContainsFold(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldContainsFold(FieldBridgeTxBsc, v))
+// BridgeTxDestContainsFold applies the ContainsFold predicate on the "bridge_tx_dest" field.
+func BridgeTxDestContainsFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContainsFold(FieldBridgeTxDest, v))
 }
 
 // BridgeStatusEQ applies the EQ predicate on the "bridge_status" field.
@@ -526,79 +546,304 @@ func BridgeStatusNotIn(vs ...BridgeStatus) predicate.RouteAOrder {
 	return predicate.RouteAOrder(sql.FieldNotIn(FieldBridgeStatus, vs...))
 }
 
-// BscOrderIDEQ applies the EQ predicate on the "bsc_order_id" field.
-func BscOrderIDEQ(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldEQ(FieldBscOrderID, v))
+// GatewayOrderIDEQ applies the EQ predicate on the "gateway_order_id" field.
+func GatewayOrderIDEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDNEQ applies the NEQ predicate on the "bsc_order_id" field.
-func BscOrderIDNEQ(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldNEQ(FieldBscOrderID, v))
+// GatewayOrderIDNEQ applies the NEQ predicate on the "gateway_order_id" field.
+func GatewayOrderIDNEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDIn applies the In predicate on the "bsc_order_id" field.
-func BscOrderIDIn(vs ...string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldIn(FieldBscOrderID, vs...))
+// GatewayOrderIDIn applies the In predicate on the "gateway_order_id" field.
+func GatewayOrderIDIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldGatewayOrderID, vs...))
 }
 
-// BscOrderIDNotIn applies the NotIn predicate on the "bsc_order_id" field.
-func BscOrderIDNotIn(vs ...string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldNotIn(FieldBscOrderID, vs...))
+// GatewayOrderIDNotIn applies the NotIn predicate on the "gateway_order_id" field.
+func GatewayOrderIDNotIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldGatewayOrderID, vs...))
 }
 
-// BscOrderIDGT applies the GT predicate on the "bsc_order_id" field.
-func BscOrderIDGT(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldGT(FieldBscOrderID, v))
+// GatewayOrderIDGT applies the GT predicate on the "gateway_order_id" field.
+func GatewayOrderIDGT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDGTE applies the GTE predicate on the "bsc_order_id" field.
-func BscOrderIDGTE(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldGTE(FieldBscOrderID, v))
+// GatewayOrderIDGTE applies the GTE predicate on the "gateway_order_id" field.
+func GatewayOrderIDGTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDLT applies the LT predicate on the "bsc_order_id" field.
-func BscOrderIDLT(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldLT(FieldBscOrderID, v))
+// GatewayOrderIDLT applies the LT predicate on the "gateway_order_id" field.
+func GatewayOrderIDLT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDLTE applies the LTE predicate on the "bsc_order_id" field.
-func BscOrderIDLTE(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldLTE(FieldBscOrderID, v))
+// GatewayOrderIDLTE applies the LTE predicate on the "gateway_order_id" field.
+func GatewayOrderIDLTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDContains applies the Contains predicate on the "bsc_order_id" field.
-func BscOrderIDContains(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldContains(FieldBscOrderID, v))
+// GatewayOrderIDContains applies the Contains predicate on the "gateway_order_id" field.
+func GatewayOrderIDContains(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContains(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDHasPrefix applies the HasPrefix predicate on the "bsc_order_id" field.
-func BscOrderIDHasPrefix(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldHasPrefix(FieldBscOrderID, v))
+// GatewayOrderIDHasPrefix applies the HasPrefix predicate on the "gateway_order_id" field.
+func GatewayOrderIDHasPrefix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasPrefix(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDHasSuffix applies the HasSuffix predicate on the "bsc_order_id" field.
-func BscOrderIDHasSuffix(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldHasSuffix(FieldBscOrderID, v))
+// GatewayOrderIDHasSuffix applies the HasSuffix predicate on the "gateway_order_id" field.
+func GatewayOrderIDHasSuffix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasSuffix(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDIsNil applies the IsNil predicate on the "bsc_order_id" field.
-func BscOrderIDIsNil() predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldIsNull(FieldBscOrderID))
+// GatewayOrderIDIsNil applies the IsNil predicate on the "gateway_order_id" field.
+func GatewayOrderIDIsNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIsNull(FieldGatewayOrderID))
 }
 
-// BscOrderIDNotNil applies the NotNil predicate on the "bsc_order_id" field.
-func BscOrderIDNotNil() predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldNotNull(FieldBscOrderID))
+// GatewayOrderIDNotNil applies the NotNil predicate on the "gateway_order_id" field.
+func GatewayOrderIDNotNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotNull(FieldGatewayOrderID))
 }
 
-// BscOrderIDEqualFold applies the EqualFold predicate on the "bsc_order_id" field.
-func BscOrderIDEqualFold(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldEqualFold(FieldBscOrderID, v))
+// GatewayOrderIDEqualFold applies the EqualFold predicate on the "gateway_order_id" field.
+func GatewayOrderIDEqualFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEqualFold(FieldGatewayOrderID, v))
 }
 
-// BscOrderIDContainsFold applies the ContainsFold predicate on the "bsc_order_id" field.
-func BscOrderIDContainsFold(v string) predicate.RouteAOrder {
-	return predicate.RouteAOrder(sql.FieldContainsFold(FieldBscOrderID, v))
+// GatewayOrderIDContainsFold applies the ContainsFold predicate on the "gateway_order_id" field.
+func GatewayOrderIDContainsFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContainsFold(FieldGatewayOrderID, v))
+}
+
+// GatewayChainIDEQ applies the EQ predicate on the "gateway_chain_id" field.
+func GatewayChainIDEQ(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldGatewayChainID, v))
+}
+
+// GatewayChainIDNEQ applies the NEQ predicate on the "gateway_chain_id" field.
+func GatewayChainIDNEQ(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldGatewayChainID, v))
+}
+
+// GatewayChainIDIn applies the In predicate on the "gateway_chain_id" field.
+func GatewayChainIDIn(vs ...uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldGatewayChainID, vs...))
+}
+
+// GatewayChainIDNotIn applies the NotIn predicate on the "gateway_chain_id" field.
+func GatewayChainIDNotIn(vs ...uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldGatewayChainID, vs...))
+}
+
+// GatewayChainIDGT applies the GT predicate on the "gateway_chain_id" field.
+func GatewayChainIDGT(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldGatewayChainID, v))
+}
+
+// GatewayChainIDGTE applies the GTE predicate on the "gateway_chain_id" field.
+func GatewayChainIDGTE(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldGatewayChainID, v))
+}
+
+// GatewayChainIDLT applies the LT predicate on the "gateway_chain_id" field.
+func GatewayChainIDLT(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldGatewayChainID, v))
+}
+
+// GatewayChainIDLTE applies the LTE predicate on the "gateway_chain_id" field.
+func GatewayChainIDLTE(v uint64) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldGatewayChainID, v))
+}
+
+// GatewayChainIDIsNil applies the IsNil predicate on the "gateway_chain_id" field.
+func GatewayChainIDIsNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIsNull(FieldGatewayChainID))
+}
+
+// GatewayChainIDNotNil applies the NotNil predicate on the "gateway_chain_id" field.
+func GatewayChainIDNotNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotNull(FieldGatewayChainID))
+}
+
+// SenderFeeSubunitEQ applies the EQ predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitEQ(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldSenderFeeSubunit, v))
+}
+
+// SenderFeeSubunitNEQ applies the NEQ predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitNEQ(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldSenderFeeSubunit, v))
+}
+
+// SenderFeeSubunitIn applies the In predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitIn(vs ...decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldSenderFeeSubunit, vs...))
+}
+
+// SenderFeeSubunitNotIn applies the NotIn predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitNotIn(vs ...decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldSenderFeeSubunit, vs...))
+}
+
+// SenderFeeSubunitGT applies the GT predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitGT(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldSenderFeeSubunit, v))
+}
+
+// SenderFeeSubunitGTE applies the GTE predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitGTE(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldSenderFeeSubunit, v))
+}
+
+// SenderFeeSubunitLT applies the LT predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitLT(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldSenderFeeSubunit, v))
+}
+
+// SenderFeeSubunitLTE applies the LTE predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitLTE(v decimal.Decimal) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldSenderFeeSubunit, v))
+}
+
+// SenderFeeSubunitIsNil applies the IsNil predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitIsNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIsNull(FieldSenderFeeSubunit))
+}
+
+// SenderFeeSubunitNotNil applies the NotNil predicate on the "sender_fee_subunit" field.
+func SenderFeeSubunitNotNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotNull(FieldSenderFeeSubunit))
+}
+
+// SettlementStatusEQ applies the EQ predicate on the "settlement_status" field.
+func SettlementStatusEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldSettlementStatus, v))
+}
+
+// SettlementStatusNEQ applies the NEQ predicate on the "settlement_status" field.
+func SettlementStatusNEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldSettlementStatus, v))
+}
+
+// SettlementStatusIn applies the In predicate on the "settlement_status" field.
+func SettlementStatusIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldSettlementStatus, vs...))
+}
+
+// SettlementStatusNotIn applies the NotIn predicate on the "settlement_status" field.
+func SettlementStatusNotIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldSettlementStatus, vs...))
+}
+
+// SettlementStatusGT applies the GT predicate on the "settlement_status" field.
+func SettlementStatusGT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldSettlementStatus, v))
+}
+
+// SettlementStatusGTE applies the GTE predicate on the "settlement_status" field.
+func SettlementStatusGTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldSettlementStatus, v))
+}
+
+// SettlementStatusLT applies the LT predicate on the "settlement_status" field.
+func SettlementStatusLT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldSettlementStatus, v))
+}
+
+// SettlementStatusLTE applies the LTE predicate on the "settlement_status" field.
+func SettlementStatusLTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldSettlementStatus, v))
+}
+
+// SettlementStatusContains applies the Contains predicate on the "settlement_status" field.
+func SettlementStatusContains(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContains(FieldSettlementStatus, v))
+}
+
+// SettlementStatusHasPrefix applies the HasPrefix predicate on the "settlement_status" field.
+func SettlementStatusHasPrefix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasPrefix(FieldSettlementStatus, v))
+}
+
+// SettlementStatusHasSuffix applies the HasSuffix predicate on the "settlement_status" field.
+func SettlementStatusHasSuffix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasSuffix(FieldSettlementStatus, v))
+}
+
+// SettlementStatusIsNil applies the IsNil predicate on the "settlement_status" field.
+func SettlementStatusIsNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIsNull(FieldSettlementStatus))
+}
+
+// SettlementStatusNotNil applies the NotNil predicate on the "settlement_status" field.
+func SettlementStatusNotNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotNull(FieldSettlementStatus))
+}
+
+// SettlementStatusEqualFold applies the EqualFold predicate on the "settlement_status" field.
+func SettlementStatusEqualFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEqualFold(FieldSettlementStatus, v))
+}
+
+// SettlementStatusContainsFold applies the ContainsFold predicate on the "settlement_status" field.
+func SettlementStatusContainsFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContainsFold(FieldSettlementStatus, v))
+}
+
+// SettlementPolledAtEQ applies the EQ predicate on the "settlement_polled_at" field.
+func SettlementPolledAtEQ(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldSettlementPolledAt, v))
+}
+
+// SettlementPolledAtNEQ applies the NEQ predicate on the "settlement_polled_at" field.
+func SettlementPolledAtNEQ(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldSettlementPolledAt, v))
+}
+
+// SettlementPolledAtIn applies the In predicate on the "settlement_polled_at" field.
+func SettlementPolledAtIn(vs ...time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldSettlementPolledAt, vs...))
+}
+
+// SettlementPolledAtNotIn applies the NotIn predicate on the "settlement_polled_at" field.
+func SettlementPolledAtNotIn(vs ...time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldSettlementPolledAt, vs...))
+}
+
+// SettlementPolledAtGT applies the GT predicate on the "settlement_polled_at" field.
+func SettlementPolledAtGT(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldSettlementPolledAt, v))
+}
+
+// SettlementPolledAtGTE applies the GTE predicate on the "settlement_polled_at" field.
+func SettlementPolledAtGTE(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldSettlementPolledAt, v))
+}
+
+// SettlementPolledAtLT applies the LT predicate on the "settlement_polled_at" field.
+func SettlementPolledAtLT(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldSettlementPolledAt, v))
+}
+
+// SettlementPolledAtLTE applies the LTE predicate on the "settlement_polled_at" field.
+func SettlementPolledAtLTE(v time.Time) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldSettlementPolledAt, v))
+}
+
+// SettlementPolledAtIsNil applies the IsNil predicate on the "settlement_polled_at" field.
+func SettlementPolledAtIsNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIsNull(FieldSettlementPolledAt))
+}
+
+// SettlementPolledAtNotNil applies the NotNil predicate on the "settlement_polled_at" field.
+func SettlementPolledAtNotNil() predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotNull(FieldSettlementPolledAt))
 }
 
 // TreasuryPayoutRefEQ applies the EQ predicate on the "treasury_payout_ref" field.

@@ -21,6 +21,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerrating"
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
+	"github.com/usezoracle/rails-sui/ent/refreshtoken"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/schema"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
@@ -391,6 +392,33 @@ func init() {
 	receiveaddressDescTxHash := receiveaddressFields[5].Descriptor()
 	// receiveaddress.TxHashValidator is a validator for the "tx_hash" field. It is called by the builders before save.
 	receiveaddress.TxHashValidator = receiveaddressDescTxHash.Validators[0].(func(string) error)
+	refreshtokenMixin := schema.RefreshToken{}.Mixin()
+	refreshtokenMixinFields0 := refreshtokenMixin[0].Fields()
+	_ = refreshtokenMixinFields0
+	refreshtokenFields := schema.RefreshToken{}.Fields()
+	_ = refreshtokenFields
+	// refreshtokenDescCreatedAt is the schema descriptor for created_at field.
+	refreshtokenDescCreatedAt := refreshtokenMixinFields0[0].Descriptor()
+	// refreshtoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	refreshtoken.DefaultCreatedAt = refreshtokenDescCreatedAt.Default.(func() time.Time)
+	// refreshtokenDescUpdatedAt is the schema descriptor for updated_at field.
+	refreshtokenDescUpdatedAt := refreshtokenMixinFields0[1].Descriptor()
+	// refreshtoken.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	refreshtoken.DefaultUpdatedAt = refreshtokenDescUpdatedAt.Default.(func() time.Time)
+	// refreshtoken.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	refreshtoken.UpdateDefaultUpdatedAt = refreshtokenDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// refreshtokenDescUserAgent is the schema descriptor for user_agent field.
+	refreshtokenDescUserAgent := refreshtokenFields[7].Descriptor()
+	// refreshtoken.UserAgentValidator is a validator for the "user_agent" field. It is called by the builders before save.
+	refreshtoken.UserAgentValidator = refreshtokenDescUserAgent.Validators[0].(func(string) error)
+	// refreshtokenDescIPAddress is the schema descriptor for ip_address field.
+	refreshtokenDescIPAddress := refreshtokenFields[8].Descriptor()
+	// refreshtoken.IPAddressValidator is a validator for the "ip_address" field. It is called by the builders before save.
+	refreshtoken.IPAddressValidator = refreshtokenDescIPAddress.Validators[0].(func(string) error)
+	// refreshtokenDescID is the schema descriptor for id field.
+	refreshtokenDescID := refreshtokenFields[0].Descriptor()
+	// refreshtoken.DefaultID holds the default value on creation for the id field.
+	refreshtoken.DefaultID = refreshtokenDescID.Default.(func() uuid.UUID)
 	routeaorderMixin := schema.RouteAOrder{}.Mixin()
 	routeaorderMixinFields0 := routeaorderMixin[0].Fields()
 	_ = routeaorderMixinFields0
@@ -618,8 +646,6 @@ func init() {
 	// user.DefaultID holds the default value on creation for the id field.
 	user.DefaultID = userDescID.Default.(func() uuid.UUID)
 	verificationtokenMixin := schema.VerificationToken{}.Mixin()
-	verificationtokenHooks := schema.VerificationToken{}.Hooks()
-	verificationtoken.Hooks[0] = verificationtokenHooks[0]
 	verificationtokenMixinFields0 := verificationtokenMixin[0].Fields()
 	_ = verificationtokenMixinFields0
 	verificationtokenFields := schema.VerificationToken{}.Fields()

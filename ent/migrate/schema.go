@@ -291,7 +291,7 @@ var (
 		{Name: "fee_address", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "gateway_id", Type: field.TypeString, Nullable: true, Size: 70},
 		{Name: "reference", Type: field.TypeString, Nullable: true, Size: 70},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"initiated", "pending", "expired", "settled", "refunded"}, Default: "initiated"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"initiated", "pending", "expired", "cancelled", "settled", "refunded"}, Default: "initiated"},
 		{Name: "api_key_payment_orders", Type: field.TypeUUID, Nullable: true},
 		{Name: "sender_profile_payment_orders", Type: field.TypeUUID, Nullable: true},
 		{Name: "token_payment_orders", Type: field.TypeInt},
@@ -487,6 +487,47 @@ var (
 			},
 		},
 	}
+	// RefreshTokensColumns holds the columns for the "refresh_tokens" table.
+	RefreshTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "token_hash", Type: field.TypeString, Unique: true},
+		{Name: "family_id", Type: field.TypeUUID},
+		{Name: "parent_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "replaced_by_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "user_agent", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "ip_address", Type: field.TypeString, Nullable: true, Size: 45},
+		{Name: "user_refresh_tokens", Type: field.TypeUUID},
+	}
+	// RefreshTokensTable holds the schema information for the "refresh_tokens" table.
+	RefreshTokensTable = &schema.Table{
+		Name:       "refresh_tokens",
+		Columns:    RefreshTokensColumns,
+		PrimaryKey: []*schema.Column{RefreshTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "refresh_tokens_users_refresh_tokens",
+				Columns:    []*schema.Column{RefreshTokensColumns[11]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "refreshtoken_family_id",
+				Unique:  false,
+				Columns: []*schema.Column{RefreshTokensColumns[4]},
+			},
+			{
+				Name:    "refreshtoken_revoked_at",
+				Unique:  false,
+				Columns: []*schema.Column{RefreshTokensColumns[8]},
+			},
+		},
+	}
 	// RouteAordersColumns holds the columns for the "route_aorders" table.
 	RouteAordersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -496,9 +537,13 @@ var (
 		{Name: "lifi_quote_id", Type: field.TypeString, Nullable: true},
 		{Name: "lifi_tool", Type: field.TypeString, Nullable: true},
 		{Name: "bridge_tx_sui", Type: field.TypeString, Nullable: true},
-		{Name: "bridge_tx_bsc", Type: field.TypeString, Nullable: true},
-		{Name: "bridge_status", Type: field.TypeEnum, Enums: []string{"pending", "bridging", "bridged", "dispatching", "settled", "failed"}, Default: "pending"},
-		{Name: "bsc_order_id", Type: field.TypeString, Nullable: true},
+		{Name: "bridge_tx_dest", Type: field.TypeString, Nullable: true},
+		{Name: "bridge_status", Type: field.TypeEnum, Enums: []string{"pending", "bridging", "bridged", "dispatching", "settled", "failed", "refunded"}, Default: "pending"},
+		{Name: "gateway_order_id", Type: field.TypeString, Nullable: true},
+		{Name: "gateway_chain_id", Type: field.TypeUint64, Nullable: true},
+		{Name: "sender_fee_subunit", Type: field.TypeFloat64, Nullable: true},
+		{Name: "settlement_status", Type: field.TypeString, Nullable: true},
+		{Name: "settlement_polled_at", Type: field.TypeTime, Nullable: true},
 		{Name: "treasury_payout_ref", Type: field.TypeString, Nullable: true},
 		{Name: "bridged_amount", Type: field.TypeFloat64, Nullable: true},
 		{Name: "failure_reason", Type: field.TypeString, Nullable: true},
@@ -512,7 +557,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "route_aorders_payment_orders_route_a_order",
-				Columns:    []*schema.Column{RouteAordersColumns[13]},
+				Columns:    []*schema.Column{RouteAordersColumns[17]},
 				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -830,6 +875,7 @@ var (
 		ProviderRatingsTable,
 		ProvisionBucketsTable,
 		ReceiveAddressesTable,
+		RefreshTokensTable,
 		RouteAordersTable,
 		SenderOrderTokensTable,
 		SenderProfilesTable,
@@ -865,6 +911,7 @@ func init() {
 	ProviderRatingsTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	ProvisionBucketsTable.ForeignKeys[0].RefTable = FiatCurrenciesTable
 	ReceiveAddressesTable.ForeignKeys[0].RefTable = PaymentOrdersTable
+	RefreshTokensTable.ForeignKeys[0].RefTable = UsersTable
 	RouteAordersTable.ForeignKeys[0].RefTable = PaymentOrdersTable
 	SenderOrderTokensTable.ForeignKeys[0].RefTable = SenderProfilesTable
 	SenderOrderTokensTable.ForeignKeys[1].RefTable = TokensTable

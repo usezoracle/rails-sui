@@ -23,3 +23,7 @@ func (m *MockOrderService) RefundOrder(ctx context.Context, orderID string) erro
 func (m *MockOrderService) SettleOrder(ctx context.Context, orderID uuid.UUID) error {
 	return nil
 }
+
+func (m *MockOrderService) SponsorTransaction(ctx context.Context, txBytes string, sender string) (string, string, error) {
+	return "", "", nil
+}

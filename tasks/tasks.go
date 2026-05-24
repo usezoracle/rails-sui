@@ -18,14 +18,12 @@ import (
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
-	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/providerordertoken"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/webhookretryattempt"
 	"github.com/usezoracle/rails-sui/services"
-	orderService "github.com/usezoracle/rails-sui/services/order"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils"
@@ -455,41 +453,6 @@ func ReassignStaleOrderRequest(ctx context.Context, orderRequestChan <-chan *red
 	}
 }
 
-func FixDatabaseMisHap() error {
-	ctx := context.Background()
-
-	// parse string to uuid
-	orderUUID, err := uuid.Parse("14baa582-84d9-40bf-96b8-94601d6ffe2b")
-	if err != nil {
-		logger.Errorf("FixDatabaseMisHap: %v", err)
-		return nil
-	}
-
-	order, err := storage.Client.PaymentOrder.
-		Query().
-		Where(
-			paymentorder.IDEQ(orderUUID),
-			paymentorder.StatusEQ(paymentorder.StatusInitiated),
-		).
-		WithToken(func(tq *ent.TokenQuery) {
-			tq.WithNetwork()
-		}).
-		WithRecipient().
-		Only(ctx)
-	if err != nil {
-		logger.Errorf("FixDatabaseMisHap: %v", err)
-	}
-
-	service := orderService.NewOrderSui()
-	err = service.CreateOrder(ctx, order.ID)
-	if err != nil {
-		logger.Errorf("FixDatabaseMisHap: %v", err)
-	}
-
-	return nil
-}
-
-
 // SubscribeToRedisKeyspaceEvents subscribes to redis keyspace events according to redis.conf settings
 func SubscribeToRedisKeyspaceEvents() {
 	ctx := context.Background()
@@ -829,12 +792,23 @@ func StartCronJobs() {
 	}
 
 	// Route A dispatcher — every minute, advances RouteAOrder rows through
-	// pending → bridging → bridged → dispatching → settled via LiFi. See
-	// docs/route-a-spec.md.
+	// pending → bridging → bridged → dispatching → settled via LiFi +
+	// settlement Gateway. See docs/route-a-settlement.md.
 	routeAD := services.NewRouteADispatcher()
 	if _, err := scheduler.Cron("*/1 * * * *").Do(func() {
 		if err := routeAD.Tick(context.Background()); err != nil {
 			logger.Errorf("StartCronJobs: route-a dispatcher: %v", err)
+		}
+	}); err != nil {
+		logger.Errorf("StartCronJobs: %v", err)
+	}
+
+	// Base aggregator wallet low-balance alert — every 5 minutes. Logs
+	// Errorf when ETH balance drops below BASE_NATIVE_LOW_THRESHOLD_WEI
+	// so ops can top up before createOrder txs start running out of gas.
+	if _, err := scheduler.Cron("*/5 * * * *").Do(func() {
+		if err := routeAD.CheckNativeBalance(context.Background()); err != nil {
+			logger.Errorf("StartCronJobs: route-a native balance check: %v", err)
 		}
 	}); err != nil {
 		logger.Errorf("StartCronJobs: %v", err)

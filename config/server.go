@@ -20,7 +20,7 @@ type ServerConfiguration struct {
 	PWABaseURL         string
 	AdminAPIToken      string
 	GoogleOAuthClientID string
-	PaycrestAPIURL      string
+	SettlementAPIURL      string
 }
 
 // ServerConfig sets the server configuration
@@ -36,7 +36,7 @@ func ServerConfig() *ServerConfiguration {
 	viper.SetDefault("PWA_BASE_URL", "https://tapp.zoracle.com")
 	viper.SetDefault("ADMIN_API_TOKEN", "")
 	viper.SetDefault("GOOGLE_OAUTH_CLIENT_ID", "")
-	viper.SetDefault("PAYCREST_API_URL", "https://api.paycrest.io")
+	viper.SetDefault("SETTLEMENT_API_URL", "https://api.paycrest.io")
 
 	return &ServerConfiguration{
 		Debug:               viper.GetBool("DEBUG"),
@@ -51,7 +51,7 @@ func ServerConfig() *ServerConfiguration {
 		PWABaseURL:          viper.GetString("PWA_BASE_URL"),
 		AdminAPIToken:       viper.GetString("ADMIN_API_TOKEN"),
 		GoogleOAuthClientID: viper.GetString("GOOGLE_OAUTH_CLIENT_ID"),
-		PaycrestAPIURL:      viper.GetString("PAYCREST_API_URL"),
+		SettlementAPIURL:      viper.GetString("SETTLEMENT_API_URL"),
 	}
 }
 
