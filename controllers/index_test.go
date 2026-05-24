@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/usezoracle/rails-sui/config"
@@ -58,6 +59,7 @@ func TestIndex(t *testing.T) {
 	router.POST("kyc", ctrl.RequestIDVerification)
 	router.GET("kyc/:wallet_address", ctrl.GetIDVerificationStatus)
 	router.POST("kyc/webhook", ctrl.KYCWebhook)
+	router.GET("orders/:id", ctrl.GetLockPaymentOrderStatus)
 
 	t.Run("GetInstitutions By Currency", func(t *testing.T) {
 
@@ -259,6 +261,80 @@ func TestIndex(t *testing.T) {
 		assert.Equal(t, "success", response.Status)
 		data, ok := response.Data.(map[string]interface{})
 		assert.True(t, ok, "response.Data is not of type map[string]interface{}")
+		assert.Equal(t, "pending", data["status"])
+	})
+
+	t.Run("GetLockPaymentOrderStatus Fallback to PaymentOrder", func(t *testing.T) {
+		// Seed a PaymentOrder with recipient and token
+		net, err := client.Network.Create().
+			SetIdentifier("sui-testnet").
+			SetChainID(9999).
+			SetRPCEndpoint("https://fullnode.testnet.sui.io").
+			SetFee(decimal.NewFromFloat(0.1)).
+			SetIsTestnet(true).
+			Save(context.Background())
+		assert.NoError(t, err)
+
+		tok, err := client.Token.Create().
+			SetSymbol("USDC").
+			SetContractAddress("0x2::usdc::USDC").
+			SetDecimals(6).
+			SetNetwork(net).
+			SetIsEnabled(true).
+			Save(context.Background())
+		assert.NoError(t, err)
+
+		poID := uuid.New()
+		po, err := client.PaymentOrder.Create().
+			SetID(poID).
+			SetReference(poID.String()).
+			SetAmount(decimal.NewFromFloat(10.50)).
+			SetAmountPaid(decimal.NewFromFloat(0)).
+			SetAmountReturned(decimal.NewFromFloat(0)).
+			SetPercentSettled(decimal.NewFromFloat(0)).
+			SetNetworkFee(decimal.NewFromFloat(0.01)).
+			SetProtocolFee(decimal.NewFromFloat(0)).
+			SetSenderFee(decimal.NewFromFloat(0)).
+			SetToken(tok).
+			SetRate(decimal.NewFromFloat(1500)).
+			SetReceiveAddressText("0xreceiveaddr").
+			SetFeePercent(decimal.NewFromFloat(0)).
+			Save(context.Background())
+		assert.NoError(t, err)
+
+		_, err = client.PaymentOrderRecipient.Create().
+			SetInstitution("044").
+			SetAccountIdentifier("0123456789").
+			SetAccountName("Ada Cafe").
+			SetMemo("Order Memo").
+			SetPaymentOrder(po).
+			Save(context.Background())
+		assert.NoError(t, err)
+
+		// Call GET /orders/:id
+		res, err := test.PerformRequest(t, "GET", fmt.Sprintf("/orders/%s", poID.String()), nil, nil, router)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, res.Code)
+
+		var response struct {
+			Status  string `json:"status"`
+			Message string `json:"message"`
+			Data    map[string]interface{} `json:"data"`
+		}
+		err = json.Unmarshal(res.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, "success", response.Status)
+
+		// Assert combined fields
+		data := response.Data
+		assert.Equal(t, poID.String(), data["id"])
+		assert.Equal(t, poID.String(), data["orderId"])
+		assert.Equal(t, "Ada Cafe", data["merchant_name"])
+		assert.Equal(t, float64(10500000), data["amount_subunit"])
+		assert.Equal(t, float64(1500), data["ngn_rate"])
+		assert.Equal(t, poID.String(), data["reference"])
+		assert.Equal(t, "USDC", data["token"])
+		assert.Equal(t, "sui-testnet", data["network"])
 		assert.Equal(t, "pending", data["status"])
 	})
 }

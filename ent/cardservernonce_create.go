@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
@@ -21,6 +23,7 @@ type CardServerNonceCreate struct {
 	config
 	mutation *CardServerNonceMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -286,6 +289,7 @@ func (csnc *CardServerNonceCreate) createSpec() (*CardServerNonce, *sqlgraph.Cre
 		_node = &CardServerNonce{config: csnc.config}
 		_spec = sqlgraph.NewCreateSpec(cardservernonce.Table, sqlgraph.NewFieldSpec(cardservernonce.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = csnc.conflict
 	if id, ok := csnc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -363,11 +367,384 @@ func (csnc *CardServerNonceCreate) createSpec() (*CardServerNonce, *sqlgraph.Cre
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.CardServerNonce.Create().
+//		SetCreatedAt(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.CardServerNonceUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (csnc *CardServerNonceCreate) OnConflict(opts ...sql.ConflictOption) *CardServerNonceUpsertOne {
+	csnc.conflict = opts
+	return &CardServerNonceUpsertOne{
+		create: csnc,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.CardServerNonce.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (csnc *CardServerNonceCreate) OnConflictColumns(columns ...string) *CardServerNonceUpsertOne {
+	csnc.conflict = append(csnc.conflict, sql.ConflictColumns(columns...))
+	return &CardServerNonceUpsertOne{
+		create: csnc,
+	}
+}
+
+type (
+	// CardServerNonceUpsertOne is the builder for "upsert"-ing
+	//  one CardServerNonce node.
+	CardServerNonceUpsertOne struct {
+		create *CardServerNonceCreate
+	}
+
+	// CardServerNonceUpsert is the "OnConflict" setter.
+	CardServerNonceUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *CardServerNonceUpsert) SetUpdatedAt(v time.Time) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateUpdatedAt() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldUpdatedAt)
+	return u
+}
+
+// SetNonce sets the "nonce" field.
+func (u *CardServerNonceUpsert) SetNonce(v []byte) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldNonce, v)
+	return u
+}
+
+// UpdateNonce sets the "nonce" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateNonce() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldNonce)
+	return u
+}
+
+// SetTier sets the "tier" field.
+func (u *CardServerNonceUpsert) SetTier(v cardservernonce.Tier) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldTier, v)
+	return u
+}
+
+// UpdateTier sets the "tier" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateTier() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldTier)
+	return u
+}
+
+// SetAmount sets the "amount" field.
+func (u *CardServerNonceUpsert) SetAmount(v string) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldAmount, v)
+	return u
+}
+
+// UpdateAmount sets the "amount" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateAmount() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldAmount)
+	return u
+}
+
+// SetCurrency sets the "currency" field.
+func (u *CardServerNonceUpsert) SetCurrency(v string) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldCurrency, v)
+	return u
+}
+
+// UpdateCurrency sets the "currency" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateCurrency() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldCurrency)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *CardServerNonceUpsert) SetExpiresAt(v time.Time) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateExpiresAt() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldExpiresAt)
+	return u
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (u *CardServerNonceUpsert) SetConsumedAt(v time.Time) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldConsumedAt, v)
+	return u
+}
+
+// UpdateConsumedAt sets the "consumed_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateConsumedAt() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldConsumedAt)
+	return u
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (u *CardServerNonceUpsert) ClearConsumedAt() *CardServerNonceUpsert {
+	u.SetNull(cardservernonce.FieldConsumedAt)
+	return u
+}
+
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (u *CardServerNonceUpsert) SetStepUpGrantedAt(v time.Time) *CardServerNonceUpsert {
+	u.Set(cardservernonce.FieldStepUpGrantedAt, v)
+	return u
+}
+
+// UpdateStepUpGrantedAt sets the "step_up_granted_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsert) UpdateStepUpGrantedAt() *CardServerNonceUpsert {
+	u.SetExcluded(cardservernonce.FieldStepUpGrantedAt)
+	return u
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (u *CardServerNonceUpsert) ClearStepUpGrantedAt() *CardServerNonceUpsert {
+	u.SetNull(cardservernonce.FieldStepUpGrantedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.CardServerNonce.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(cardservernonce.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *CardServerNonceUpsertOne) UpdateNewValues() *CardServerNonceUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(cardservernonce.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(cardservernonce.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.CardServerNonce.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *CardServerNonceUpsertOne) Ignore() *CardServerNonceUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *CardServerNonceUpsertOne) DoNothing() *CardServerNonceUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the CardServerNonceCreate.OnConflict
+// documentation for more info.
+func (u *CardServerNonceUpsertOne) Update(set func(*CardServerNonceUpsert)) *CardServerNonceUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&CardServerNonceUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *CardServerNonceUpsertOne) SetUpdatedAt(v time.Time) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateUpdatedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetNonce sets the "nonce" field.
+func (u *CardServerNonceUpsertOne) SetNonce(v []byte) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetNonce(v)
+	})
+}
+
+// UpdateNonce sets the "nonce" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateNonce() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateNonce()
+	})
+}
+
+// SetTier sets the "tier" field.
+func (u *CardServerNonceUpsertOne) SetTier(v cardservernonce.Tier) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetTier(v)
+	})
+}
+
+// UpdateTier sets the "tier" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateTier() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateTier()
+	})
+}
+
+// SetAmount sets the "amount" field.
+func (u *CardServerNonceUpsertOne) SetAmount(v string) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetAmount(v)
+	})
+}
+
+// UpdateAmount sets the "amount" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateAmount() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateAmount()
+	})
+}
+
+// SetCurrency sets the "currency" field.
+func (u *CardServerNonceUpsertOne) SetCurrency(v string) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetCurrency(v)
+	})
+}
+
+// UpdateCurrency sets the "currency" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateCurrency() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateCurrency()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *CardServerNonceUpsertOne) SetExpiresAt(v time.Time) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateExpiresAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (u *CardServerNonceUpsertOne) SetConsumedAt(v time.Time) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetConsumedAt(v)
+	})
+}
+
+// UpdateConsumedAt sets the "consumed_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateConsumedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateConsumedAt()
+	})
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (u *CardServerNonceUpsertOne) ClearConsumedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.ClearConsumedAt()
+	})
+}
+
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertOne) SetStepUpGrantedAt(v time.Time) *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetStepUpGrantedAt(v)
+	})
+}
+
+// UpdateStepUpGrantedAt sets the "step_up_granted_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertOne) UpdateStepUpGrantedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateStepUpGrantedAt()
+	})
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertOne) ClearStepUpGrantedAt() *CardServerNonceUpsertOne {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.ClearStepUpGrantedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *CardServerNonceUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for CardServerNonceCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *CardServerNonceUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *CardServerNonceUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: CardServerNonceUpsertOne.ID is not supported by MySQL driver. Use CardServerNonceUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *CardServerNonceUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // CardServerNonceCreateBulk is the builder for creating many CardServerNonce entities in bulk.
 type CardServerNonceCreateBulk struct {
 	config
 	err      error
 	builders []*CardServerNonceCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the CardServerNonce entities in the database.
@@ -397,6 +774,7 @@ func (csncb *CardServerNonceCreateBulk) Save(ctx context.Context) ([]*CardServer
 					_, err = mutators[i+1].Mutate(root, csncb.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = csncb.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, csncb.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -443,6 +821,249 @@ func (csncb *CardServerNonceCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (csncb *CardServerNonceCreateBulk) ExecX(ctx context.Context) {
 	if err := csncb.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.CardServerNonce.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.CardServerNonceUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (csncb *CardServerNonceCreateBulk) OnConflict(opts ...sql.ConflictOption) *CardServerNonceUpsertBulk {
+	csncb.conflict = opts
+	return &CardServerNonceUpsertBulk{
+		create: csncb,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.CardServerNonce.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (csncb *CardServerNonceCreateBulk) OnConflictColumns(columns ...string) *CardServerNonceUpsertBulk {
+	csncb.conflict = append(csncb.conflict, sql.ConflictColumns(columns...))
+	return &CardServerNonceUpsertBulk{
+		create: csncb,
+	}
+}
+
+// CardServerNonceUpsertBulk is the builder for "upsert"-ing
+// a bulk of CardServerNonce nodes.
+type CardServerNonceUpsertBulk struct {
+	create *CardServerNonceCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.CardServerNonce.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(cardservernonce.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *CardServerNonceUpsertBulk) UpdateNewValues() *CardServerNonceUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(cardservernonce.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(cardservernonce.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.CardServerNonce.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *CardServerNonceUpsertBulk) Ignore() *CardServerNonceUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *CardServerNonceUpsertBulk) DoNothing() *CardServerNonceUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the CardServerNonceCreateBulk.OnConflict
+// documentation for more info.
+func (u *CardServerNonceUpsertBulk) Update(set func(*CardServerNonceUpsert)) *CardServerNonceUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&CardServerNonceUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *CardServerNonceUpsertBulk) SetUpdatedAt(v time.Time) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateUpdatedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetNonce sets the "nonce" field.
+func (u *CardServerNonceUpsertBulk) SetNonce(v []byte) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetNonce(v)
+	})
+}
+
+// UpdateNonce sets the "nonce" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateNonce() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateNonce()
+	})
+}
+
+// SetTier sets the "tier" field.
+func (u *CardServerNonceUpsertBulk) SetTier(v cardservernonce.Tier) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetTier(v)
+	})
+}
+
+// UpdateTier sets the "tier" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateTier() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateTier()
+	})
+}
+
+// SetAmount sets the "amount" field.
+func (u *CardServerNonceUpsertBulk) SetAmount(v string) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetAmount(v)
+	})
+}
+
+// UpdateAmount sets the "amount" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateAmount() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateAmount()
+	})
+}
+
+// SetCurrency sets the "currency" field.
+func (u *CardServerNonceUpsertBulk) SetCurrency(v string) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetCurrency(v)
+	})
+}
+
+// UpdateCurrency sets the "currency" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateCurrency() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateCurrency()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *CardServerNonceUpsertBulk) SetExpiresAt(v time.Time) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateExpiresAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (u *CardServerNonceUpsertBulk) SetConsumedAt(v time.Time) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetConsumedAt(v)
+	})
+}
+
+// UpdateConsumedAt sets the "consumed_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateConsumedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateConsumedAt()
+	})
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (u *CardServerNonceUpsertBulk) ClearConsumedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.ClearConsumedAt()
+	})
+}
+
+// SetStepUpGrantedAt sets the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertBulk) SetStepUpGrantedAt(v time.Time) *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.SetStepUpGrantedAt(v)
+	})
+}
+
+// UpdateStepUpGrantedAt sets the "step_up_granted_at" field to the value that was provided on create.
+func (u *CardServerNonceUpsertBulk) UpdateStepUpGrantedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.UpdateStepUpGrantedAt()
+	})
+}
+
+// ClearStepUpGrantedAt clears the value of the "step_up_granted_at" field.
+func (u *CardServerNonceUpsertBulk) ClearStepUpGrantedAt() *CardServerNonceUpsertBulk {
+	return u.Update(func(s *CardServerNonceUpsert) {
+		s.ClearStepUpGrantedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *CardServerNonceUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the CardServerNonceCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for CardServerNonceCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *CardServerNonceUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

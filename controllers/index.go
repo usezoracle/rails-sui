@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	fastshot "github.com/opus-domini/fast-shot"
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
@@ -20,6 +21,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/token"
 	svc "github.com/usezoracle/rails-sui/services"
@@ -394,7 +396,32 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 	// Get order ID from the URL
 	orderID := ctx.Param("id")
 
-	// Fetch related payment orders from the database
+	// Define the combined response type that satisfies both types.LockPaymentOrderStatusResponse
+	// and the PWA's OrderDetails requirements.
+	type CombinedOrderResponse struct {
+		OrderID       string                             `json:"orderId"`
+		Amount        decimal.Decimal                    `json:"amount"`
+		Token         string                             `json:"token"`
+		Network       string                             `json:"network"`
+		SettlePercent decimal.Decimal                    `json:"settlePercent"`
+		Status        lockpaymentorder.Status            `json:"status"`
+		TxHash        string                             `json:"txHash"`
+		Settlements   []types.LockPaymentOrderSplitOrder `json:"settlements"`
+		TxReceipts    []types.LockPaymentOrderTxReceipt  `json:"txReceipts"`
+		UpdatedAt     time.Time                          `json:"updatedAt"`
+
+		// PWA OrderDetails fields
+		ID              string  `json:"id"`
+		MerchantName    string  `json:"merchant_name"`
+		MerchantLogoURL string  `json:"merchant_logo_url,omitempty"`
+		AmountSubunit   int64   `json:"amount_subunit"`
+		NgnRate         float64 `json:"ngn_rate"`
+		Reference       string  `json:"reference"`
+		ExpiresAt       int64   `json:"expires_at"`
+		StepUpRequired  bool    `json:"step_up_required"`
+	}
+
+	// First, try to fetch related lock payment orders from the database
 	orders, err := storage.Client.LockPaymentOrder.
 		Query().
 		Where(
@@ -411,65 +438,215 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 		return
 	}
 
-	var settlements []types.LockPaymentOrderSplitOrder
-	var receipts []types.LockPaymentOrderTxReceipt
-	var settlePercent decimal.Decimal
-	var totalAmount decimal.Decimal
+	// If LockPaymentOrder records exist, build the response from them (and fetch PaymentOrder for PWA details if possible)
+	if len(orders) > 0 {
+		var settlements []types.LockPaymentOrderSplitOrder
+		var receipts []types.LockPaymentOrderTxReceipt
+		var settlePercent decimal.Decimal
+		var totalAmount decimal.Decimal
 
-	for _, order := range orders {
-		for _, transaction := range order.Edges.Transactions {
-			if u.ContainsString([]string{"order_settled", "order_created", "order_refunded"}, transaction.Status.String()) {
-				var status lockpaymentorder.Status
-				if transaction.Status.String() == "order_created" {
-					status = lockpaymentorder.StatusPending
-				} else {
-					status = lockpaymentorder.Status(strings.TrimPrefix(transaction.Status.String(), "order_"))
+		for _, order := range orders {
+			for _, transaction := range order.Edges.Transactions {
+				if u.ContainsString([]string{"order_settled", "order_created", "order_refunded"}, transaction.Status.String()) {
+					var status lockpaymentorder.Status
+					if transaction.Status.String() == "order_created" {
+						status = lockpaymentorder.StatusPending
+					} else {
+						status = lockpaymentorder.Status(strings.TrimPrefix(transaction.Status.String(), "order_"))
+					}
+					receipts = append(receipts, types.LockPaymentOrderTxReceipt{
+						Status:    status,
+						TxHash:    transaction.TxHash,
+						Timestamp: transaction.CreatedAt,
+					})
 				}
-				receipts = append(receipts, types.LockPaymentOrderTxReceipt{
-					Status:    status,
-					TxHash:    transaction.TxHash,
-					Timestamp: transaction.CreatedAt,
-				})
 			}
+
+			settlements = append(settlements, types.LockPaymentOrderSplitOrder{
+				SplitOrderID: order.ID,
+				Amount:       order.Amount,
+				Rate:         order.Rate,
+				OrderPercent: order.OrderPercent,
+			})
+
+			settlePercent = settlePercent.Add(order.OrderPercent)
+			totalAmount = totalAmount.Add(order.Amount)
 		}
 
-		settlements = append(settlements, types.LockPaymentOrderSplitOrder{
-			SplitOrderID: order.ID,
-			Amount:       order.Amount,
-			Rate:         order.Rate,
-			OrderPercent: order.OrderPercent,
+		// Sort receipts by latest timestamp
+		slices.SortStableFunc(receipts, func(a, b types.LockPaymentOrderTxReceipt) int {
+			return b.Timestamp.Compare(a.Timestamp)
 		})
 
-		settlePercent = settlePercent.Add(order.OrderPercent)
-		totalAmount = totalAmount.Add(order.Amount)
+		status := orders[0].Status
+		if status == lockpaymentorder.StatusCancelled {
+			status = lockpaymentorder.StatusProcessing
+		}
+
+		var merchantName string
+		var reference string
+		var expiresAt int64
+		var ngnRate float64
+
+		poID, err := uuid.Parse(orders[0].GatewayID)
+		if err == nil {
+			po, err := storage.Client.PaymentOrder.
+				Query().
+				Where(paymentorder.IDEQ(poID)).
+				WithRecipient().
+				WithSuiReceiveAddress().
+				Only(ctx)
+			if err == nil {
+				if po.Edges.Recipient != nil {
+					merchantName = po.Edges.Recipient.AccountName
+				}
+				reference = po.Reference
+				if po.Edges.SuiReceiveAddress != nil {
+					expiresAt = po.Edges.SuiReceiveAddress.ValidUntil.UnixMilli()
+				} else {
+					expiresAt = po.CreatedAt.Add(1 * time.Hour).UnixMilli()
+				}
+				ngnRate, _ = po.Rate.Float64()
+			}
+		}
+		if merchantName == "" {
+			merchantName = orders[0].AccountName
+		}
+		if reference == "" {
+			reference = orders[0].Memo
+		}
+		if expiresAt == 0 {
+			expiresAt = orders[0].CreatedAt.Add(1 * time.Hour).UnixMilli()
+		}
+		if ngnRate == 0 {
+			ngnRate, _ = orders[0].Rate.Float64()
+		}
+
+		txHash := ""
+		if len(receipts) > 0 {
+			txHash = receipts[0].TxHash
+		}
+
+		response := &CombinedOrderResponse{
+			OrderID:       orders[0].GatewayID,
+			Amount:        totalAmount,
+			Token:         orders[0].Edges.Token.Symbol,
+			Network:       orders[0].Edges.Token.Edges.Network.Identifier,
+			SettlePercent: settlePercent,
+			Status:        status,
+			TxHash:        txHash,
+			Settlements:   settlements,
+			TxReceipts:    receipts,
+			UpdatedAt:     orders[0].UpdatedAt,
+
+			ID:             orders[0].GatewayID,
+			MerchantName:   merchantName,
+			AmountSubunit:  u.ToSubunit(totalAmount, orders[0].Edges.Token.Decimals).Int64(),
+			NgnRate:        ngnRate,
+			Reference:      reference,
+			ExpiresAt:      expiresAt,
+			StepUpRequired: false,
+		}
+
+		u.APIResponse(ctx, http.StatusOK, "success", "Order status fetched successfully", response)
+		return
 	}
 
-	// Sort receipts by latest timestamp
-	slices.SortStableFunc(receipts, func(a, b types.LockPaymentOrderTxReceipt) int {
-		return b.Timestamp.Compare(a.Timestamp)
-	})
-
-	if (len(orders) == 0) || (len(receipts) == 0) {
+	// Fallback: If no LockPaymentOrder exists, check if a PaymentOrder exists with the matching UUID
+	poID, err := uuid.Parse(orderID)
+	if err != nil {
+		// Not a UUID, return 404
 		u.APIResponse(ctx, http.StatusNotFound, "error", "Order not found", nil)
 		return
 	}
 
-	status := orders[0].Status
-	if status == lockpaymentorder.StatusCancelled {
-		status = lockpaymentorder.StatusProcessing
+	// Retrieve from payment_orders
+	po, err := storage.Client.PaymentOrder.
+		Query().
+		Where(paymentorder.IDEQ(poID)).
+		WithToken(func(tq *ent.TokenQuery) {
+			tq.WithNetwork()
+		}).
+		WithRecipient().
+		WithSuiReceiveAddress().
+		WithTransactions().
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "Order not found", nil)
+		} else {
+			logger.Errorf("error: %v", err)
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to fetch order details", nil)
+		}
+		return
 	}
 
-	response := &types.LockPaymentOrderStatusResponse{
-		OrderID:       orders[0].GatewayID,
-		Amount:        totalAmount,
-		Token:         orders[0].Edges.Token.Symbol,
-		Network:       orders[0].Edges.Token.Edges.Network.Identifier,
-		SettlePercent: settlePercent,
+	// Map PaymentOrder status to lockpaymentorder.Status
+	status := lockpaymentorder.StatusPending
+	switch po.Status {
+	case paymentorder.StatusInitiated, paymentorder.StatusPending:
+		status = lockpaymentorder.StatusPending
+	case paymentorder.StatusExpired, paymentorder.StatusCancelled:
+		status = lockpaymentorder.StatusCancelled
+	case paymentorder.StatusSettled:
+		status = lockpaymentorder.StatusSettled
+	case paymentorder.StatusRefunded:
+		status = lockpaymentorder.StatusRefunded
+	}
+
+	merchantName := ""
+	if po.Edges.Recipient != nil {
+		merchantName = po.Edges.Recipient.AccountName
+	}
+
+	expiresAt := po.CreatedAt.Add(1 * time.Hour).UnixMilli()
+	if po.Edges.SuiReceiveAddress != nil {
+		expiresAt = po.Edges.SuiReceiveAddress.ValidUntil.UnixMilli()
+	}
+
+	ngnRate, _ := po.Rate.Float64()
+
+	var receipts []types.LockPaymentOrderTxReceipt
+	for _, transaction := range po.Edges.Transactions {
+		if u.ContainsString([]string{"order_settled", "order_created", "order_refunded"}, transaction.Status.String()) {
+			var txStatus lockpaymentorder.Status
+			if transaction.Status.String() == "order_created" {
+				txStatus = lockpaymentorder.StatusPending
+			} else {
+				txStatus = lockpaymentorder.Status(strings.TrimPrefix(transaction.Status.String(), "order_"))
+			}
+			receipts = append(receipts, types.LockPaymentOrderTxReceipt{
+				Status:    txStatus,
+				TxHash:    transaction.TxHash,
+				Timestamp: transaction.CreatedAt,
+			})
+		}
+	}
+
+	txHash := ""
+	if len(receipts) > 0 {
+		txHash = receipts[0].TxHash
+	}
+
+	response := &CombinedOrderResponse{
+		OrderID:       po.ID.String(),
+		Amount:        po.Amount,
+		Token:         po.Edges.Token.Symbol,
+		Network:       po.Edges.Token.Edges.Network.Identifier,
+		SettlePercent: po.PercentSettled,
 		Status:        status,
-		TxHash:        receipts[0].TxHash,
-		Settlements:   settlements,
+		TxHash:        txHash,
+		Settlements:   []types.LockPaymentOrderSplitOrder{},
 		TxReceipts:    receipts,
-		UpdatedAt:     orders[0].UpdatedAt,
+		UpdatedAt:     po.UpdatedAt,
+
+		ID:             po.ID.String(),
+		MerchantName:   merchantName,
+		AmountSubunit:  u.ToSubunit(po.Amount, po.Edges.Token.Decimals).Int64(),
+		NgnRate:        ngnRate,
+		Reference:      po.Reference,
+		ExpiresAt:      expiresAt,
+		StepUpRequired: false,
 	}
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Order status fetched successfully", response)

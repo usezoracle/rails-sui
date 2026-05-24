@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
@@ -20,6 +22,7 @@ type RefreshTokenCreate struct {
 	config
 	mutation *RefreshTokenMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -273,6 +276,7 @@ func (rtc *RefreshTokenCreate) createSpec() (*RefreshToken, *sqlgraph.CreateSpec
 		_node = &RefreshToken{config: rtc.config}
 		_spec = sqlgraph.NewCreateSpec(refreshtoken.Table, sqlgraph.NewFieldSpec(refreshtoken.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = rtc.conflict
 	if id, ok := rtc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -337,11 +341,344 @@ func (rtc *RefreshTokenCreate) createSpec() (*RefreshToken, *sqlgraph.CreateSpec
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.RefreshToken.Create().
+//		SetCreatedAt(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.RefreshTokenUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (rtc *RefreshTokenCreate) OnConflict(opts ...sql.ConflictOption) *RefreshTokenUpsertOne {
+	rtc.conflict = opts
+	return &RefreshTokenUpsertOne{
+		create: rtc,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.RefreshToken.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (rtc *RefreshTokenCreate) OnConflictColumns(columns ...string) *RefreshTokenUpsertOne {
+	rtc.conflict = append(rtc.conflict, sql.ConflictColumns(columns...))
+	return &RefreshTokenUpsertOne{
+		create: rtc,
+	}
+}
+
+type (
+	// RefreshTokenUpsertOne is the builder for "upsert"-ing
+	//  one RefreshToken node.
+	RefreshTokenUpsertOne struct {
+		create *RefreshTokenCreate
+	}
+
+	// RefreshTokenUpsert is the "OnConflict" setter.
+	RefreshTokenUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *RefreshTokenUpsert) SetUpdatedAt(v time.Time) *RefreshTokenUpsert {
+	u.Set(refreshtoken.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *RefreshTokenUpsert) UpdateUpdatedAt() *RefreshTokenUpsert {
+	u.SetExcluded(refreshtoken.FieldUpdatedAt)
+	return u
+}
+
+// SetReplacedByID sets the "replaced_by_id" field.
+func (u *RefreshTokenUpsert) SetReplacedByID(v uuid.UUID) *RefreshTokenUpsert {
+	u.Set(refreshtoken.FieldReplacedByID, v)
+	return u
+}
+
+// UpdateReplacedByID sets the "replaced_by_id" field to the value that was provided on create.
+func (u *RefreshTokenUpsert) UpdateReplacedByID() *RefreshTokenUpsert {
+	u.SetExcluded(refreshtoken.FieldReplacedByID)
+	return u
+}
+
+// ClearReplacedByID clears the value of the "replaced_by_id" field.
+func (u *RefreshTokenUpsert) ClearReplacedByID() *RefreshTokenUpsert {
+	u.SetNull(refreshtoken.FieldReplacedByID)
+	return u
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (u *RefreshTokenUpsert) SetRevokedAt(v time.Time) *RefreshTokenUpsert {
+	u.Set(refreshtoken.FieldRevokedAt, v)
+	return u
+}
+
+// UpdateRevokedAt sets the "revoked_at" field to the value that was provided on create.
+func (u *RefreshTokenUpsert) UpdateRevokedAt() *RefreshTokenUpsert {
+	u.SetExcluded(refreshtoken.FieldRevokedAt)
+	return u
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (u *RefreshTokenUpsert) ClearRevokedAt() *RefreshTokenUpsert {
+	u.SetNull(refreshtoken.FieldRevokedAt)
+	return u
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *RefreshTokenUpsert) SetUserAgent(v string) *RefreshTokenUpsert {
+	u.Set(refreshtoken.FieldUserAgent, v)
+	return u
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *RefreshTokenUpsert) UpdateUserAgent() *RefreshTokenUpsert {
+	u.SetExcluded(refreshtoken.FieldUserAgent)
+	return u
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *RefreshTokenUpsert) ClearUserAgent() *RefreshTokenUpsert {
+	u.SetNull(refreshtoken.FieldUserAgent)
+	return u
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *RefreshTokenUpsert) SetIPAddress(v string) *RefreshTokenUpsert {
+	u.Set(refreshtoken.FieldIPAddress, v)
+	return u
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *RefreshTokenUpsert) UpdateIPAddress() *RefreshTokenUpsert {
+	u.SetExcluded(refreshtoken.FieldIPAddress)
+	return u
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *RefreshTokenUpsert) ClearIPAddress() *RefreshTokenUpsert {
+	u.SetNull(refreshtoken.FieldIPAddress)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.RefreshToken.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(refreshtoken.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *RefreshTokenUpsertOne) UpdateNewValues() *RefreshTokenUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(refreshtoken.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(refreshtoken.FieldCreatedAt)
+		}
+		if _, exists := u.create.mutation.TokenHash(); exists {
+			s.SetIgnore(refreshtoken.FieldTokenHash)
+		}
+		if _, exists := u.create.mutation.FamilyID(); exists {
+			s.SetIgnore(refreshtoken.FieldFamilyID)
+		}
+		if _, exists := u.create.mutation.ParentID(); exists {
+			s.SetIgnore(refreshtoken.FieldParentID)
+		}
+		if _, exists := u.create.mutation.ExpiresAt(); exists {
+			s.SetIgnore(refreshtoken.FieldExpiresAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.RefreshToken.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *RefreshTokenUpsertOne) Ignore() *RefreshTokenUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *RefreshTokenUpsertOne) DoNothing() *RefreshTokenUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the RefreshTokenCreate.OnConflict
+// documentation for more info.
+func (u *RefreshTokenUpsertOne) Update(set func(*RefreshTokenUpsert)) *RefreshTokenUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&RefreshTokenUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *RefreshTokenUpsertOne) SetUpdatedAt(v time.Time) *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *RefreshTokenUpsertOne) UpdateUpdatedAt() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetReplacedByID sets the "replaced_by_id" field.
+func (u *RefreshTokenUpsertOne) SetReplacedByID(v uuid.UUID) *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetReplacedByID(v)
+	})
+}
+
+// UpdateReplacedByID sets the "replaced_by_id" field to the value that was provided on create.
+func (u *RefreshTokenUpsertOne) UpdateReplacedByID() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateReplacedByID()
+	})
+}
+
+// ClearReplacedByID clears the value of the "replaced_by_id" field.
+func (u *RefreshTokenUpsertOne) ClearReplacedByID() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearReplacedByID()
+	})
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (u *RefreshTokenUpsertOne) SetRevokedAt(v time.Time) *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetRevokedAt(v)
+	})
+}
+
+// UpdateRevokedAt sets the "revoked_at" field to the value that was provided on create.
+func (u *RefreshTokenUpsertOne) UpdateRevokedAt() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateRevokedAt()
+	})
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (u *RefreshTokenUpsertOne) ClearRevokedAt() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearRevokedAt()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *RefreshTokenUpsertOne) SetUserAgent(v string) *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *RefreshTokenUpsertOne) UpdateUserAgent() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *RefreshTokenUpsertOne) ClearUserAgent() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *RefreshTokenUpsertOne) SetIPAddress(v string) *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *RefreshTokenUpsertOne) UpdateIPAddress() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *RefreshTokenUpsertOne) ClearIPAddress() *RefreshTokenUpsertOne {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearIPAddress()
+	})
+}
+
+// Exec executes the query.
+func (u *RefreshTokenUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for RefreshTokenCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *RefreshTokenUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *RefreshTokenUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: RefreshTokenUpsertOne.ID is not supported by MySQL driver. Use RefreshTokenUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *RefreshTokenUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // RefreshTokenCreateBulk is the builder for creating many RefreshToken entities in bulk.
 type RefreshTokenCreateBulk struct {
 	config
 	err      error
 	builders []*RefreshTokenCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the RefreshToken entities in the database.
@@ -371,6 +708,7 @@ func (rtcb *RefreshTokenCreateBulk) Save(ctx context.Context) ([]*RefreshToken, 
 					_, err = mutators[i+1].Mutate(root, rtcb.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = rtcb.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, rtcb.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -417,6 +755,233 @@ func (rtcb *RefreshTokenCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (rtcb *RefreshTokenCreateBulk) ExecX(ctx context.Context) {
 	if err := rtcb.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.RefreshToken.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.RefreshTokenUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (rtcb *RefreshTokenCreateBulk) OnConflict(opts ...sql.ConflictOption) *RefreshTokenUpsertBulk {
+	rtcb.conflict = opts
+	return &RefreshTokenUpsertBulk{
+		create: rtcb,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.RefreshToken.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (rtcb *RefreshTokenCreateBulk) OnConflictColumns(columns ...string) *RefreshTokenUpsertBulk {
+	rtcb.conflict = append(rtcb.conflict, sql.ConflictColumns(columns...))
+	return &RefreshTokenUpsertBulk{
+		create: rtcb,
+	}
+}
+
+// RefreshTokenUpsertBulk is the builder for "upsert"-ing
+// a bulk of RefreshToken nodes.
+type RefreshTokenUpsertBulk struct {
+	create *RefreshTokenCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.RefreshToken.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(refreshtoken.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *RefreshTokenUpsertBulk) UpdateNewValues() *RefreshTokenUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(refreshtoken.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(refreshtoken.FieldCreatedAt)
+			}
+			if _, exists := b.mutation.TokenHash(); exists {
+				s.SetIgnore(refreshtoken.FieldTokenHash)
+			}
+			if _, exists := b.mutation.FamilyID(); exists {
+				s.SetIgnore(refreshtoken.FieldFamilyID)
+			}
+			if _, exists := b.mutation.ParentID(); exists {
+				s.SetIgnore(refreshtoken.FieldParentID)
+			}
+			if _, exists := b.mutation.ExpiresAt(); exists {
+				s.SetIgnore(refreshtoken.FieldExpiresAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.RefreshToken.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *RefreshTokenUpsertBulk) Ignore() *RefreshTokenUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *RefreshTokenUpsertBulk) DoNothing() *RefreshTokenUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the RefreshTokenCreateBulk.OnConflict
+// documentation for more info.
+func (u *RefreshTokenUpsertBulk) Update(set func(*RefreshTokenUpsert)) *RefreshTokenUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&RefreshTokenUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *RefreshTokenUpsertBulk) SetUpdatedAt(v time.Time) *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *RefreshTokenUpsertBulk) UpdateUpdatedAt() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetReplacedByID sets the "replaced_by_id" field.
+func (u *RefreshTokenUpsertBulk) SetReplacedByID(v uuid.UUID) *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetReplacedByID(v)
+	})
+}
+
+// UpdateReplacedByID sets the "replaced_by_id" field to the value that was provided on create.
+func (u *RefreshTokenUpsertBulk) UpdateReplacedByID() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateReplacedByID()
+	})
+}
+
+// ClearReplacedByID clears the value of the "replaced_by_id" field.
+func (u *RefreshTokenUpsertBulk) ClearReplacedByID() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearReplacedByID()
+	})
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (u *RefreshTokenUpsertBulk) SetRevokedAt(v time.Time) *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetRevokedAt(v)
+	})
+}
+
+// UpdateRevokedAt sets the "revoked_at" field to the value that was provided on create.
+func (u *RefreshTokenUpsertBulk) UpdateRevokedAt() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateRevokedAt()
+	})
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (u *RefreshTokenUpsertBulk) ClearRevokedAt() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearRevokedAt()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *RefreshTokenUpsertBulk) SetUserAgent(v string) *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *RefreshTokenUpsertBulk) UpdateUserAgent() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *RefreshTokenUpsertBulk) ClearUserAgent() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *RefreshTokenUpsertBulk) SetIPAddress(v string) *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *RefreshTokenUpsertBulk) UpdateIPAddress() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *RefreshTokenUpsertBulk) ClearIPAddress() *RefreshTokenUpsertBulk {
+	return u.Update(func(s *RefreshTokenUpsert) {
+		s.ClearIPAddress()
+	})
+}
+
+// Exec executes the query.
+func (u *RefreshTokenUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the RefreshTokenCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for RefreshTokenCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *RefreshTokenUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

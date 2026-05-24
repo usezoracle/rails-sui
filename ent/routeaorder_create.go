@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ type RouteAOrderCreate struct {
 	config
 	mutation *RouteAOrderMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -364,6 +366,7 @@ func (rac *RouteAOrderCreate) createSpec() (*RouteAOrder, *sqlgraph.CreateSpec) 
 		_node = &RouteAOrder{config: rac.config}
 		_spec = sqlgraph.NewCreateSpec(routeaorder.Table, sqlgraph.NewFieldSpec(routeaorder.FieldID, field.TypeInt))
 	)
+	_spec.OnConflict = rac.conflict
 	if value, ok := rac.mutation.CreatedAt(); ok {
 		_spec.SetField(routeaorder.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -448,11 +451,724 @@ func (rac *RouteAOrderCreate) createSpec() (*RouteAOrder, *sqlgraph.CreateSpec) 
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.RouteAOrder.Create().
+//		SetCreatedAt(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.RouteAOrderUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (rac *RouteAOrderCreate) OnConflict(opts ...sql.ConflictOption) *RouteAOrderUpsertOne {
+	rac.conflict = opts
+	return &RouteAOrderUpsertOne{
+		create: rac,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.RouteAOrder.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (rac *RouteAOrderCreate) OnConflictColumns(columns ...string) *RouteAOrderUpsertOne {
+	rac.conflict = append(rac.conflict, sql.ConflictColumns(columns...))
+	return &RouteAOrderUpsertOne{
+		create: rac,
+	}
+}
+
+type (
+	// RouteAOrderUpsertOne is the builder for "upsert"-ing
+	//  one RouteAOrder node.
+	RouteAOrderUpsertOne struct {
+		create *RouteAOrderCreate
+	}
+
+	// RouteAOrderUpsert is the "OnConflict" setter.
+	RouteAOrderUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *RouteAOrderUpsert) SetUpdatedAt(v time.Time) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateUpdatedAt() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldUpdatedAt)
+	return u
+}
+
+// SetMode sets the "mode" field.
+func (u *RouteAOrderUpsert) SetMode(v routeaorder.Mode) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldMode, v)
+	return u
+}
+
+// UpdateMode sets the "mode" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateMode() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldMode)
+	return u
+}
+
+// SetLifiQuoteID sets the "lifi_quote_id" field.
+func (u *RouteAOrderUpsert) SetLifiQuoteID(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldLifiQuoteID, v)
+	return u
+}
+
+// UpdateLifiQuoteID sets the "lifi_quote_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateLifiQuoteID() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldLifiQuoteID)
+	return u
+}
+
+// ClearLifiQuoteID clears the value of the "lifi_quote_id" field.
+func (u *RouteAOrderUpsert) ClearLifiQuoteID() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldLifiQuoteID)
+	return u
+}
+
+// SetLifiTool sets the "lifi_tool" field.
+func (u *RouteAOrderUpsert) SetLifiTool(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldLifiTool, v)
+	return u
+}
+
+// UpdateLifiTool sets the "lifi_tool" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateLifiTool() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldLifiTool)
+	return u
+}
+
+// ClearLifiTool clears the value of the "lifi_tool" field.
+func (u *RouteAOrderUpsert) ClearLifiTool() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldLifiTool)
+	return u
+}
+
+// SetBridgeTxSui sets the "bridge_tx_sui" field.
+func (u *RouteAOrderUpsert) SetBridgeTxSui(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldBridgeTxSui, v)
+	return u
+}
+
+// UpdateBridgeTxSui sets the "bridge_tx_sui" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateBridgeTxSui() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldBridgeTxSui)
+	return u
+}
+
+// ClearBridgeTxSui clears the value of the "bridge_tx_sui" field.
+func (u *RouteAOrderUpsert) ClearBridgeTxSui() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldBridgeTxSui)
+	return u
+}
+
+// SetBridgeTxDest sets the "bridge_tx_dest" field.
+func (u *RouteAOrderUpsert) SetBridgeTxDest(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldBridgeTxDest, v)
+	return u
+}
+
+// UpdateBridgeTxDest sets the "bridge_tx_dest" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateBridgeTxDest() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldBridgeTxDest)
+	return u
+}
+
+// ClearBridgeTxDest clears the value of the "bridge_tx_dest" field.
+func (u *RouteAOrderUpsert) ClearBridgeTxDest() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldBridgeTxDest)
+	return u
+}
+
+// SetBridgeStatus sets the "bridge_status" field.
+func (u *RouteAOrderUpsert) SetBridgeStatus(v routeaorder.BridgeStatus) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldBridgeStatus, v)
+	return u
+}
+
+// UpdateBridgeStatus sets the "bridge_status" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateBridgeStatus() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldBridgeStatus)
+	return u
+}
+
+// SetGatewayOrderID sets the "gateway_order_id" field.
+func (u *RouteAOrderUpsert) SetGatewayOrderID(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldGatewayOrderID, v)
+	return u
+}
+
+// UpdateGatewayOrderID sets the "gateway_order_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateGatewayOrderID() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldGatewayOrderID)
+	return u
+}
+
+// ClearGatewayOrderID clears the value of the "gateway_order_id" field.
+func (u *RouteAOrderUpsert) ClearGatewayOrderID() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldGatewayOrderID)
+	return u
+}
+
+// SetGatewayChainID sets the "gateway_chain_id" field.
+func (u *RouteAOrderUpsert) SetGatewayChainID(v uint64) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldGatewayChainID, v)
+	return u
+}
+
+// UpdateGatewayChainID sets the "gateway_chain_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateGatewayChainID() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldGatewayChainID)
+	return u
+}
+
+// AddGatewayChainID adds v to the "gateway_chain_id" field.
+func (u *RouteAOrderUpsert) AddGatewayChainID(v uint64) *RouteAOrderUpsert {
+	u.Add(routeaorder.FieldGatewayChainID, v)
+	return u
+}
+
+// ClearGatewayChainID clears the value of the "gateway_chain_id" field.
+func (u *RouteAOrderUpsert) ClearGatewayChainID() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldGatewayChainID)
+	return u
+}
+
+// SetSenderFeeSubunit sets the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsert) SetSenderFeeSubunit(v decimal.Decimal) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldSenderFeeSubunit, v)
+	return u
+}
+
+// UpdateSenderFeeSubunit sets the "sender_fee_subunit" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateSenderFeeSubunit() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldSenderFeeSubunit)
+	return u
+}
+
+// AddSenderFeeSubunit adds v to the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsert) AddSenderFeeSubunit(v decimal.Decimal) *RouteAOrderUpsert {
+	u.Add(routeaorder.FieldSenderFeeSubunit, v)
+	return u
+}
+
+// ClearSenderFeeSubunit clears the value of the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsert) ClearSenderFeeSubunit() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldSenderFeeSubunit)
+	return u
+}
+
+// SetSettlementStatus sets the "settlement_status" field.
+func (u *RouteAOrderUpsert) SetSettlementStatus(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldSettlementStatus, v)
+	return u
+}
+
+// UpdateSettlementStatus sets the "settlement_status" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateSettlementStatus() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldSettlementStatus)
+	return u
+}
+
+// ClearSettlementStatus clears the value of the "settlement_status" field.
+func (u *RouteAOrderUpsert) ClearSettlementStatus() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldSettlementStatus)
+	return u
+}
+
+// SetSettlementPolledAt sets the "settlement_polled_at" field.
+func (u *RouteAOrderUpsert) SetSettlementPolledAt(v time.Time) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldSettlementPolledAt, v)
+	return u
+}
+
+// UpdateSettlementPolledAt sets the "settlement_polled_at" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateSettlementPolledAt() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldSettlementPolledAt)
+	return u
+}
+
+// ClearSettlementPolledAt clears the value of the "settlement_polled_at" field.
+func (u *RouteAOrderUpsert) ClearSettlementPolledAt() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldSettlementPolledAt)
+	return u
+}
+
+// SetTreasuryPayoutRef sets the "treasury_payout_ref" field.
+func (u *RouteAOrderUpsert) SetTreasuryPayoutRef(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldTreasuryPayoutRef, v)
+	return u
+}
+
+// UpdateTreasuryPayoutRef sets the "treasury_payout_ref" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateTreasuryPayoutRef() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldTreasuryPayoutRef)
+	return u
+}
+
+// ClearTreasuryPayoutRef clears the value of the "treasury_payout_ref" field.
+func (u *RouteAOrderUpsert) ClearTreasuryPayoutRef() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldTreasuryPayoutRef)
+	return u
+}
+
+// SetBridgedAmount sets the "bridged_amount" field.
+func (u *RouteAOrderUpsert) SetBridgedAmount(v decimal.Decimal) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldBridgedAmount, v)
+	return u
+}
+
+// UpdateBridgedAmount sets the "bridged_amount" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateBridgedAmount() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldBridgedAmount)
+	return u
+}
+
+// AddBridgedAmount adds v to the "bridged_amount" field.
+func (u *RouteAOrderUpsert) AddBridgedAmount(v decimal.Decimal) *RouteAOrderUpsert {
+	u.Add(routeaorder.FieldBridgedAmount, v)
+	return u
+}
+
+// ClearBridgedAmount clears the value of the "bridged_amount" field.
+func (u *RouteAOrderUpsert) ClearBridgedAmount() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldBridgedAmount)
+	return u
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (u *RouteAOrderUpsert) SetFailureReason(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldFailureReason, v)
+	return u
+}
+
+// UpdateFailureReason sets the "failure_reason" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateFailureReason() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldFailureReason)
+	return u
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (u *RouteAOrderUpsert) ClearFailureReason() *RouteAOrderUpsert {
+	u.SetNull(routeaorder.FieldFailureReason)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create.
+// Using this option is equivalent to using:
+//
+//	client.RouteAOrder.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *RouteAOrderUpsertOne) UpdateNewValues() *RouteAOrderUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(routeaorder.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.RouteAOrder.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *RouteAOrderUpsertOne) Ignore() *RouteAOrderUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *RouteAOrderUpsertOne) DoNothing() *RouteAOrderUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the RouteAOrderCreate.OnConflict
+// documentation for more info.
+func (u *RouteAOrderUpsertOne) Update(set func(*RouteAOrderUpsert)) *RouteAOrderUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&RouteAOrderUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *RouteAOrderUpsertOne) SetUpdatedAt(v time.Time) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateUpdatedAt() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetMode sets the "mode" field.
+func (u *RouteAOrderUpsertOne) SetMode(v routeaorder.Mode) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetMode(v)
+	})
+}
+
+// UpdateMode sets the "mode" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateMode() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateMode()
+	})
+}
+
+// SetLifiQuoteID sets the "lifi_quote_id" field.
+func (u *RouteAOrderUpsertOne) SetLifiQuoteID(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetLifiQuoteID(v)
+	})
+}
+
+// UpdateLifiQuoteID sets the "lifi_quote_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateLifiQuoteID() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateLifiQuoteID()
+	})
+}
+
+// ClearLifiQuoteID clears the value of the "lifi_quote_id" field.
+func (u *RouteAOrderUpsertOne) ClearLifiQuoteID() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearLifiQuoteID()
+	})
+}
+
+// SetLifiTool sets the "lifi_tool" field.
+func (u *RouteAOrderUpsertOne) SetLifiTool(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetLifiTool(v)
+	})
+}
+
+// UpdateLifiTool sets the "lifi_tool" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateLifiTool() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateLifiTool()
+	})
+}
+
+// ClearLifiTool clears the value of the "lifi_tool" field.
+func (u *RouteAOrderUpsertOne) ClearLifiTool() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearLifiTool()
+	})
+}
+
+// SetBridgeTxSui sets the "bridge_tx_sui" field.
+func (u *RouteAOrderUpsertOne) SetBridgeTxSui(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeTxSui(v)
+	})
+}
+
+// UpdateBridgeTxSui sets the "bridge_tx_sui" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateBridgeTxSui() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeTxSui()
+	})
+}
+
+// ClearBridgeTxSui clears the value of the "bridge_tx_sui" field.
+func (u *RouteAOrderUpsertOne) ClearBridgeTxSui() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearBridgeTxSui()
+	})
+}
+
+// SetBridgeTxDest sets the "bridge_tx_dest" field.
+func (u *RouteAOrderUpsertOne) SetBridgeTxDest(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeTxDest(v)
+	})
+}
+
+// UpdateBridgeTxDest sets the "bridge_tx_dest" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateBridgeTxDest() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeTxDest()
+	})
+}
+
+// ClearBridgeTxDest clears the value of the "bridge_tx_dest" field.
+func (u *RouteAOrderUpsertOne) ClearBridgeTxDest() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearBridgeTxDest()
+	})
+}
+
+// SetBridgeStatus sets the "bridge_status" field.
+func (u *RouteAOrderUpsertOne) SetBridgeStatus(v routeaorder.BridgeStatus) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeStatus(v)
+	})
+}
+
+// UpdateBridgeStatus sets the "bridge_status" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateBridgeStatus() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeStatus()
+	})
+}
+
+// SetGatewayOrderID sets the "gateway_order_id" field.
+func (u *RouteAOrderUpsertOne) SetGatewayOrderID(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetGatewayOrderID(v)
+	})
+}
+
+// UpdateGatewayOrderID sets the "gateway_order_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateGatewayOrderID() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateGatewayOrderID()
+	})
+}
+
+// ClearGatewayOrderID clears the value of the "gateway_order_id" field.
+func (u *RouteAOrderUpsertOne) ClearGatewayOrderID() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearGatewayOrderID()
+	})
+}
+
+// SetGatewayChainID sets the "gateway_chain_id" field.
+func (u *RouteAOrderUpsertOne) SetGatewayChainID(v uint64) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetGatewayChainID(v)
+	})
+}
+
+// AddGatewayChainID adds v to the "gateway_chain_id" field.
+func (u *RouteAOrderUpsertOne) AddGatewayChainID(v uint64) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.AddGatewayChainID(v)
+	})
+}
+
+// UpdateGatewayChainID sets the "gateway_chain_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateGatewayChainID() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateGatewayChainID()
+	})
+}
+
+// ClearGatewayChainID clears the value of the "gateway_chain_id" field.
+func (u *RouteAOrderUpsertOne) ClearGatewayChainID() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearGatewayChainID()
+	})
+}
+
+// SetSenderFeeSubunit sets the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsertOne) SetSenderFeeSubunit(v decimal.Decimal) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetSenderFeeSubunit(v)
+	})
+}
+
+// AddSenderFeeSubunit adds v to the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsertOne) AddSenderFeeSubunit(v decimal.Decimal) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.AddSenderFeeSubunit(v)
+	})
+}
+
+// UpdateSenderFeeSubunit sets the "sender_fee_subunit" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateSenderFeeSubunit() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateSenderFeeSubunit()
+	})
+}
+
+// ClearSenderFeeSubunit clears the value of the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsertOne) ClearSenderFeeSubunit() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearSenderFeeSubunit()
+	})
+}
+
+// SetSettlementStatus sets the "settlement_status" field.
+func (u *RouteAOrderUpsertOne) SetSettlementStatus(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetSettlementStatus(v)
+	})
+}
+
+// UpdateSettlementStatus sets the "settlement_status" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateSettlementStatus() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateSettlementStatus()
+	})
+}
+
+// ClearSettlementStatus clears the value of the "settlement_status" field.
+func (u *RouteAOrderUpsertOne) ClearSettlementStatus() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearSettlementStatus()
+	})
+}
+
+// SetSettlementPolledAt sets the "settlement_polled_at" field.
+func (u *RouteAOrderUpsertOne) SetSettlementPolledAt(v time.Time) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetSettlementPolledAt(v)
+	})
+}
+
+// UpdateSettlementPolledAt sets the "settlement_polled_at" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateSettlementPolledAt() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateSettlementPolledAt()
+	})
+}
+
+// ClearSettlementPolledAt clears the value of the "settlement_polled_at" field.
+func (u *RouteAOrderUpsertOne) ClearSettlementPolledAt() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearSettlementPolledAt()
+	})
+}
+
+// SetTreasuryPayoutRef sets the "treasury_payout_ref" field.
+func (u *RouteAOrderUpsertOne) SetTreasuryPayoutRef(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetTreasuryPayoutRef(v)
+	})
+}
+
+// UpdateTreasuryPayoutRef sets the "treasury_payout_ref" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateTreasuryPayoutRef() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateTreasuryPayoutRef()
+	})
+}
+
+// ClearTreasuryPayoutRef clears the value of the "treasury_payout_ref" field.
+func (u *RouteAOrderUpsertOne) ClearTreasuryPayoutRef() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearTreasuryPayoutRef()
+	})
+}
+
+// SetBridgedAmount sets the "bridged_amount" field.
+func (u *RouteAOrderUpsertOne) SetBridgedAmount(v decimal.Decimal) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgedAmount(v)
+	})
+}
+
+// AddBridgedAmount adds v to the "bridged_amount" field.
+func (u *RouteAOrderUpsertOne) AddBridgedAmount(v decimal.Decimal) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.AddBridgedAmount(v)
+	})
+}
+
+// UpdateBridgedAmount sets the "bridged_amount" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateBridgedAmount() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgedAmount()
+	})
+}
+
+// ClearBridgedAmount clears the value of the "bridged_amount" field.
+func (u *RouteAOrderUpsertOne) ClearBridgedAmount() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearBridgedAmount()
+	})
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (u *RouteAOrderUpsertOne) SetFailureReason(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetFailureReason(v)
+	})
+}
+
+// UpdateFailureReason sets the "failure_reason" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateFailureReason() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateFailureReason()
+	})
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (u *RouteAOrderUpsertOne) ClearFailureReason() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearFailureReason()
+	})
+}
+
+// Exec executes the query.
+func (u *RouteAOrderUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for RouteAOrderCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *RouteAOrderUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *RouteAOrderUpsertOne) ID(ctx context.Context) (id int, err error) {
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *RouteAOrderUpsertOne) IDX(ctx context.Context) int {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // RouteAOrderCreateBulk is the builder for creating many RouteAOrder entities in bulk.
 type RouteAOrderCreateBulk struct {
 	config
 	err      error
 	builders []*RouteAOrderCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the RouteAOrder entities in the database.
@@ -482,6 +1198,7 @@ func (racb *RouteAOrderCreateBulk) Save(ctx context.Context) ([]*RouteAOrder, er
 					_, err = mutators[i+1].Mutate(root, racb.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = racb.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, racb.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -532,6 +1249,432 @@ func (racb *RouteAOrderCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (racb *RouteAOrderCreateBulk) ExecX(ctx context.Context) {
 	if err := racb.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.RouteAOrder.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.RouteAOrderUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (racb *RouteAOrderCreateBulk) OnConflict(opts ...sql.ConflictOption) *RouteAOrderUpsertBulk {
+	racb.conflict = opts
+	return &RouteAOrderUpsertBulk{
+		create: racb,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.RouteAOrder.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (racb *RouteAOrderCreateBulk) OnConflictColumns(columns ...string) *RouteAOrderUpsertBulk {
+	racb.conflict = append(racb.conflict, sql.ConflictColumns(columns...))
+	return &RouteAOrderUpsertBulk{
+		create: racb,
+	}
+}
+
+// RouteAOrderUpsertBulk is the builder for "upsert"-ing
+// a bulk of RouteAOrder nodes.
+type RouteAOrderUpsertBulk struct {
+	create *RouteAOrderCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.RouteAOrder.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *RouteAOrderUpsertBulk) UpdateNewValues() *RouteAOrderUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(routeaorder.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.RouteAOrder.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *RouteAOrderUpsertBulk) Ignore() *RouteAOrderUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *RouteAOrderUpsertBulk) DoNothing() *RouteAOrderUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the RouteAOrderCreateBulk.OnConflict
+// documentation for more info.
+func (u *RouteAOrderUpsertBulk) Update(set func(*RouteAOrderUpsert)) *RouteAOrderUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&RouteAOrderUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *RouteAOrderUpsertBulk) SetUpdatedAt(v time.Time) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateUpdatedAt() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetMode sets the "mode" field.
+func (u *RouteAOrderUpsertBulk) SetMode(v routeaorder.Mode) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetMode(v)
+	})
+}
+
+// UpdateMode sets the "mode" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateMode() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateMode()
+	})
+}
+
+// SetLifiQuoteID sets the "lifi_quote_id" field.
+func (u *RouteAOrderUpsertBulk) SetLifiQuoteID(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetLifiQuoteID(v)
+	})
+}
+
+// UpdateLifiQuoteID sets the "lifi_quote_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateLifiQuoteID() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateLifiQuoteID()
+	})
+}
+
+// ClearLifiQuoteID clears the value of the "lifi_quote_id" field.
+func (u *RouteAOrderUpsertBulk) ClearLifiQuoteID() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearLifiQuoteID()
+	})
+}
+
+// SetLifiTool sets the "lifi_tool" field.
+func (u *RouteAOrderUpsertBulk) SetLifiTool(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetLifiTool(v)
+	})
+}
+
+// UpdateLifiTool sets the "lifi_tool" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateLifiTool() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateLifiTool()
+	})
+}
+
+// ClearLifiTool clears the value of the "lifi_tool" field.
+func (u *RouteAOrderUpsertBulk) ClearLifiTool() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearLifiTool()
+	})
+}
+
+// SetBridgeTxSui sets the "bridge_tx_sui" field.
+func (u *RouteAOrderUpsertBulk) SetBridgeTxSui(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeTxSui(v)
+	})
+}
+
+// UpdateBridgeTxSui sets the "bridge_tx_sui" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateBridgeTxSui() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeTxSui()
+	})
+}
+
+// ClearBridgeTxSui clears the value of the "bridge_tx_sui" field.
+func (u *RouteAOrderUpsertBulk) ClearBridgeTxSui() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearBridgeTxSui()
+	})
+}
+
+// SetBridgeTxDest sets the "bridge_tx_dest" field.
+func (u *RouteAOrderUpsertBulk) SetBridgeTxDest(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeTxDest(v)
+	})
+}
+
+// UpdateBridgeTxDest sets the "bridge_tx_dest" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateBridgeTxDest() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeTxDest()
+	})
+}
+
+// ClearBridgeTxDest clears the value of the "bridge_tx_dest" field.
+func (u *RouteAOrderUpsertBulk) ClearBridgeTxDest() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearBridgeTxDest()
+	})
+}
+
+// SetBridgeStatus sets the "bridge_status" field.
+func (u *RouteAOrderUpsertBulk) SetBridgeStatus(v routeaorder.BridgeStatus) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeStatus(v)
+	})
+}
+
+// UpdateBridgeStatus sets the "bridge_status" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateBridgeStatus() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeStatus()
+	})
+}
+
+// SetGatewayOrderID sets the "gateway_order_id" field.
+func (u *RouteAOrderUpsertBulk) SetGatewayOrderID(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetGatewayOrderID(v)
+	})
+}
+
+// UpdateGatewayOrderID sets the "gateway_order_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateGatewayOrderID() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateGatewayOrderID()
+	})
+}
+
+// ClearGatewayOrderID clears the value of the "gateway_order_id" field.
+func (u *RouteAOrderUpsertBulk) ClearGatewayOrderID() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearGatewayOrderID()
+	})
+}
+
+// SetGatewayChainID sets the "gateway_chain_id" field.
+func (u *RouteAOrderUpsertBulk) SetGatewayChainID(v uint64) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetGatewayChainID(v)
+	})
+}
+
+// AddGatewayChainID adds v to the "gateway_chain_id" field.
+func (u *RouteAOrderUpsertBulk) AddGatewayChainID(v uint64) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.AddGatewayChainID(v)
+	})
+}
+
+// UpdateGatewayChainID sets the "gateway_chain_id" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateGatewayChainID() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateGatewayChainID()
+	})
+}
+
+// ClearGatewayChainID clears the value of the "gateway_chain_id" field.
+func (u *RouteAOrderUpsertBulk) ClearGatewayChainID() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearGatewayChainID()
+	})
+}
+
+// SetSenderFeeSubunit sets the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsertBulk) SetSenderFeeSubunit(v decimal.Decimal) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetSenderFeeSubunit(v)
+	})
+}
+
+// AddSenderFeeSubunit adds v to the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsertBulk) AddSenderFeeSubunit(v decimal.Decimal) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.AddSenderFeeSubunit(v)
+	})
+}
+
+// UpdateSenderFeeSubunit sets the "sender_fee_subunit" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateSenderFeeSubunit() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateSenderFeeSubunit()
+	})
+}
+
+// ClearSenderFeeSubunit clears the value of the "sender_fee_subunit" field.
+func (u *RouteAOrderUpsertBulk) ClearSenderFeeSubunit() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearSenderFeeSubunit()
+	})
+}
+
+// SetSettlementStatus sets the "settlement_status" field.
+func (u *RouteAOrderUpsertBulk) SetSettlementStatus(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetSettlementStatus(v)
+	})
+}
+
+// UpdateSettlementStatus sets the "settlement_status" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateSettlementStatus() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateSettlementStatus()
+	})
+}
+
+// ClearSettlementStatus clears the value of the "settlement_status" field.
+func (u *RouteAOrderUpsertBulk) ClearSettlementStatus() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearSettlementStatus()
+	})
+}
+
+// SetSettlementPolledAt sets the "settlement_polled_at" field.
+func (u *RouteAOrderUpsertBulk) SetSettlementPolledAt(v time.Time) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetSettlementPolledAt(v)
+	})
+}
+
+// UpdateSettlementPolledAt sets the "settlement_polled_at" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateSettlementPolledAt() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateSettlementPolledAt()
+	})
+}
+
+// ClearSettlementPolledAt clears the value of the "settlement_polled_at" field.
+func (u *RouteAOrderUpsertBulk) ClearSettlementPolledAt() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearSettlementPolledAt()
+	})
+}
+
+// SetTreasuryPayoutRef sets the "treasury_payout_ref" field.
+func (u *RouteAOrderUpsertBulk) SetTreasuryPayoutRef(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetTreasuryPayoutRef(v)
+	})
+}
+
+// UpdateTreasuryPayoutRef sets the "treasury_payout_ref" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateTreasuryPayoutRef() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateTreasuryPayoutRef()
+	})
+}
+
+// ClearTreasuryPayoutRef clears the value of the "treasury_payout_ref" field.
+func (u *RouteAOrderUpsertBulk) ClearTreasuryPayoutRef() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearTreasuryPayoutRef()
+	})
+}
+
+// SetBridgedAmount sets the "bridged_amount" field.
+func (u *RouteAOrderUpsertBulk) SetBridgedAmount(v decimal.Decimal) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgedAmount(v)
+	})
+}
+
+// AddBridgedAmount adds v to the "bridged_amount" field.
+func (u *RouteAOrderUpsertBulk) AddBridgedAmount(v decimal.Decimal) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.AddBridgedAmount(v)
+	})
+}
+
+// UpdateBridgedAmount sets the "bridged_amount" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateBridgedAmount() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgedAmount()
+	})
+}
+
+// ClearBridgedAmount clears the value of the "bridged_amount" field.
+func (u *RouteAOrderUpsertBulk) ClearBridgedAmount() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearBridgedAmount()
+	})
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (u *RouteAOrderUpsertBulk) SetFailureReason(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetFailureReason(v)
+	})
+}
+
+// UpdateFailureReason sets the "failure_reason" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateFailureReason() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateFailureReason()
+	})
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (u *RouteAOrderUpsertBulk) ClearFailureReason() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.ClearFailureReason()
+	})
+}
+
+// Exec executes the query.
+func (u *RouteAOrderUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the RouteAOrderCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for RouteAOrderCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *RouteAOrderUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
