@@ -112,6 +112,33 @@ func main() {
 	if err != nil {
 		logger.Fatalf("failed seeding USDC: %s", err)
 	}
+
+	// Native SUI — enables Route A `POST /v1/orders/route-a` with
+	// `"token": "SUI"`. The rate path composes LiFi (SUI→USDC) ×
+	// Paycrest (USDC→NGN) since there's no direct SUI/NGN venue;
+	// dispatcher bridges to Base USDC via LiFi as usual.
+	//
+	// Move-side prerequisite (one-off, run once per Gateway deploy
+	// from the wallet holding AdminCap). `add_supported_coin` is
+	// `public fun`, not `public entry fun`, so `sui client call`
+	// won't accept it — wrap it in a PTB instead:
+	//   sui client ptb \
+	//     --move-call $SUI_GATEWAY_PACKAGE_ID::config::add_supported_coin "<0x2::sui::SUI>" \
+	//       @$SUI_ADMIN_CAP_ID @$SUI_GATEWAY_OBJECT_ID \
+	//     --gas-budget 10000000
+	// Verify with `sui client object $SUI_GATEWAY_OBJECT_ID` — the
+	// `supported_coins` VecSet should now include `0x2::sui::SUI`.
+	_, err = client.Token.
+		Create().
+		SetSymbol("SUI").
+		SetContractAddress("0x2::sui::SUI").
+		SetDecimals(9).
+		SetNetwork(suiTestnet).
+		SetIsEnabled(true).
+		Save(ctx)
+	if err != nil {
+		logger.Fatalf("failed seeding SUI: %s", err)
+	}
 	// Seed Fiat Currencies and Provision Buckets
 	fmt.Println("fiat currencies and provision buckets...")
 	currencies := []types.SupportedCurrencies{

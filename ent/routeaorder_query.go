@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/predicate"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 )
 
@@ -25,6 +27,7 @@ type RouteAOrderQuery struct {
 	inters           []Interceptor
 	predicates       []predicate.RouteAOrder
 	withPaymentOrder *PaymentOrderQuery
+	withEvents       *RouteAEventQuery
 	withFKs          bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -77,6 +80,28 @@ func (raq *RouteAOrderQuery) QueryPaymentOrder() *PaymentOrderQuery {
 			sqlgraph.From(routeaorder.Table, routeaorder.FieldID, selector),
 			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, true, routeaorder.PaymentOrderTable, routeaorder.PaymentOrderColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(raq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryEvents chains the current query on the "events" edge.
+func (raq *RouteAOrderQuery) QueryEvents() *RouteAEventQuery {
+	query := (&RouteAEventClient{config: raq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := raq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := raq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(routeaorder.Table, routeaorder.FieldID, selector),
+			sqlgraph.To(routeaevent.Table, routeaevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, routeaorder.EventsTable, routeaorder.EventsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(raq.driver.Dialect(), step)
 		return fromU, nil
@@ -277,6 +302,7 @@ func (raq *RouteAOrderQuery) Clone() *RouteAOrderQuery {
 		inters:           append([]Interceptor{}, raq.inters...),
 		predicates:       append([]predicate.RouteAOrder{}, raq.predicates...),
 		withPaymentOrder: raq.withPaymentOrder.Clone(),
+		withEvents:       raq.withEvents.Clone(),
 		// clone intermediate query.
 		sql:  raq.sql.Clone(),
 		path: raq.path,
@@ -291,6 +317,17 @@ func (raq *RouteAOrderQuery) WithPaymentOrder(opts ...func(*PaymentOrderQuery)) 
 		opt(query)
 	}
 	raq.withPaymentOrder = query
+	return raq
+}
+
+// WithEvents tells the query-builder to eager-load the nodes that are connected to
+// the "events" edge. The optional arguments are used to configure the query builder of the edge.
+func (raq *RouteAOrderQuery) WithEvents(opts ...func(*RouteAEventQuery)) *RouteAOrderQuery {
+	query := (&RouteAEventClient{config: raq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	raq.withEvents = query
 	return raq
 }
 
@@ -373,8 +410,9 @@ func (raq *RouteAOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 		nodes       = []*RouteAOrder{}
 		withFKs     = raq.withFKs
 		_spec       = raq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			raq.withPaymentOrder != nil,
+			raq.withEvents != nil,
 		}
 	)
 	if raq.withPaymentOrder != nil {
@@ -404,6 +442,13 @@ func (raq *RouteAOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := raq.withPaymentOrder; query != nil {
 		if err := raq.loadPaymentOrder(ctx, query, nodes, nil,
 			func(n *RouteAOrder, e *PaymentOrder) { n.Edges.PaymentOrder = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := raq.withEvents; query != nil {
+		if err := raq.loadEvents(ctx, query, nodes,
+			func(n *RouteAOrder) { n.Edges.Events = []*RouteAEvent{} },
+			func(n *RouteAOrder, e *RouteAEvent) { n.Edges.Events = append(n.Edges.Events, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -439,6 +484,37 @@ func (raq *RouteAOrderQuery) loadPaymentOrder(ctx context.Context, query *Paymen
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (raq *RouteAOrderQuery) loadEvents(ctx context.Context, query *RouteAEventQuery, nodes []*RouteAOrder, init func(*RouteAOrder), assign func(*RouteAOrder, *RouteAEvent)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*RouteAOrder)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.RouteAEvent(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(routeaorder.EventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.route_aorder_events
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "route_aorder_events" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "route_aorder_events" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

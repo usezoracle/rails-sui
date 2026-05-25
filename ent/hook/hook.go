@@ -213,6 +213,18 @@ func (f RefreshTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RefreshTokenMutation", m)
 }
 
+// The RouteAEventFunc type is an adapter to allow the use of ordinary
+// function as RouteAEvent mutator.
+type RouteAEventFunc func(context.Context, *ent.RouteAEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RouteAEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RouteAEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RouteAEventMutation", m)
+}
+
 // The RouteAOrderFunc type is an adapter to allow the use of ordinary
 // function as RouteAOrder mutator.
 type RouteAOrderFunc func(context.Context, *ent.RouteAOrderMutation) (ent.Value, error)

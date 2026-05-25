@@ -31,6 +31,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
 	"github.com/usezoracle/rails-sui/ent/refreshtoken"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
@@ -69,6 +70,7 @@ const (
 	TypeProvisionBucket             = "ProvisionBucket"
 	TypeReceiveAddress              = "ReceiveAddress"
 	TypeRefreshToken                = "RefreshToken"
+	TypeRouteAEvent                 = "RouteAEvent"
 	TypeRouteAOrder                 = "RouteAOrder"
 	TypeSenderOrderToken            = "SenderOrderToken"
 	TypeSenderProfile               = "SenderProfile"
@@ -16814,6 +16816,947 @@ func (m *RefreshTokenMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown RefreshToken edge %s", name)
 }
 
+// RouteAEventMutation represents an operation that mutates the RouteAEvent nodes in the graph.
+type RouteAEventMutation struct {
+	config
+	op                   Op
+	typ                  string
+	id                   *int
+	step                 *routeaevent.Step
+	status               *routeaevent.Status
+	actor                *routeaevent.Actor
+	at                   *time.Time
+	duration_ms          *int64
+	addduration_ms       *int64
+	payload              *map[string]interface{}
+	error_msg            *string
+	correlation_id       *string
+	created_at           *time.Time
+	clearedFields        map[string]struct{}
+	route_a_order        *int
+	clearedroute_a_order bool
+	done                 bool
+	oldValue             func(context.Context) (*RouteAEvent, error)
+	predicates           []predicate.RouteAEvent
+}
+
+var _ ent.Mutation = (*RouteAEventMutation)(nil)
+
+// routeaeventOption allows management of the mutation configuration using functional options.
+type routeaeventOption func(*RouteAEventMutation)
+
+// newRouteAEventMutation creates new mutation for the RouteAEvent entity.
+func newRouteAEventMutation(c config, op Op, opts ...routeaeventOption) *RouteAEventMutation {
+	m := &RouteAEventMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRouteAEvent,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRouteAEventID sets the ID field of the mutation.
+func withRouteAEventID(id int) routeaeventOption {
+	return func(m *RouteAEventMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RouteAEvent
+		)
+		m.oldValue = func(ctx context.Context) (*RouteAEvent, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RouteAEvent.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRouteAEvent sets the old RouteAEvent of the mutation.
+func withRouteAEvent(node *RouteAEvent) routeaeventOption {
+	return func(m *RouteAEventMutation) {
+		m.oldValue = func(context.Context) (*RouteAEvent, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RouteAEventMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RouteAEventMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RouteAEventMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RouteAEventMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RouteAEvent.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetStep sets the "step" field.
+func (m *RouteAEventMutation) SetStep(r routeaevent.Step) {
+	m.step = &r
+}
+
+// Step returns the value of the "step" field in the mutation.
+func (m *RouteAEventMutation) Step() (r routeaevent.Step, exists bool) {
+	v := m.step
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStep returns the old "step" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldStep(ctx context.Context) (v routeaevent.Step, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStep is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStep requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStep: %w", err)
+	}
+	return oldValue.Step, nil
+}
+
+// ResetStep resets all changes to the "step" field.
+func (m *RouteAEventMutation) ResetStep() {
+	m.step = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *RouteAEventMutation) SetStatus(r routeaevent.Status) {
+	m.status = &r
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *RouteAEventMutation) Status() (r routeaevent.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldStatus(ctx context.Context) (v routeaevent.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *RouteAEventMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetActor sets the "actor" field.
+func (m *RouteAEventMutation) SetActor(r routeaevent.Actor) {
+	m.actor = &r
+}
+
+// Actor returns the value of the "actor" field in the mutation.
+func (m *RouteAEventMutation) Actor() (r routeaevent.Actor, exists bool) {
+	v := m.actor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActor returns the old "actor" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldActor(ctx context.Context) (v routeaevent.Actor, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActor: %w", err)
+	}
+	return oldValue.Actor, nil
+}
+
+// ResetActor resets all changes to the "actor" field.
+func (m *RouteAEventMutation) ResetActor() {
+	m.actor = nil
+}
+
+// SetAt sets the "at" field.
+func (m *RouteAEventMutation) SetAt(t time.Time) {
+	m.at = &t
+}
+
+// At returns the value of the "at" field in the mutation.
+func (m *RouteAEventMutation) At() (r time.Time, exists bool) {
+	v := m.at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAt returns the old "at" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAt: %w", err)
+	}
+	return oldValue.At, nil
+}
+
+// ResetAt resets all changes to the "at" field.
+func (m *RouteAEventMutation) ResetAt() {
+	m.at = nil
+}
+
+// SetDurationMs sets the "duration_ms" field.
+func (m *RouteAEventMutation) SetDurationMs(i int64) {
+	m.duration_ms = &i
+	m.addduration_ms = nil
+}
+
+// DurationMs returns the value of the "duration_ms" field in the mutation.
+func (m *RouteAEventMutation) DurationMs() (r int64, exists bool) {
+	v := m.duration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDurationMs returns the old "duration_ms" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldDurationMs(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDurationMs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDurationMs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDurationMs: %w", err)
+	}
+	return oldValue.DurationMs, nil
+}
+
+// AddDurationMs adds i to the "duration_ms" field.
+func (m *RouteAEventMutation) AddDurationMs(i int64) {
+	if m.addduration_ms != nil {
+		*m.addduration_ms += i
+	} else {
+		m.addduration_ms = &i
+	}
+}
+
+// AddedDurationMs returns the value that was added to the "duration_ms" field in this mutation.
+func (m *RouteAEventMutation) AddedDurationMs() (r int64, exists bool) {
+	v := m.addduration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDurationMs clears the value of the "duration_ms" field.
+func (m *RouteAEventMutation) ClearDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+	m.clearedFields[routeaevent.FieldDurationMs] = struct{}{}
+}
+
+// DurationMsCleared returns if the "duration_ms" field was cleared in this mutation.
+func (m *RouteAEventMutation) DurationMsCleared() bool {
+	_, ok := m.clearedFields[routeaevent.FieldDurationMs]
+	return ok
+}
+
+// ResetDurationMs resets all changes to the "duration_ms" field.
+func (m *RouteAEventMutation) ResetDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+	delete(m.clearedFields, routeaevent.FieldDurationMs)
+}
+
+// SetPayload sets the "payload" field.
+func (m *RouteAEventMutation) SetPayload(value map[string]interface{}) {
+	m.payload = &value
+}
+
+// Payload returns the value of the "payload" field in the mutation.
+func (m *RouteAEventMutation) Payload() (r map[string]interface{}, exists bool) {
+	v := m.payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayload returns the old "payload" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldPayload(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayload: %w", err)
+	}
+	return oldValue.Payload, nil
+}
+
+// ClearPayload clears the value of the "payload" field.
+func (m *RouteAEventMutation) ClearPayload() {
+	m.payload = nil
+	m.clearedFields[routeaevent.FieldPayload] = struct{}{}
+}
+
+// PayloadCleared returns if the "payload" field was cleared in this mutation.
+func (m *RouteAEventMutation) PayloadCleared() bool {
+	_, ok := m.clearedFields[routeaevent.FieldPayload]
+	return ok
+}
+
+// ResetPayload resets all changes to the "payload" field.
+func (m *RouteAEventMutation) ResetPayload() {
+	m.payload = nil
+	delete(m.clearedFields, routeaevent.FieldPayload)
+}
+
+// SetErrorMsg sets the "error_msg" field.
+func (m *RouteAEventMutation) SetErrorMsg(s string) {
+	m.error_msg = &s
+}
+
+// ErrorMsg returns the value of the "error_msg" field in the mutation.
+func (m *RouteAEventMutation) ErrorMsg() (r string, exists bool) {
+	v := m.error_msg
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorMsg returns the old "error_msg" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldErrorMsg(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorMsg is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorMsg requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorMsg: %w", err)
+	}
+	return oldValue.ErrorMsg, nil
+}
+
+// ClearErrorMsg clears the value of the "error_msg" field.
+func (m *RouteAEventMutation) ClearErrorMsg() {
+	m.error_msg = nil
+	m.clearedFields[routeaevent.FieldErrorMsg] = struct{}{}
+}
+
+// ErrorMsgCleared returns if the "error_msg" field was cleared in this mutation.
+func (m *RouteAEventMutation) ErrorMsgCleared() bool {
+	_, ok := m.clearedFields[routeaevent.FieldErrorMsg]
+	return ok
+}
+
+// ResetErrorMsg resets all changes to the "error_msg" field.
+func (m *RouteAEventMutation) ResetErrorMsg() {
+	m.error_msg = nil
+	delete(m.clearedFields, routeaevent.FieldErrorMsg)
+}
+
+// SetCorrelationID sets the "correlation_id" field.
+func (m *RouteAEventMutation) SetCorrelationID(s string) {
+	m.correlation_id = &s
+}
+
+// CorrelationID returns the value of the "correlation_id" field in the mutation.
+func (m *RouteAEventMutation) CorrelationID() (r string, exists bool) {
+	v := m.correlation_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCorrelationID returns the old "correlation_id" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldCorrelationID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCorrelationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCorrelationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCorrelationID: %w", err)
+	}
+	return oldValue.CorrelationID, nil
+}
+
+// ClearCorrelationID clears the value of the "correlation_id" field.
+func (m *RouteAEventMutation) ClearCorrelationID() {
+	m.correlation_id = nil
+	m.clearedFields[routeaevent.FieldCorrelationID] = struct{}{}
+}
+
+// CorrelationIDCleared returns if the "correlation_id" field was cleared in this mutation.
+func (m *RouteAEventMutation) CorrelationIDCleared() bool {
+	_, ok := m.clearedFields[routeaevent.FieldCorrelationID]
+	return ok
+}
+
+// ResetCorrelationID resets all changes to the "correlation_id" field.
+func (m *RouteAEventMutation) ResetCorrelationID() {
+	m.correlation_id = nil
+	delete(m.clearedFields, routeaevent.FieldCorrelationID)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RouteAEventMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RouteAEventMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RouteAEvent entity.
+// If the RouteAEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAEventMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RouteAEventMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetRouteAOrderID sets the "route_a_order" edge to the RouteAOrder entity by id.
+func (m *RouteAEventMutation) SetRouteAOrderID(id int) {
+	m.route_a_order = &id
+}
+
+// ClearRouteAOrder clears the "route_a_order" edge to the RouteAOrder entity.
+func (m *RouteAEventMutation) ClearRouteAOrder() {
+	m.clearedroute_a_order = true
+}
+
+// RouteAOrderCleared reports if the "route_a_order" edge to the RouteAOrder entity was cleared.
+func (m *RouteAEventMutation) RouteAOrderCleared() bool {
+	return m.clearedroute_a_order
+}
+
+// RouteAOrderID returns the "route_a_order" edge ID in the mutation.
+func (m *RouteAEventMutation) RouteAOrderID() (id int, exists bool) {
+	if m.route_a_order != nil {
+		return *m.route_a_order, true
+	}
+	return
+}
+
+// RouteAOrderIDs returns the "route_a_order" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// RouteAOrderID instead. It exists only for internal usage by the builders.
+func (m *RouteAEventMutation) RouteAOrderIDs() (ids []int) {
+	if id := m.route_a_order; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetRouteAOrder resets all changes to the "route_a_order" edge.
+func (m *RouteAEventMutation) ResetRouteAOrder() {
+	m.route_a_order = nil
+	m.clearedroute_a_order = false
+}
+
+// Where appends a list predicates to the RouteAEventMutation builder.
+func (m *RouteAEventMutation) Where(ps ...predicate.RouteAEvent) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RouteAEventMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RouteAEventMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RouteAEvent, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RouteAEventMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RouteAEventMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RouteAEvent).
+func (m *RouteAEventMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RouteAEventMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.step != nil {
+		fields = append(fields, routeaevent.FieldStep)
+	}
+	if m.status != nil {
+		fields = append(fields, routeaevent.FieldStatus)
+	}
+	if m.actor != nil {
+		fields = append(fields, routeaevent.FieldActor)
+	}
+	if m.at != nil {
+		fields = append(fields, routeaevent.FieldAt)
+	}
+	if m.duration_ms != nil {
+		fields = append(fields, routeaevent.FieldDurationMs)
+	}
+	if m.payload != nil {
+		fields = append(fields, routeaevent.FieldPayload)
+	}
+	if m.error_msg != nil {
+		fields = append(fields, routeaevent.FieldErrorMsg)
+	}
+	if m.correlation_id != nil {
+		fields = append(fields, routeaevent.FieldCorrelationID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, routeaevent.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RouteAEventMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case routeaevent.FieldStep:
+		return m.Step()
+	case routeaevent.FieldStatus:
+		return m.Status()
+	case routeaevent.FieldActor:
+		return m.Actor()
+	case routeaevent.FieldAt:
+		return m.At()
+	case routeaevent.FieldDurationMs:
+		return m.DurationMs()
+	case routeaevent.FieldPayload:
+		return m.Payload()
+	case routeaevent.FieldErrorMsg:
+		return m.ErrorMsg()
+	case routeaevent.FieldCorrelationID:
+		return m.CorrelationID()
+	case routeaevent.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RouteAEventMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case routeaevent.FieldStep:
+		return m.OldStep(ctx)
+	case routeaevent.FieldStatus:
+		return m.OldStatus(ctx)
+	case routeaevent.FieldActor:
+		return m.OldActor(ctx)
+	case routeaevent.FieldAt:
+		return m.OldAt(ctx)
+	case routeaevent.FieldDurationMs:
+		return m.OldDurationMs(ctx)
+	case routeaevent.FieldPayload:
+		return m.OldPayload(ctx)
+	case routeaevent.FieldErrorMsg:
+		return m.OldErrorMsg(ctx)
+	case routeaevent.FieldCorrelationID:
+		return m.OldCorrelationID(ctx)
+	case routeaevent.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RouteAEvent field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RouteAEventMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case routeaevent.FieldStep:
+		v, ok := value.(routeaevent.Step)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStep(v)
+		return nil
+	case routeaevent.FieldStatus:
+		v, ok := value.(routeaevent.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case routeaevent.FieldActor:
+		v, ok := value.(routeaevent.Actor)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActor(v)
+		return nil
+	case routeaevent.FieldAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAt(v)
+		return nil
+	case routeaevent.FieldDurationMs:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDurationMs(v)
+		return nil
+	case routeaevent.FieldPayload:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayload(v)
+		return nil
+	case routeaevent.FieldErrorMsg:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorMsg(v)
+		return nil
+	case routeaevent.FieldCorrelationID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCorrelationID(v)
+		return nil
+	case routeaevent.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAEvent field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RouteAEventMutation) AddedFields() []string {
+	var fields []string
+	if m.addduration_ms != nil {
+		fields = append(fields, routeaevent.FieldDurationMs)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RouteAEventMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case routeaevent.FieldDurationMs:
+		return m.AddedDurationMs()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RouteAEventMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case routeaevent.FieldDurationMs:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDurationMs(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAEvent numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RouteAEventMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(routeaevent.FieldDurationMs) {
+		fields = append(fields, routeaevent.FieldDurationMs)
+	}
+	if m.FieldCleared(routeaevent.FieldPayload) {
+		fields = append(fields, routeaevent.FieldPayload)
+	}
+	if m.FieldCleared(routeaevent.FieldErrorMsg) {
+		fields = append(fields, routeaevent.FieldErrorMsg)
+	}
+	if m.FieldCleared(routeaevent.FieldCorrelationID) {
+		fields = append(fields, routeaevent.FieldCorrelationID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RouteAEventMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RouteAEventMutation) ClearField(name string) error {
+	switch name {
+	case routeaevent.FieldDurationMs:
+		m.ClearDurationMs()
+		return nil
+	case routeaevent.FieldPayload:
+		m.ClearPayload()
+		return nil
+	case routeaevent.FieldErrorMsg:
+		m.ClearErrorMsg()
+		return nil
+	case routeaevent.FieldCorrelationID:
+		m.ClearCorrelationID()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAEvent nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RouteAEventMutation) ResetField(name string) error {
+	switch name {
+	case routeaevent.FieldStep:
+		m.ResetStep()
+		return nil
+	case routeaevent.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case routeaevent.FieldActor:
+		m.ResetActor()
+		return nil
+	case routeaevent.FieldAt:
+		m.ResetAt()
+		return nil
+	case routeaevent.FieldDurationMs:
+		m.ResetDurationMs()
+		return nil
+	case routeaevent.FieldPayload:
+		m.ResetPayload()
+		return nil
+	case routeaevent.FieldErrorMsg:
+		m.ResetErrorMsg()
+		return nil
+	case routeaevent.FieldCorrelationID:
+		m.ResetCorrelationID()
+		return nil
+	case routeaevent.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAEvent field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RouteAEventMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.route_a_order != nil {
+		edges = append(edges, routeaevent.EdgeRouteAOrder)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RouteAEventMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case routeaevent.EdgeRouteAOrder:
+		if id := m.route_a_order; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RouteAEventMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RouteAEventMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RouteAEventMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedroute_a_order {
+		edges = append(edges, routeaevent.EdgeRouteAOrder)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RouteAEventMutation) EdgeCleared(name string) bool {
+	switch name {
+	case routeaevent.EdgeRouteAOrder:
+		return m.clearedroute_a_order
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RouteAEventMutation) ClearEdge(name string) error {
+	switch name {
+	case routeaevent.EdgeRouteAOrder:
+		m.ClearRouteAOrder()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAEvent unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RouteAEventMutation) ResetEdge(name string) error {
+	switch name {
+	case routeaevent.EdgeRouteAOrder:
+		m.ResetRouteAOrder()
+		return nil
+	}
+	return fmt.Errorf("unknown RouteAEvent edge %s", name)
+}
+
 // RouteAOrderMutation represents an operation that mutates the RouteAOrder nodes in the graph.
 type RouteAOrderMutation struct {
 	config
@@ -16842,6 +17785,9 @@ type RouteAOrderMutation struct {
 	clearedFields         map[string]struct{}
 	payment_order         *uuid.UUID
 	clearedpayment_order  bool
+	events                map[int]struct{}
+	removedevents         map[int]struct{}
+	clearedevents         bool
 	done                  bool
 	oldValue              func(context.Context) (*RouteAOrder, error)
 	predicates            []predicate.RouteAOrder
@@ -17779,6 +18725,60 @@ func (m *RouteAOrderMutation) ResetPaymentOrder() {
 	m.clearedpayment_order = false
 }
 
+// AddEventIDs adds the "events" edge to the RouteAEvent entity by ids.
+func (m *RouteAOrderMutation) AddEventIDs(ids ...int) {
+	if m.events == nil {
+		m.events = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.events[ids[i]] = struct{}{}
+	}
+}
+
+// ClearEvents clears the "events" edge to the RouteAEvent entity.
+func (m *RouteAOrderMutation) ClearEvents() {
+	m.clearedevents = true
+}
+
+// EventsCleared reports if the "events" edge to the RouteAEvent entity was cleared.
+func (m *RouteAOrderMutation) EventsCleared() bool {
+	return m.clearedevents
+}
+
+// RemoveEventIDs removes the "events" edge to the RouteAEvent entity by IDs.
+func (m *RouteAOrderMutation) RemoveEventIDs(ids ...int) {
+	if m.removedevents == nil {
+		m.removedevents = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.events, ids[i])
+		m.removedevents[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedEvents returns the removed IDs of the "events" edge to the RouteAEvent entity.
+func (m *RouteAOrderMutation) RemovedEventsIDs() (ids []int) {
+	for id := range m.removedevents {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// EventsIDs returns the "events" edge IDs in the mutation.
+func (m *RouteAOrderMutation) EventsIDs() (ids []int) {
+	for id := range m.events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetEvents resets all changes to the "events" edge.
+func (m *RouteAOrderMutation) ResetEvents() {
+	m.events = nil
+	m.clearedevents = false
+	m.removedevents = nil
+}
+
 // Where appends a list predicates to the RouteAOrderMutation builder.
 func (m *RouteAOrderMutation) Where(ps ...predicate.RouteAOrder) {
 	m.predicates = append(m.predicates, ps...)
@@ -18281,9 +19281,12 @@ func (m *RouteAOrderMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *RouteAOrderMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.payment_order != nil {
 		edges = append(edges, routeaorder.EdgePaymentOrder)
+	}
+	if m.events != nil {
+		edges = append(edges, routeaorder.EdgeEvents)
 	}
 	return edges
 }
@@ -18296,27 +19299,47 @@ func (m *RouteAOrderMutation) AddedIDs(name string) []ent.Value {
 		if id := m.payment_order; id != nil {
 			return []ent.Value{*id}
 		}
+	case routeaorder.EdgeEvents:
+		ids := make([]ent.Value, 0, len(m.events))
+		for id := range m.events {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *RouteAOrderMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedevents != nil {
+		edges = append(edges, routeaorder.EdgeEvents)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *RouteAOrderMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case routeaorder.EdgeEvents:
+		ids := make([]ent.Value, 0, len(m.removedevents))
+		for id := range m.removedevents {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *RouteAOrderMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedpayment_order {
 		edges = append(edges, routeaorder.EdgePaymentOrder)
+	}
+	if m.clearedevents {
+		edges = append(edges, routeaorder.EdgeEvents)
 	}
 	return edges
 }
@@ -18327,6 +19350,8 @@ func (m *RouteAOrderMutation) EdgeCleared(name string) bool {
 	switch name {
 	case routeaorder.EdgePaymentOrder:
 		return m.clearedpayment_order
+	case routeaorder.EdgeEvents:
+		return m.clearedevents
 	}
 	return false
 }
@@ -18348,6 +19373,9 @@ func (m *RouteAOrderMutation) ResetEdge(name string) error {
 	switch name {
 	case routeaorder.EdgePaymentOrder:
 		m.ResetPaymentOrder()
+		return nil
+	case routeaorder.EdgeEvents:
+		m.ResetEvents()
 		return nil
 	}
 	return fmt.Errorf("unknown RouteAOrder edge %s", name)

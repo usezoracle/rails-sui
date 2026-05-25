@@ -4,20 +4,20 @@
 [move]
 version = 4
 
-[pinned.testnet.MoveStdlib]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "2f5992f189cd24445cd010ccf0aa7ff418ff93b1" }
-use_environment = "testnet"
+[pinned.mainnet.MoveStdlib]
+source = { local = "/Users/mac/.move/git/https___github_com_MystenLabs_sui_git_2f5992f189cd24445cd010ccf0aa7ff418ff93b1/crates/sui-framework/packages/move-stdlib" }
+use_environment = "mainnet"
 manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
 deps = {}
 
-[pinned.testnet.Rails]
+[pinned.mainnet.Rails]
 source = { root = true }
-use_environment = "testnet"
-manifest_digest = "DEE42C89BB3F8EC67C17BC4AE0CEBE14A28F4FA787E857046EAF0FA38D556496"
+use_environment = "mainnet"
+manifest_digest = "9B86370565A5468B8787A75D850E6D451B7C08276F443B8185D997CF2CCB33B9"
 deps = { Sui = "Sui" }
 
-[pinned.testnet.Sui]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "2f5992f189cd24445cd010ccf0aa7ff418ff93b1" }
-use_environment = "testnet"
-manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
+[pinned.mainnet.Sui]
+source = { local = "/Users/mac/.move/git/https___github_com_MystenLabs_sui_git_2f5992f189cd24445cd010ccf0aa7ff418ff93b1/crates/sui-framework/packages/sui-framework" }
+use_environment = "mainnet"
+manifest_digest = "CD547CB1ACCE0880C835DAED2D8FFCB91D56C833AE5240D3AA5B918398263195"
 deps = { MoveStdlib = "MoveStdlib" }

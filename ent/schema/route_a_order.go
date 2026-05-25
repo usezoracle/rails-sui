@@ -45,8 +45,32 @@ func (RouteAOrder) Fields() []ent.Field {
 		// somewhere else, no schema change required.
 		field.String("bridge_tx_dest").Optional(),
 
+		// State machine — see docs/route-a-hardening.md Phase 2.
+		//
+		//   pending          → row exists, awaiting deposit
+		//   awaiting_funds   → deposit detected, NOT yet at aggregator (indexer/self-settle in flight)
+		//   bridging         → source-chain bridge tx submitted, polling LiFi /status
+		//   bridge_uncertain → polled past per-tool timeout without DONE/FAILED;
+		//                      late-arrival poller keeps re-checking up to 24h
+		//                      AND watches the destination wallet for incoming USDC
+		//                      that bypassed LiFi's /status indexer.
+		//   bridged          → destination USDC sitting in our hot wallet, ready to dispatch
+		//   dispatching      → approve + createOrder submitted, polling settlement
+		//   settled          → fiat at merchant
+		//   failed           → terminal failure that reconciliation can't recover
+		//   refunded         → funds returned to user (manual or auto)
 		field.Enum("bridge_status").
-			Values("pending", "bridging", "bridged", "dispatching", "settled", "failed", "refunded").
+			Values(
+				"pending",
+				"awaiting_funds",
+				"bridging",
+				"bridge_uncertain",
+				"bridged",
+				"dispatching",
+				"settled",
+				"failed",
+				"refunded",
+			).
 			Default("pending"),
 
 		// Set for mode=lp once we re-enter the EVM Gateway. The bytes32
@@ -92,5 +116,8 @@ func (RouteAOrder) Edges() []ent.Edge {
 			Ref("route_a_order").
 			Unique().
 			Required(),
+		// Per-order audit log. See ent/schema/route_a_event.go +
+		// services/route_a_events.go + docs/route-a-hardening.md.
+		edge.To("events", RouteAEvent.Type),
 	}
 }

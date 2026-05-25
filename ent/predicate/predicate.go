@@ -57,6 +57,9 @@ type ReceiveAddress func(*sql.Selector)
 // RefreshToken is the predicate function for refreshtoken builders.
 type RefreshToken func(*sql.Selector)
 
+// RouteAEvent is the predicate function for routeaevent builders.
+type RouteAEvent func(*sql.Selector)
+
 // RouteAOrder is the predicate function for routeaorder builders.
 type RouteAOrder func(*sql.Selector)
 

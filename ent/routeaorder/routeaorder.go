@@ -49,6 +49,8 @@ const (
 	FieldFailureReason = "failure_reason"
 	// EdgePaymentOrder holds the string denoting the payment_order edge name in mutations.
 	EdgePaymentOrder = "payment_order"
+	// EdgeEvents holds the string denoting the events edge name in mutations.
+	EdgeEvents = "events"
 	// Table holds the table name of the routeaorder in the database.
 	Table = "route_aorders"
 	// PaymentOrderTable is the table that holds the payment_order relation/edge.
@@ -58,6 +60,13 @@ const (
 	PaymentOrderInverseTable = "payment_orders"
 	// PaymentOrderColumn is the table column denoting the payment_order relation/edge.
 	PaymentOrderColumn = "payment_order_route_a_order"
+	// EventsTable is the table that holds the events relation/edge.
+	EventsTable = "route_aevents"
+	// EventsInverseTable is the table name for the RouteAEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "routeaevent" package.
+	EventsInverseTable = "route_aevents"
+	// EventsColumn is the table column denoting the events relation/edge.
+	EventsColumn = "route_aorder_events"
 )
 
 // Columns holds all SQL columns for routeaorder fields.
@@ -145,13 +154,15 @@ const DefaultBridgeStatus = BridgeStatusPending
 
 // BridgeStatus values.
 const (
-	BridgeStatusPending     BridgeStatus = "pending"
-	BridgeStatusBridging    BridgeStatus = "bridging"
-	BridgeStatusBridged     BridgeStatus = "bridged"
-	BridgeStatusDispatching BridgeStatus = "dispatching"
-	BridgeStatusSettled     BridgeStatus = "settled"
-	BridgeStatusFailed      BridgeStatus = "failed"
-	BridgeStatusRefunded    BridgeStatus = "refunded"
+	BridgeStatusPending         BridgeStatus = "pending"
+	BridgeStatusAwaitingFunds   BridgeStatus = "awaiting_funds"
+	BridgeStatusBridging        BridgeStatus = "bridging"
+	BridgeStatusBridgeUncertain BridgeStatus = "bridge_uncertain"
+	BridgeStatusBridged         BridgeStatus = "bridged"
+	BridgeStatusDispatching     BridgeStatus = "dispatching"
+	BridgeStatusSettled         BridgeStatus = "settled"
+	BridgeStatusFailed          BridgeStatus = "failed"
+	BridgeStatusRefunded        BridgeStatus = "refunded"
 )
 
 func (bs BridgeStatus) String() string {
@@ -161,7 +172,7 @@ func (bs BridgeStatus) String() string {
 // BridgeStatusValidator is a validator for the "bridge_status" field enum values. It is called by the builders before save.
 func BridgeStatusValidator(bs BridgeStatus) error {
 	switch bs {
-	case BridgeStatusPending, BridgeStatusBridging, BridgeStatusBridged, BridgeStatusDispatching, BridgeStatusSettled, BridgeStatusFailed, BridgeStatusRefunded:
+	case BridgeStatusPending, BridgeStatusAwaitingFunds, BridgeStatusBridging, BridgeStatusBridgeUncertain, BridgeStatusBridged, BridgeStatusDispatching, BridgeStatusSettled, BridgeStatusFailed, BridgeStatusRefunded:
 		return nil
 	default:
 		return fmt.Errorf("routeaorder: invalid enum value for bridge_status field: %q", bs)
@@ -262,10 +273,31 @@ func ByPaymentOrderField(field string, opts ...sql.OrderTermOption) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newPaymentOrderStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByEventsCount orders the results by events count.
+func ByEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newEventsStep(), opts...)
+	}
+}
+
+// ByEvents orders the results by events terms.
+func ByEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newPaymentOrderStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PaymentOrderInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, true, PaymentOrderTable, PaymentOrderColumn),
+	)
+}
+func newEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, EventsTable, EventsColumn),
 	)
 }

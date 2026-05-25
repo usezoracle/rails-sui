@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/block-vision/sui-go-sdk/models"
@@ -113,7 +114,10 @@ func (s *SuiEventIndexer) Start(ctx context.Context) error {
 // dispatches each incoming event to the handler. On WebSocket failure, logs
 // and exits the goroutine (a supervisor in tasks.go can re-Start the indexer).
 func (s *SuiEventIndexer) runSubscription(ctx context.Context, sub *subscription) {
-	cli := sui.NewSuiWebsocketClient(s.wsURL)
+	// The config stores an HTTPS RPC URL, but the block-vision SDK's
+	// WebSocket client requires wss://. Convert the scheme.
+	wsURL := httpToWsURL(s.wsURL)
+	cli := sui.NewSuiWebsocketClient(wsURL)
 	ch := make(chan models.SuiEventResponse, 32)
 
 	eventTypeTag := contracts.EventTypeTag(s.packageID, sub.eventName)
@@ -831,4 +835,21 @@ func getBytes(m map[string]interface{}, key string) []byte {
 		return out
 	}
 	return nil
+}
+
+// httpToWsURL converts an HTTP(S) URL to its WebSocket equivalent.
+// https://... → wss://...  and  http://... → ws://...
+// If the URL already uses ws:// or wss://, it is returned unchanged.
+func httpToWsURL(rawURL string) string {
+	if strings.HasPrefix(rawURL, "wss://") || strings.HasPrefix(rawURL, "ws://") {
+		return rawURL
+	}
+	if strings.HasPrefix(rawURL, "https://") {
+		return "wss://" + strings.TrimPrefix(rawURL, "https://")
+	}
+	if strings.HasPrefix(rawURL, "http://") {
+		return "ws://" + strings.TrimPrefix(rawURL, "http://")
+	}
+	// Fallback: prepend wss:// if no scheme at all.
+	return "wss://" + rawURL
 }

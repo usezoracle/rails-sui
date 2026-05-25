@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/usezoracle/rails-sui/controllers"
 	"github.com/usezoracle/rails-sui/controllers/accounts"
+	adminCtrl "github.com/usezoracle/rails-sui/controllers/admin"
 	"github.com/usezoracle/rails-sui/controllers/cards"
 	"github.com/usezoracle/rails-sui/controllers/provider"
 	"github.com/usezoracle/rails-sui/controllers/sender"
@@ -204,4 +205,13 @@ func cardsRoutes(route *gin.Engine) {
 	adminCards := route.Group("/v1/admin/cards/")
 	adminCards.Use(cards.AdminTokenMiddleware)
 	adminCards.POST(":id/recovery", cardsCtrl.AdminRecovery)
+
+	// Admin: Route A operator console. Phase 1 ships read-only event
+	// timeline. Phase 6 will add retry/refund/force-state writers.
+	// See docs/route-a-hardening.md.
+	adminRouteA := route.Group("/v1/admin/route-a/")
+	adminRouteA.Use(cards.AdminTokenMiddleware)
+	adminRouteACtrl := adminCtrl.NewRouteAController()
+	adminRouteA.GET("orders/:id/events", adminRouteACtrl.GetOrderEvents)
+	adminRouteA.POST("orders/:id/force-state", adminRouteACtrl.ForceState)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
 	"github.com/usezoracle/rails-sui/ent/refreshtoken"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/schema"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
@@ -419,6 +420,12 @@ func init() {
 	refreshtokenDescID := refreshtokenFields[0].Descriptor()
 	// refreshtoken.DefaultID holds the default value on creation for the id field.
 	refreshtoken.DefaultID = refreshtokenDescID.Default.(func() uuid.UUID)
+	routeaeventFields := schema.RouteAEvent{}.Fields()
+	_ = routeaeventFields
+	// routeaeventDescCreatedAt is the schema descriptor for created_at field.
+	routeaeventDescCreatedAt := routeaeventFields[8].Descriptor()
+	// routeaevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	routeaevent.DefaultCreatedAt = routeaeventDescCreatedAt.Default.(func() time.Time)
 	routeaorderMixin := schema.RouteAOrder{}.Mixin()
 	routeaorderMixinFields0 := routeaorderMixin[0].Fields()
 	_ = routeaorderMixinFields0

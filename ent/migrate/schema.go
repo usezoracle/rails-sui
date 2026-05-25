@@ -528,6 +528,46 @@ var (
 			},
 		},
 	}
+	// RouteAeventsColumns holds the columns for the "route_aevents" table.
+	RouteAeventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "step", Type: field.TypeEnum, Enums: []string{"deposit_check", "deposit_detected", "create_order", "order_created_event", "self_settle", "awaiting_funds", "bridge_quote", "bridge_submit", "bridge_poll", "bridge_done", "bridge_uncertain", "evm_approve", "evm_create_order", "settlement_poll", "settlement_terminal", "refund_attempt", "refund_done", "manual_override"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"started", "succeeded", "failed", "skipped", "retrying"}},
+		{Name: "actor", Type: field.TypeEnum, Enums: []string{"watcher", "indexer", "dispatcher", "reconciler", "operator", "system"}},
+		{Name: "at", Type: field.TypeTime},
+		{Name: "duration_ms", Type: field.TypeInt64, Nullable: true},
+		{Name: "payload", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "error_msg", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "correlation_id", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "route_aorder_events", Type: field.TypeInt},
+	}
+	// RouteAeventsTable holds the schema information for the "route_aevents" table.
+	RouteAeventsTable = &schema.Table{
+		Name:       "route_aevents",
+		Columns:    RouteAeventsColumns,
+		PrimaryKey: []*schema.Column{RouteAeventsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "route_aevents_route_aorders_events",
+				Columns:    []*schema.Column{RouteAeventsColumns[10]},
+				RefColumns: []*schema.Column{RouteAordersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "routeaevent_at_route_aorder_events",
+				Unique:  false,
+				Columns: []*schema.Column{RouteAeventsColumns[4], RouteAeventsColumns[10]},
+			},
+			{
+				Name:    "routeaevent_step_status_at",
+				Unique:  false,
+				Columns: []*schema.Column{RouteAeventsColumns[1], RouteAeventsColumns[2], RouteAeventsColumns[4]},
+			},
+		},
+	}
 	// RouteAordersColumns holds the columns for the "route_aorders" table.
 	RouteAordersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -538,7 +578,7 @@ var (
 		{Name: "lifi_tool", Type: field.TypeString, Nullable: true},
 		{Name: "bridge_tx_sui", Type: field.TypeString, Nullable: true},
 		{Name: "bridge_tx_dest", Type: field.TypeString, Nullable: true},
-		{Name: "bridge_status", Type: field.TypeEnum, Enums: []string{"pending", "bridging", "bridged", "dispatching", "settled", "failed", "refunded"}, Default: "pending"},
+		{Name: "bridge_status", Type: field.TypeEnum, Enums: []string{"pending", "awaiting_funds", "bridging", "bridge_uncertain", "bridged", "dispatching", "settled", "failed", "refunded"}, Default: "pending"},
 		{Name: "gateway_order_id", Type: field.TypeString, Nullable: true},
 		{Name: "gateway_chain_id", Type: field.TypeUint64, Nullable: true},
 		{Name: "sender_fee_subunit", Type: field.TypeFloat64, Nullable: true},
@@ -876,6 +916,7 @@ var (
 		ProvisionBucketsTable,
 		ReceiveAddressesTable,
 		RefreshTokensTable,
+		RouteAeventsTable,
 		RouteAordersTable,
 		SenderOrderTokensTable,
 		SenderProfilesTable,
@@ -912,6 +953,7 @@ func init() {
 	ProvisionBucketsTable.ForeignKeys[0].RefTable = FiatCurrenciesTable
 	ReceiveAddressesTable.ForeignKeys[0].RefTable = PaymentOrdersTable
 	RefreshTokensTable.ForeignKeys[0].RefTable = UsersTable
+	RouteAeventsTable.ForeignKeys[0].RefTable = RouteAordersTable
 	RouteAordersTable.ForeignKeys[0].RefTable = PaymentOrdersTable
 	SenderOrderTokensTable.ForeignKeys[0].RefTable = SenderProfilesTable
 	SenderOrderTokensTable.ForeignKeys[1].RefTable = TokensTable

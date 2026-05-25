@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 )
 
@@ -260,6 +261,21 @@ func (rac *RouteAOrderCreate) SetPaymentOrder(p *PaymentOrder) *RouteAOrderCreat
 	return rac.SetPaymentOrderID(p.ID)
 }
 
+// AddEventIDs adds the "events" edge to the RouteAEvent entity by IDs.
+func (rac *RouteAOrderCreate) AddEventIDs(ids ...int) *RouteAOrderCreate {
+	rac.mutation.AddEventIDs(ids...)
+	return rac
+}
+
+// AddEvents adds the "events" edges to the RouteAEvent entity.
+func (rac *RouteAOrderCreate) AddEvents(r ...*RouteAEvent) *RouteAOrderCreate {
+	ids := make([]int, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return rac.AddEventIDs(ids...)
+}
+
 // Mutation returns the RouteAOrderMutation object of the builder.
 func (rac *RouteAOrderCreate) Mutation() *RouteAOrderMutation {
 	return rac.mutation
@@ -446,6 +462,22 @@ func (rac *RouteAOrderCreate) createSpec() (*RouteAOrder, *sqlgraph.CreateSpec) 
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.payment_order_route_a_order = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := rac.mutation.EventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

@@ -33,6 +33,7 @@ import (
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
+	shinamiGas "github.com/usezoracle/rails-sui/services/shinami_gas"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
@@ -66,7 +67,23 @@ type OrderSui struct {
 	packageID       string
 	gatewayObjectID string
 	aggregatorCapID string
+
+	// shinami is the gas-station client used for ALL Move-call
+	// sponsorship. When nil (SHINAMI_GAS_API_KEY unset),
+	// Move-call paths return ErrShinamiGasNotConfigured at call time.
+	// We chose Shinami over our own sponsored-tx path because the
+	// block-vision SDK's sponsorship encoding has BCS bugs that
+	// silently broke every aggregator-initiated Move call in
+	// production — see docs/incidents/2026-05-25 + 26.
+	shinami *shinamiGas.Client
 }
+
+// ErrShinamiGasNotConfigured surfaces when an aggregator-initiated
+// Move call (CreateOrder/SettleOrder/RefundOrder/DebitCard) is
+// invoked without a Shinami Gas API key set. Operators should set
+// SHINAMI_GAS_API_KEY (and optionally SHINAMI_GAS_BASE_URL for
+// non-US-East regions) per the Rails .env.example.
+var ErrShinamiGasNotConfigured = errors.New("rails: SHINAMI_GAS_API_KEY not set — Move-call sponsorship requires Shinami Gas Station")
 
 // NewOrderSui constructs an OrderSui service from config. The returned value
 // satisfies types.OrderService. The aggregator signer is built from the raw
@@ -84,12 +101,18 @@ func NewOrderSui() types.OrderService {
 		signer = suisigner.NewSigner(conf.SuiAggregatorPrivateKey)
 	}
 
+	var sg *shinamiGas.Client
+	if conf.ShinamiGasAPIKey != "" {
+		sg = shinamiGas.New(conf.ShinamiGasAPIKey, conf.ShinamiGasBaseURL)
+	}
+
 	return &OrderSui{
 		client:          client,
 		signer:          signer,
 		packageID:       conf.SuiGatewayPackageID,
 		gatewayObjectID: conf.SuiGatewayObjectID,
 		aggregatorCapID: conf.SuiAggregatorCapID,
+		shinami:         sg,
 	}
 }
 
@@ -160,20 +183,8 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 		return fmt.Errorf("create_order: build deposit coin ref: %w", err)
 	}
 
-	gasPriceResp, err := s.client.SuiXGetReferenceGasPrice(ctx)
-	if err != nil {
-		return fmt.Errorf("create_order: get gas price: %w", err)
-	}
-	gasPrice, err := strconv.ParseUint(fmt.Sprint(gasPriceResp), 10, 64)
-	if err != nil {
-		return fmt.Errorf("create_order: parse gas price: %w", err)
-	}
-
-	// Aggregator pays gas (sponsored-tx pattern) — receive wallet never needs SUI.
-	gasCoin, err := s.selectGasCoin(ctx)
-	if err != nil {
-		return fmt.Errorf("create_order: select aggregator gas coin: %w", err)
-	}
+	// Gas is sponsored by Shinami — no need to read RGP or pick an
+	// aggregator gas coin here. Shinami auto-budgets after a dry-run.
 
 	coinTypeTag, err := parseCoinTypeTag(order.Edges.SuiReceiveAddress.CoinType)
 	if err != nil {
@@ -198,12 +209,9 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 	tx := transaction.NewTransaction()
 	tx.SetSuiClient(s.client).
 		SetSigner(recvSigner).
-		SetSender(models.SuiAddress(recvSigner.Address)).
-		SetSponsoredSigner(s.signer).
-		SetGasOwner(models.SuiAddress(s.signer.Address)).
-		SetGasPayment([]transaction.SuiObjectRef{*gasCoin}).
-		SetGasPrice(gasPrice).
-		SetGasBudget(defaultGasBudget)
+		SetSender(models.SuiAddress(recvSigner.Address))
+	// Gas owner / payment / price / budget are populated by Shinami
+	// inside submitSponsoredViaShinami — do NOT set them here.
 
 	// Note: we use 0 sender_fee on Path-2 forwards — fee policy is set when the
 	// order was initiated via the B2B API, captured separately. The on-chain
@@ -212,38 +220,38 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 	senderFee := uint64(0)
 	senderFeeRecipient := s.signer.Address // unused since senderFee==0; must be non-zero address
 
+	gatewayArg, err := objectArg(ctx, s.client, tx, s.gatewayObjectID, true)
+	if err != nil {
+		return fmt.Errorf("create_order: resolve gateway: %w", err)
+	}
+	clockArg, err := objectArg(ctx, s.client, tx, "0x6", false)
+	if err != nil {
+		return fmt.Errorf("create_order: resolve clock: %w", err)
+	}
+
 	tx.MoveCall(
 		models.SuiAddress(s.packageID),
 		"order",
 		"create_order",
 		[]transaction.TypeTag{coinTypeTag},
 		[]transaction.Argument{
-			tx.Object(s.gatewayObjectID),
-			tx.Object(
-				transaction.CallArg{
-					Object: &transaction.ObjectArg{
-						ImmOrOwnedObject: depositCoinRef,
-					},
+			gatewayArg,
+			tx.Object(transaction.CallArg{
+				Object: &transaction.ObjectArg{
+					ImmOrOwnedObject: depositCoinRef,
 				},
-			),
+			}),
 			tx.Pure(rateAsU64(order.Rate)),
 			tx.Pure([]byte(order.Edges.Recipient.Institution)),
 			tx.Pure(messageHash),
 			tx.Pure(senderFee),
-			tx.Pure(models.SuiAddress(senderFeeRecipient)),
-			tx.Pure(models.SuiAddress(refundAddress)),
-			tx.Object("0x6"), // Sui Clock shared object
+			pureAddress(tx, senderFeeRecipient),
+			pureAddress(tx, refundAddress),
+			clockArg,
 		},
 	)
 
-	resp, err := tx.Execute(
-		ctx,
-		models.SuiTransactionBlockOptions{
-			ShowEffects: true,
-			ShowEvents:  true,
-		},
-		"WaitForLocalExecution",
-	)
+	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, recvSigner, recvSigner.Address, tx)
 	if err != nil {
 		return fmt.Errorf("create_order: submit: %w", err)
 	}
@@ -359,29 +367,35 @@ func (s *OrderSui) SettleOrder(ctx context.Context, orderID uuid.UUID) error {
 		return fmt.Errorf("settle_order: prepare tx: %w", err)
 	}
 
+	aggCapArg, err := objectArg(ctx, s.client, tx, s.aggregatorCapID, false)
+	if err != nil {
+		return fmt.Errorf("settle_order: resolve aggregator cap: %w", err)
+	}
+	gatewayArg, err := objectArg(ctx, s.client, tx, s.gatewayObjectID, true)
+	if err != nil {
+		return fmt.Errorf("settle_order: resolve gateway: %w", err)
+	}
+	orderArg, err := objectArg(ctx, s.client, tx, order.GatewayID, true)
+	if err != nil {
+		return fmt.Errorf("settle_order: resolve order %s: %w", order.GatewayID, err)
+	}
+
 	tx.MoveCall(
 		models.SuiAddress(s.packageID),
 		"order",
 		"settle_order",
 		[]transaction.TypeTag{coinTypeTag},
 		[]transaction.Argument{
-			tx.Object(s.aggregatorCapID),
-			tx.Object(s.gatewayObjectID),
-			tx.Object(order.GatewayID),
-			tx.Pure(lpAddress),
+			aggCapArg,
+			gatewayArg,
+			orderArg,
+			pureAddress(tx, models.SuiAddress(lpAddress)),
 			tx.Pure(settlePercent),
 			tx.Pure(splitOrderID),
 		},
 	)
 
-	resp, err := tx.Execute(
-		ctx,
-		models.SuiTransactionBlockOptions{
-			ShowEffects: true,
-			ShowEvents:  true,
-		},
-		"WaitForLocalExecution",
-	)
+	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, s.signer, s.signer.Address, tx)
 	if err != nil {
 		return fmt.Errorf("settle_order: submit: %w", err)
 	}
@@ -427,26 +441,35 @@ func (s *OrderSui) SelfSettleToAggregator(ctx context.Context, gatewayOrderID, c
 		return fmt.Errorf("self_settle: prepare tx: %w", err)
 	}
 
+	aggCapArg, err := objectArg(ctx, s.client, tx, s.aggregatorCapID, false)
+	if err != nil {
+		return fmt.Errorf("self_settle: resolve aggregator cap: %w", err)
+	}
+	gatewayArg, err := objectArg(ctx, s.client, tx, s.gatewayObjectID, true)
+	if err != nil {
+		return fmt.Errorf("self_settle: resolve gateway: %w", err)
+	}
+	orderArg, err := objectArg(ctx, s.client, tx, gatewayOrderID, true)
+	if err != nil {
+		return fmt.Errorf("self_settle: resolve order %s: %w", gatewayOrderID, err)
+	}
+
 	tx.MoveCall(
 		models.SuiAddress(s.packageID),
 		"order",
 		"settle_order",
 		[]transaction.TypeTag{coinTypeTag},
 		[]transaction.Argument{
-			tx.Object(s.aggregatorCapID),
-			tx.Object(s.gatewayObjectID),
-			tx.Object(gatewayOrderID),
-			tx.Pure(s.signer.Address),       // lp_address = aggregator wallet
-			tx.Pure(uint64(10_000)),         // 100% settle
-			tx.Pure([]byte("route_a_self")), // split_order_id marker
+			aggCapArg,
+			gatewayArg,
+			orderArg,
+			pureAddress(tx, s.signer.Address), // lp_address = aggregator wallet
+			tx.Pure(uint64(10_000)),           // 100% settle
+			tx.Pure([]byte("route_a_self")),   // split_order_id marker
 		},
 	)
 
-	resp, err := tx.Execute(
-		ctx,
-		models.SuiTransactionBlockOptions{ShowEffects: true},
-		"WaitForLocalExecution",
-	)
+	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, s.signer, s.signer.Address, tx)
 	if err != nil {
 		return fmt.Errorf("self_settle: submit: %w", err)
 	}
@@ -488,27 +511,33 @@ func (s *OrderSui) RefundOrder(ctx context.Context, orderID string) error {
 		return fmt.Errorf("refund_order: prepare tx: %w", err)
 	}
 
+	aggCapArg, err := objectArg(ctx, s.client, tx, s.aggregatorCapID, false)
+	if err != nil {
+		return fmt.Errorf("refund_order: resolve aggregator cap: %w", err)
+	}
+	gatewayArg, err := objectArg(ctx, s.client, tx, s.gatewayObjectID, true)
+	if err != nil {
+		return fmt.Errorf("refund_order: resolve gateway: %w", err)
+	}
+	orderArg, err := objectArg(ctx, s.client, tx, orderID, true)
+	if err != nil {
+		return fmt.Errorf("refund_order: resolve order %s: %w", orderID, err)
+	}
+
 	tx.MoveCall(
 		models.SuiAddress(s.packageID),
 		"order",
 		"refund_order",
 		[]transaction.TypeTag{coinTypeTag},
 		[]transaction.Argument{
-			tx.Object(s.aggregatorCapID),
-			tx.Object(s.gatewayObjectID),
-			tx.Object(orderID),
+			aggCapArg,
+			gatewayArg,
+			orderArg,
 			tx.Pure(refundFee),
 		},
 	)
 
-	resp, err := tx.Execute(
-		ctx,
-		models.SuiTransactionBlockOptions{
-			ShowEffects: true,
-			ShowEvents:  true,
-		},
-		"WaitForLocalExecution",
-	)
+	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, s.signer, s.signer.Address, tx)
 	if err != nil {
 		return fmt.Errorf("refund_order: submit: %w", err)
 	}
@@ -572,29 +601,35 @@ func (s *OrderSui) DebitCard(
 	// `sui::clock` framework module).
 	const clockObjectID = "0x0000000000000000000000000000000000000000000000000000000000000006"
 
+	aggCapArg, err := objectArg(ctx, s.client, tx, s.aggregatorCapID, false)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card: resolve aggregator cap: %w", err)
+	}
+	capArg, err := objectArg(ctx, s.client, tx, capObjectID, true)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card: resolve spending cap %s: %w", capObjectID, err)
+	}
+	clockArg, err := objectArg(ctx, s.client, tx, clockObjectID, false)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card: resolve clock: %w", err)
+	}
+
 	tx.MoveCall(
 		models.SuiAddress(s.packageID),
 		"tapp_card",
 		"debit",
 		[]transaction.TypeTag{coinTypeTag},
 		[]transaction.Argument{
-			tx.Object(s.aggregatorCapID),
-			tx.Object(capObjectID),
+			aggCapArg,
+			capArg,
 			tx.Pure(amountSubunit),
-			tx.Pure(merchantRecipient),
+			pureAddress(tx, merchantRecipient),
 			tx.Pure(fiatReference),
-			tx.Object(clockObjectID),
+			clockArg,
 		},
 	)
 
-	resp, err := tx.Execute(
-		ctx,
-		models.SuiTransactionBlockOptions{
-			ShowEffects: true,
-			ShowEvents:  true,
-		},
-		"WaitForLocalExecution",
-	)
+	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, s.signer, s.signer.Address, tx)
 	if err != nil {
 		return "", fmt.Errorf("tapp_card debit: submit: %w", err)
 	}
@@ -604,34 +639,20 @@ func (s *OrderSui) DebitCard(
 	return resp.Digest, nil
 }
 
-// newAggregatorTx returns a transaction.Transaction configured with the
-// aggregator signer + a freshly selected gas coin + current reference gas
-// price. Used by SettleOrder and RefundOrder, which both submit aggregator-
-// signed PTBs against the Gateway.
-func (s *OrderSui) newAggregatorTx(ctx context.Context) (*transaction.Transaction, error) {
-	gasPriceResp, err := s.client.SuiXGetReferenceGasPrice(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get reference gas price: %w", err)
-	}
-	gasPrice, err := strconv.ParseUint(fmt.Sprint(gasPriceResp), 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("parse gas price: %w", err)
-	}
-
-	gasCoin, err := s.selectGasCoin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("select gas coin: %w", err)
-	}
-
+// newAggregatorTx returns a transaction.Transaction with the
+// aggregator as sender. Gas data (owner, payment, price, budget) is
+// intentionally NOT set here — every caller submits via
+// submitSponsoredViaShinami, which has Shinami attach the gas coin +
+// auto-budget. Used by SettleOrder, SelfSettleToAggregator,
+// RefundOrder, and DebitCard.
+//
+// Returns (tx, nil) unconditionally now — the previous error returns
+// (gas-coin selection, RGP fetch) moved to Shinami's side.
+func (s *OrderSui) newAggregatorTx(_ context.Context) (*transaction.Transaction, error) {
 	tx := transaction.NewTransaction()
 	tx.SetSuiClient(s.client).
 		SetSigner(s.signer).
-		SetSender(models.SuiAddress(s.signer.Address)).
-		SetGasPrice(gasPrice).
-		SetGasBudget(defaultGasBudget).
-		SetGasPayment([]transaction.SuiObjectRef{*gasCoin}).
-		SetGasOwner(models.SuiAddress(s.signer.Address))
-
+		SetSender(models.SuiAddress(s.signer.Address))
 	return tx, nil
 }
 

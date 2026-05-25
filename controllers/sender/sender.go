@@ -22,8 +22,11 @@ import (
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	svc "github.com/usezoracle/rails-sui/services"
+	"github.com/usezoracle/rails-sui/services/lifi"
 	"github.com/usezoracle/rails-sui/services/settlement"
 	"github.com/usezoracle/rails-sui/types"
+
+	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
 	"github.com/shopspring/decimal"
@@ -467,27 +470,62 @@ func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
 		return
 	}
 
-	// Auto-override the user-supplied rate with settlement's current LP
+	// Auto-override the user-supplied rate with our resolved off-ramp
 	// rate. Orders submitted above the LP ceiling auto-refund after
 	// refundTimeoutMinutes (typically 2 min) — quoting from the
 	// aggregator at order creation and locking that rate avoids the
 	// dead-tx loop. v1 hardcodes (network="base", currency="NGN") since
 	// Route A always bridges to Base + only NGN institutions are wired.
 	// Derive both from destination chain + recipient.institution in v1.5.
+	//
+	// USDC source: direct Paycrest NGN/USDC quote (LiFi USDC→USDC is
+	// effectively passthrough, ~0 slippage).
+	//
+	// Native SUI source: Paycrest has no SUI/NGN venue, so we compose
+	// the rate from (LiFi SUI→USDC) × (Paycrest USDC→NGN). See
+	// services/route_a_quote.go.
 	settlementTTL := time.Duration(orderConf.SettlementPubkeyTTLSeconds) * time.Second
-	quote, err := settlement.New(orderConf.SettlementAPIURL, settlementTTL).
-		FetchRate(ctx, "base", strings.ToUpper(payload.Token), payload.Amount, "NGN")
-	if err != nil {
-		logger.Errorf("InitiateRouteAOrder.fetch_rate: %v", err)
-		u.APIResponse(ctx, http.StatusBadGateway, "error",
-			"Couldn't fetch settlement rate — try again in a moment", nil)
-		return
+	settlementClient := settlement.New(orderConf.SettlementAPIURL, settlementTTL)
+
+	var resolvedRate decimal.Decimal
+	var providerIDs []string
+	if svc.IsNativeSui(token.ContractAddress) {
+		if len(orderConf.SuiAggregatorPrivateKey) != 32 {
+			u.APIResponse(ctx, http.StatusServiceUnavailable, "error",
+				"SUI orders require SUI_AGGREGATOR_PRIVATE_KEY to be configured", nil)
+			return
+		}
+		lifiClient := lifi.New(orderConf.LiFiAPIKey)
+		aggSigner := suisigner.NewSigner(orderConf.SuiAggregatorPrivateKey)
+		composite, qerr := svc.QuoteSuiToNgn(ctx, lifiClient, settlementClient,
+			orderConf, aggSigner.Address, payload.Amount)
+		if qerr != nil {
+			logger.Errorf("InitiateRouteAOrder.composite_sui_rate: %v", qerr)
+			u.APIResponse(ctx, http.StatusBadGateway, "error",
+				"Couldn't compose SUI→NGN rate — try again in a moment", nil)
+			return
+		}
+		resolvedRate = composite.Rate
+		providerIDs = composite.ProviderIDs
+		logger.Infof("route-a: SUI composite rate amount=%s SUI usdc=%s ngn_per_sui=%s ngn_per_usdc=%s providers=%v",
+			payload.Amount, composite.UsdcEquivalent, composite.Rate, composite.UsdcToNgnRate, composite.ProviderIDs)
+	} else {
+		quote, qerr := settlementClient.FetchRate(ctx, "base",
+			strings.ToUpper(payload.Token), payload.Amount, "NGN")
+		if qerr != nil {
+			logger.Errorf("InitiateRouteAOrder.fetch_rate: %v", qerr)
+			u.APIResponse(ctx, http.StatusBadGateway, "error",
+				"Couldn't fetch settlement rate — try again in a moment", nil)
+			return
+		}
+		resolvedRate = quote.Rate
+		providerIDs = quote.ProviderIDs
 	}
-	if !payload.Rate.Equal(quote.Rate) {
-		logger.Infof("route-a: rate override token=%s requested=%s lp=%s providers=%v",
-			payload.Token, payload.Rate.String(), quote.Rate.String(), quote.ProviderIDs)
+	if !payload.Rate.Equal(resolvedRate) {
+		logger.Infof("route-a: rate override token=%s requested=%s resolved=%s providers=%v",
+			payload.Token, payload.Rate.String(), resolvedRate.String(), providerIDs)
 	}
-	payload.Rate = quote.Rate
+	payload.Rate = resolvedRate
 
 	address, encryptedSeed, err := ctrl.receiveAddressService.CreateSuiReceiveAddress(ctx)
 	if err != nil {

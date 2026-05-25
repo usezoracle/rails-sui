@@ -26,6 +26,7 @@ type OrderConfiguration struct {
 
 	// Sui-specific.
 	SuiRpcURL               string
+	SuiWsURL                string // wss:// endpoint for event subscriptions (e.g. BlockVision); falls back to SuiRpcURL scheme-converted
 	SuiGatewayPackageID     string
 	SuiGatewayObjectID      string
 	SuiAggregatorCapID      string
@@ -34,6 +35,14 @@ type OrderConfiguration struct {
 	// LiFi (Route A bridging).
 	LiFiBaseURL  string
 	LiFiAPIKey   string // optional; free tier when empty (rate-limited)
+
+	// Shinami Gas Station — sponsors all aggregator-initiated Move
+	// calls (CreateOrder, SettleOrder, RefundOrder, DebitCard). When
+	// empty, the OrderSui code path falls back to a typed error so
+	// misconfiguration surfaces immediately rather than silently
+	// failing. See services/shinami_gas/client.go.
+	ShinamiGasAPIKey string
+	ShinamiGasBaseURL string
 
 	// Base — Route A's EVM destination chain. Same env block works for
 	// Base mainnet (8453) and Base Sepolia (84532); flip BASE_CHAIN_ID
@@ -97,12 +106,15 @@ func OrderConfig() *OrderConfiguration {
 		PercentDeviationFromExternalRate: decimal.NewFromFloat(viper.GetFloat64("PERCENT_DEVIATION_FROM_EXTERNAL_RATE")),
 		PercentDeviationFromMarketRate:   decimal.NewFromFloat(viper.GetFloat64("PERCENT_DEVIATION_FROM_MARKET_RATE")),
 		SuiRpcURL:                        viper.GetString("SUI_RPC_URL"),
+		SuiWsURL:                         viper.GetString("SUI_WS_URL"),
 		SuiGatewayPackageID:              viper.GetString("SUI_GATEWAY_PACKAGE_ID"),
 		SuiGatewayObjectID:               viper.GetString("SUI_GATEWAY_OBJECT_ID"),
 		SuiAggregatorCapID:               viper.GetString("SUI_AGGREGATOR_CAP_ID"),
 		SuiAggregatorPrivateKey:          aggregatorKey,
 		LiFiBaseURL:                      viper.GetString("LIFI_BASE_URL"),
 		LiFiAPIKey:                       viper.GetString("LIFI_API_KEY"),
+		ShinamiGasAPIKey:                 viper.GetString("SHINAMI_GAS_API_KEY"),
+		ShinamiGasBaseURL:                viper.GetString("SHINAMI_GAS_BASE_URL"),
 		BaseRpcURL:                       viper.GetString("BASE_RPC_URL"),
 		BaseAggregatorAddress:            viper.GetString("BASE_AGGREGATOR_ADDRESS"),
 		BaseGatewayContract:              viper.GetString("BASE_GATEWAY_CONTRACT"),

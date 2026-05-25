@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/predicate"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 )
 
@@ -337,6 +338,21 @@ func (rau *RouteAOrderUpdate) SetPaymentOrder(p *PaymentOrder) *RouteAOrderUpdat
 	return rau.SetPaymentOrderID(p.ID)
 }
 
+// AddEventIDs adds the "events" edge to the RouteAEvent entity by IDs.
+func (rau *RouteAOrderUpdate) AddEventIDs(ids ...int) *RouteAOrderUpdate {
+	rau.mutation.AddEventIDs(ids...)
+	return rau
+}
+
+// AddEvents adds the "events" edges to the RouteAEvent entity.
+func (rau *RouteAOrderUpdate) AddEvents(r ...*RouteAEvent) *RouteAOrderUpdate {
+	ids := make([]int, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return rau.AddEventIDs(ids...)
+}
+
 // Mutation returns the RouteAOrderMutation object of the builder.
 func (rau *RouteAOrderUpdate) Mutation() *RouteAOrderMutation {
 	return rau.mutation
@@ -346,6 +362,27 @@ func (rau *RouteAOrderUpdate) Mutation() *RouteAOrderMutation {
 func (rau *RouteAOrderUpdate) ClearPaymentOrder() *RouteAOrderUpdate {
 	rau.mutation.ClearPaymentOrder()
 	return rau
+}
+
+// ClearEvents clears all "events" edges to the RouteAEvent entity.
+func (rau *RouteAOrderUpdate) ClearEvents() *RouteAOrderUpdate {
+	rau.mutation.ClearEvents()
+	return rau
+}
+
+// RemoveEventIDs removes the "events" edge to RouteAEvent entities by IDs.
+func (rau *RouteAOrderUpdate) RemoveEventIDs(ids ...int) *RouteAOrderUpdate {
+	rau.mutation.RemoveEventIDs(ids...)
+	return rau
+}
+
+// RemoveEvents removes "events" edges to RouteAEvent entities.
+func (rau *RouteAOrderUpdate) RemoveEvents(r ...*RouteAEvent) *RouteAOrderUpdate {
+	ids := make([]int, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return rau.RemoveEventIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -526,6 +563,51 @@ func (rau *RouteAOrderUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if rau.mutation.EventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := rau.mutation.RemovedEventsIDs(); len(nodes) > 0 && !rau.mutation.EventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := rau.mutation.EventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -859,6 +941,21 @@ func (rauo *RouteAOrderUpdateOne) SetPaymentOrder(p *PaymentOrder) *RouteAOrderU
 	return rauo.SetPaymentOrderID(p.ID)
 }
 
+// AddEventIDs adds the "events" edge to the RouteAEvent entity by IDs.
+func (rauo *RouteAOrderUpdateOne) AddEventIDs(ids ...int) *RouteAOrderUpdateOne {
+	rauo.mutation.AddEventIDs(ids...)
+	return rauo
+}
+
+// AddEvents adds the "events" edges to the RouteAEvent entity.
+func (rauo *RouteAOrderUpdateOne) AddEvents(r ...*RouteAEvent) *RouteAOrderUpdateOne {
+	ids := make([]int, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return rauo.AddEventIDs(ids...)
+}
+
 // Mutation returns the RouteAOrderMutation object of the builder.
 func (rauo *RouteAOrderUpdateOne) Mutation() *RouteAOrderMutation {
 	return rauo.mutation
@@ -868,6 +965,27 @@ func (rauo *RouteAOrderUpdateOne) Mutation() *RouteAOrderMutation {
 func (rauo *RouteAOrderUpdateOne) ClearPaymentOrder() *RouteAOrderUpdateOne {
 	rauo.mutation.ClearPaymentOrder()
 	return rauo
+}
+
+// ClearEvents clears all "events" edges to the RouteAEvent entity.
+func (rauo *RouteAOrderUpdateOne) ClearEvents() *RouteAOrderUpdateOne {
+	rauo.mutation.ClearEvents()
+	return rauo
+}
+
+// RemoveEventIDs removes the "events" edge to RouteAEvent entities by IDs.
+func (rauo *RouteAOrderUpdateOne) RemoveEventIDs(ids ...int) *RouteAOrderUpdateOne {
+	rauo.mutation.RemoveEventIDs(ids...)
+	return rauo
+}
+
+// RemoveEvents removes "events" edges to RouteAEvent entities.
+func (rauo *RouteAOrderUpdateOne) RemoveEvents(r ...*RouteAEvent) *RouteAOrderUpdateOne {
+	ids := make([]int, len(r))
+	for i := range r {
+		ids[i] = r[i].ID
+	}
+	return rauo.RemoveEventIDs(ids...)
 }
 
 // Where appends a list predicates to the RouteAOrderUpdate builder.
@@ -1078,6 +1196,51 @@ func (rauo *RouteAOrderUpdateOne) sqlSave(ctx context.Context) (_node *RouteAOrd
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if rauo.mutation.EventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := rauo.mutation.RemovedEventsIDs(); len(nodes) > 0 && !rauo.mutation.EventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := rauo.mutation.EventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   routeaorder.EventsTable,
+			Columns: []string{routeaorder.EventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routeaevent.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

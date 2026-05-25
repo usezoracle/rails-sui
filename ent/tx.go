@@ -46,6 +46,8 @@ type Tx struct {
 	ReceiveAddress *ReceiveAddressClient
 	// RefreshToken is the client for interacting with the RefreshToken builders.
 	RefreshToken *RefreshTokenClient
+	// RouteAEvent is the client for interacting with the RouteAEvent builders.
+	RouteAEvent *RouteAEventClient
 	// RouteAOrder is the client for interacting with the RouteAOrder builders.
 	RouteAOrder *RouteAOrderClient
 	// SenderOrderToken is the client for interacting with the SenderOrderToken builders.
@@ -214,6 +216,7 @@ func (tx *Tx) init() {
 	tx.ProvisionBucket = NewProvisionBucketClient(tx.config)
 	tx.ReceiveAddress = NewReceiveAddressClient(tx.config)
 	tx.RefreshToken = NewRefreshTokenClient(tx.config)
+	tx.RouteAEvent = NewRouteAEventClient(tx.config)
 	tx.RouteAOrder = NewRouteAOrderClient(tx.config)
 	tx.SenderOrderToken = NewSenderOrderTokenClient(tx.config)
 	tx.SenderProfile = NewSenderProfileClient(tx.config)

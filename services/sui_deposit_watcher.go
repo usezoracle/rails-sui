@@ -115,12 +115,46 @@ func (w *SuiDepositWatcher) detectDeposits(ctx context.Context) error {
 	}
 
 	for _, addr := range unused {
-		coin, txDigest, found, err := w.findMatchingDeposit(ctx, addr)
+		coin, txDigest, found, observedBalance, err := w.findMatchingDeposit(ctx, addr)
+
+		// Resolve the linked route_a_order id (if any) so audit-log
+		// rows attach to it. Non-Route-A payment orders don't get
+		// audit rows from the watcher — that's by design (the audit
+		// table is Route-A-scoped).
+		routeAOrderID := w.linkedRouteAOrderID(ctx, addr)
+
 		if err != nil {
 			logger.Errorf("sui deposit watcher: query coins for %s: %v", addr.Address, err)
+			if routeAOrderID != 0 {
+				LogOnce(ctx, routeAOrderID, StepDepositCheck, StatusFailed,
+					ActorWatcher,
+					map[string]any{
+						"receive_address": addr.Address,
+						"coin_type":       addr.CoinType,
+					},
+					err.Error(), "")
+			}
 			continue
 		}
 		if !found {
+			// CRITICAL: this was the silent path that caused the
+			// 2026-05-25 incident. The watcher checked, the deposit
+			// didn't match `balance >= expected` (off-by-1429 from
+			// USDC precision rounding), and we moved on without any
+			// trace. Now every miss leaves a row showing exactly
+			// what we saw vs expected so reconciliation has signal.
+			if routeAOrderID != 0 {
+				LogOnce(ctx, routeAOrderID, StepDepositCheck, StatusSkipped,
+					ActorWatcher,
+					map[string]any{
+						"receive_address":  addr.Address,
+						"coin_type":        addr.CoinType,
+						"expected_amount":  addr.ExpectedAmount,
+						"observed_balance": observedBalance,
+						"short_by":         int64(addr.ExpectedAmount) - observedBalance,
+					},
+					"observed balance below expected", "")
+			}
 			continue
 		}
 
@@ -130,36 +164,76 @@ func (w *SuiDepositWatcher) detectDeposits(ctx context.Context) error {
 		}
 		if _, err := updateBuilder.Save(ctx); err != nil {
 			logger.Errorf("sui deposit watcher: mark %s deposited: %v", addr.Address, err)
+			if routeAOrderID != 0 {
+				LogOnce(ctx, routeAOrderID, StepDepositDetected, StatusFailed,
+					ActorWatcher,
+					map[string]any{"receive_address": addr.Address},
+					err.Error(), "")
+			}
 			continue
 		}
 		logger.Infof("sui deposit watcher: detected deposit at %s (coin=%s balance=%s expected=%d tx=%s)",
 			addr.Address, coin.CoinObjectId, coin.Balance, addr.ExpectedAmount, txDigest)
+		if routeAOrderID != 0 {
+			LogOnce(ctx, routeAOrderID, StepDepositDetected, StatusSucceeded,
+				ActorWatcher,
+				map[string]any{
+					"receive_address": addr.Address,
+					"coin_object_id":  coin.CoinObjectId,
+					"balance":         coin.Balance,
+					"expected_amount": addr.ExpectedAmount,
+					"deposit_tx":      txDigest,
+				},
+				"", "")
+		}
 	}
 	return nil
 }
 
+// linkedRouteAOrderID returns the route_a_order id associated with this
+// receive address, if any. Returns 0 when the receive address belongs
+// to a non-Route-A payment order or the lookup fails — those orders
+// don't write to the Route-A audit log.
+func (w *SuiDepositWatcher) linkedRouteAOrderID(
+	ctx context.Context, addr *ent.SuiReceiveAddress,
+) int {
+	po, err := addr.QueryPaymentOrder().WithRouteAOrder().Only(ctx)
+	if err != nil || po == nil || po.Edges.RouteAOrder == nil {
+		return 0
+	}
+	return po.Edges.RouteAOrder.ID
+}
+
 // findMatchingDeposit queries sui_getCoins for the address + coin_type and
 // returns the first coin whose balance meets or exceeds expected_amount.
-func (w *SuiDepositWatcher) findMatchingDeposit(ctx context.Context, addr *ent.SuiReceiveAddress) (models.CoinData, string, bool, error) {
+//
+// Also returns the total observed balance across all coins of the type
+// (signed int64) so the caller can record it on a `skipped` audit row —
+// makes precision-mismatch incidents (like 2026-05-25) self-diagnosing.
+func (w *SuiDepositWatcher) findMatchingDeposit(
+	ctx context.Context, addr *ent.SuiReceiveAddress,
+) (models.CoinData, string, bool, int64, error) {
 	resp, err := w.suiClient.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
 		Owner:    addr.Address,
 		CoinType: addr.CoinType,
 		Limit:    50,
 	})
 	if err != nil {
-		return models.CoinData{}, "", false, err
+		return models.CoinData{}, "", false, 0, err
 	}
 
+	var totalObserved int64
 	for _, coin := range resp.Data {
-		balance, err := strconv.ParseUint(coin.Balance, 10, 64)
-		if err != nil {
+		balance, parseErr := strconv.ParseUint(coin.Balance, 10, 64)
+		if parseErr != nil {
 			continue
 		}
+		totalObserved += int64(balance)
 		if balance >= addr.ExpectedAmount {
-			return coin, coin.PreviousTransaction, true, nil
+			return coin, coin.PreviousTransaction, true, totalObserved, nil
 		}
 	}
-	return models.CoinData{}, "", false, nil
+	return models.CoinData{}, "", false, totalObserved, nil
 }
 
 // forwardDeposits calls OrderSui.CreateOrder for every address in 'deposited'

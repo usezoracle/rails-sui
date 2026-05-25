@@ -1,5 +1,6 @@
 package tasks
 
+// (import block — shinamiGas added for the gas-fund cron)
 import (
 	"context"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/webhookretryattempt"
 	"github.com/usezoracle/rails-sui/services"
+	shinamiGas "github.com/usezoracle/rails-sui/services/shinami_gas"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils"
@@ -736,15 +738,19 @@ func StartCronJobs() {
 	// the block-vision SDK's WS error path will take down the process
 	// when handed an HTTPS URL instead of WSS. Lets local dev boot
 	// against a non-deployed Gateway.
-	if orderConf.SuiGatewayPackageID != "" {
-		suiIndexer := services.NewSuiEventIndexer(orderConf.SuiRpcURL, orderConf.SuiGatewayPackageID, suiNetwork)
+	if orderConf.SuiGatewayPackageID != "" && orderConf.SuiWsURL != "" {
+		suiIndexer := services.NewSuiEventIndexer(orderConf.SuiWsURL, orderConf.SuiGatewayPackageID, suiNetwork)
 		go func() {
 			if err := suiIndexer.Start(context.Background()); err != nil && err != context.Canceled {
 				logger.Errorf("StartCronJobs: sui event indexer exited: %v", err)
 			}
 		}()
 	} else {
-		logger.Infof("StartCronJobs: SUI_GATEWAY_PACKAGE_ID empty — skipping event indexer")
+		if orderConf.SuiGatewayPackageID == "" {
+			logger.Infof("StartCronJobs: SUI_GATEWAY_PACKAGE_ID empty — skipping event indexer")
+		} else {
+			logger.Infof("StartCronJobs: SUI_WS_URL empty — skipping event indexer (public fullnode doesn't support WebSocket)")
+		}
 	}
 
 	// Compute market rate every 30 minutes.
@@ -812,6 +818,32 @@ func StartCronJobs() {
 		}
 	}); err != nil {
 		logger.Errorf("StartCronJobs: %v", err)
+	}
+
+	// Shinami Gas Station fund balance alert — every 5 min. Every
+	// aggregator-initiated Move call (CreateOrder, SettleOrder,
+	// RefundOrder, DebitCard) is now sponsored by the Shinami fund
+	// tied to SHINAMI_GAS_API_KEY. If the fund runs dry, ALL of those
+	// stall silently. Threshold: 1 SUI (1_000_000_000 MIST) — generous
+	// for a few hundred txs at typical mainnet gas cost.
+	if orderConf.ShinamiGasAPIKey != "" {
+		gasClient := shinamiGas.New(orderConf.ShinamiGasAPIKey, orderConf.ShinamiGasBaseURL)
+		const lowFundThresholdMist = int64(1_000_000_000) // 1 SUI
+		if _, err := scheduler.Cron("*/5 * * * *").Do(func() {
+			fund, err := gasClient.GetFund(context.Background())
+			if err != nil {
+				logger.Errorf("StartCronJobs: shinami gas fund check: %v", err)
+				return
+			}
+			if fund.Balance < lowFundThresholdMist {
+				logger.Errorf("Shinami gas fund LOW — %s (network=%s) balance=%d MIST (%.4f SUI) in_flight=%d MIST. Top up at depositAddress=%s. Below threshold ALL aggregator Move calls (CreateOrder, SettleOrder, RefundOrder, DebitCard) will start failing.",
+					fund.Name, fund.Network, fund.Balance, float64(fund.Balance)/1e9, fund.InFlight, fund.DepositAddress)
+			}
+		}); err != nil {
+			logger.Errorf("StartCronJobs: %v", err)
+		}
+	} else {
+		logger.Infof("StartCronJobs: SHINAMI_GAS_API_KEY empty — skipping Shinami fund-balance cron (aggregator Move calls will fail at runtime)")
 	}
 
 	scheduler.StartAsync()

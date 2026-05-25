@@ -52,15 +52,65 @@ var ErrBaseDispatcherNotConfigured = errors.New("rails: Base EVM / settlement co
 // reaches dispatch but the BaaS partner integration isn't picked.
 var ErrTreasuryDispatcherNotWired = errors.New("rails: BaaS partner not integrated for treasury payout (route-a-spec.md, mode=treasury dispatch)")
 
+// ErrAwaitingDepositAtAggregator is returned by startBridge when the
+// aggregator wallet doesn't yet hold the source-coin balance the bridge
+// would spend. This is the *expected* state between order creation and
+// the indexer's SelfSettleToAggregator completing — NOT a failure.
+//
+// advancePending recognizes this sentinel and silently skips the order
+// (no retry counter bump, no FAILED transition). Once the indexer (or
+// the deposit-reconciliation cron) self-settles the funds, the next
+// tick proceeds normally.
+//
+// Without this guard, indexer hiccups manifest as
+// "InsufficientCoinBalance in command N" reverts on the bridge tx —
+// silent failures that look like LiFi outages. See
+// docs/incidents/2026-05-25-route-a-stuck-deposit.md.
+//
+// Implements the SkipSentinel interface (route_a_events.go) so the
+// audit log records this as `skipped`, not `failed`.
+type awaitingDepositErr struct{ msg string }
+
+func (e *awaitingDepositErr) Error() string  { return e.msg }
+func (e *awaitingDepositErr) skipSentinel()  {}
+
+var ErrAwaitingDepositAtAggregator error = &awaitingDepositErr{
+	msg: "rails: aggregator wallet hasn't received the deposit yet — waiting for indexer/self-settle",
+}
+
 const (
 	// maxQuoteRetries is the number of consecutive LiFi quote failures
 	// before an order is marked failed. Prevents infinite log spam.
 	maxQuoteRetries = 10
 
-	// bridgingStaleTimeout is how long an order can stay in 'bridging'
-	// with a "tx not found" response before we mark it failed.
-	bridgingStaleTimeout = 15 * time.Minute
+	// uncertainRecoveryWindow is how long the late-arrival poller will
+	// re-check a `bridge_uncertain` order before giving up and marking
+	// it `failed`. Sized for the longest realistic bridge tail.
+	uncertainRecoveryWindow = 24 * time.Hour
 )
+
+// bridgeStaleTimeouts is how long an order can stay in 'bridging' with
+// LiFi /status returning "not found" before we transition it to
+// `bridge_uncertain`. Per-tool because bridges have wildly different
+// SLAs — Allbridge can take 30-45 min on a normal day, CCTP is sub-10.
+// The unknown/default bucket is generous (45 min) so we err toward
+// "wait a bit more" instead of "mark failed too early" — see
+// docs/incidents/2026-05-25-route-a-stuck-deposit.md.
+var bridgeStaleTimeouts = map[string]time.Duration{
+	"allbridge":         60 * time.Minute,
+	"wormhole":          30 * time.Minute,
+	"cctp":              20 * time.Minute,
+	"mayan":             15 * time.Minute,
+	"stargate":          25 * time.Minute,
+	"":                  45 * time.Minute, // unknown tool
+}
+
+func bridgeStaleTimeoutFor(tool string) time.Duration {
+	if d, ok := bridgeStaleTimeouts[strings.ToLower(tool)]; ok {
+		return d
+	}
+	return bridgeStaleTimeouts[""]
+}
 
 // RouteADispatcher drives Route-A orders through their lifecycle. One
 // instance held by tasks.go cron.
@@ -173,6 +223,9 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 	if err := d.advanceBridging(ctx); err != nil {
 		logger.Errorf("route-a: advance bridging: %v", err)
 	}
+	if err := d.advanceUncertain(ctx); err != nil {
+		logger.Errorf("route-a: advance uncertain: %v", err)
+	}
 	if err := d.advanceBridged(ctx); err != nil {
 		logger.Errorf("route-a: advance bridged: %v", err)
 	}
@@ -198,6 +251,13 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 
 	for _, order := range orders {
 		if err := d.startBridge(ctx, order); err != nil {
+			// Awaiting-funds is the expected state between order
+			// creation and the indexer's self-settle. Skip the retry
+			// counter — we want to keep checking forever (or until ops
+			// intervenes), not mark as FAILED after 10 ticks.
+			if errors.Is(err, ErrAwaitingDepositAtAggregator) {
+				continue
+			}
 			d.quoteFailMu.Lock()
 			d.quoteFailCounts[order.ID]++
 			count := d.quoteFailCounts[order.ID]
@@ -232,7 +292,16 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 
 // startBridge fetches a quote, signs + submits the source-chain tx, and
 // persists the resulting quote ID + tx digest. Transitions pending→bridging.
-func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrder) error {
+//
+// Audit-log instrumentation: writes started + terminal rows under
+// step=bridge_submit so the operator timeline shows every attempt
+// (including silent skips when the aggregator hasn't received funds
+// yet — that's the case ErrAwaitingDepositAtAggregator covers, which
+// satisfies SkipSentinel and is recorded as `skipped`).
+func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrder) (err error) {
+	timer := Time(ctx, order.ID, StepBridgeSubmit, ActorDispatcher)
+	defer timer.End(&err)
+
 	if order.Edges.PaymentOrder == nil {
 		return fmt.Errorf("route-a order %d has no payment_order edge", order.ID)
 	}
@@ -245,7 +314,56 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 
 	// fromAmount is in the source coin's smallest unit. PaymentOrder.Amount
 	// is in decimal — convert via the token's decimals.
-	fromAmount := po.Amount.Shift(int32(tok.Decimals)).Truncate(0).String()
+	//
+	// Native SUI: reserve a small amount for the aggregator's bridge-tx
+	// gas. The reservation matches the one baked into the order-time
+	// composite rate (services/route_a_quote.go) so the user-facing
+	// quote and the actual bridge stay in sync.
+	bridgeAmount := po.Amount
+	if IsNativeSui(tok.ContractAddress) {
+		gasReserve := decimal.NewFromInt(NativeSuiGasReservation).Shift(-int32(NativeSuiDecimals))
+		bridgeAmount = po.Amount.Sub(gasReserve)
+		if bridgeAmount.Sign() <= 0 {
+			return fmt.Errorf("sui amount %s below gas reservation %s", po.Amount, gasReserve)
+		}
+	}
+	fromAmount := bridgeAmount.Shift(int32(tok.Decimals)).Truncate(0).String()
+
+	// Pre-flight: aggregator must already hold enough of the source
+	// coin to satisfy this bridge. Without this guard, an indexer
+	// hiccup (deposit landed at receive_address but never self-settled
+	// to the aggregator) manifests downstream as a cryptic
+	// "InsufficientCoinBalance in command N" revert on the LiFi PTB,
+	// which then gets misreported as "LiFi tx not found" 15 minutes
+	// later — and the order is marked permanently FAILED with the
+	// user's funds stranded at the receive_address. See
+	// docs/incidents/2026-05-25-route-a-stuck-deposit.md.
+	balResp, err := d.suiClient.SuiXGetBalance(ctx, suimodels.SuiXGetBalanceRequest{
+		Owner:    d.signer.Address,
+		CoinType: tok.ContractAddress,
+	})
+	if err != nil {
+		return fmt.Errorf("check aggregator balance: %w", err)
+	}
+	have, ok := new(big.Int).SetString(balResp.TotalBalance, 10)
+	if !ok {
+		return fmt.Errorf("parse aggregator balance %q", balResp.TotalBalance)
+	}
+	need, ok := new(big.Int).SetString(fromAmount, 10)
+	if !ok {
+		return fmt.Errorf("parse fromAmount %q", fromAmount)
+	}
+	if have.Cmp(need) < 0 {
+		logger.Infof("route-a: order %d awaiting funds — aggregator has %s, need %s (%s); will recheck next tick",
+			order.ID, have.String(), need.String(), tok.ContractAddress)
+		timer.With("aggregator_have", have.String()).
+			With("need", need.String()).
+			With("coin_type", tok.ContractAddress)
+		return ErrAwaitingDepositAtAggregator
+	}
+	timer.With("from_amount", fromAmount).
+		With("coin_type", tok.ContractAddress).
+		With("aggregator_have", have.String())
 
 	qr := lifi.QuoteRequest{
 		FromChain:   strconv.FormatInt(lifi.SuiChainID, 10),
@@ -255,6 +373,9 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 		FromAmount:  fromAmount,
 		FromAddress: d.signer.Address,
 		ToAddress:   d.conf.BaseAggregatorAddress,
+	}
+	if IsNativeSui(tok.ContractAddress) {
+		qr.Slippage = NativeSuiSlippage()
 	}
 	quote, err := d.lifi.GetQuote(ctx, qr)
 	if err != nil {
@@ -298,6 +419,11 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 		Save(ctx); err != nil {
 		return fmt.Errorf("persist bridging state: %w", err)
 	}
+	timer.With("lifi_quote_id", quote.ID).
+		With("lifi_tool", quote.Tool).
+		With("bridge_tx_sui", resp.Digest).
+		With("estimated_to_amount", quote.Estimate.ToAmount).
+		With("estimated_to_amount_min", quote.Estimate.ToAmountMin)
 	logger.Infof("route-a: bridge initiated order=%d tool=%s tx=%s", order.ID, quote.Tool, resp.Digest)
 	return nil
 }
@@ -318,70 +444,246 @@ func (d *RouteADispatcher) advanceBridging(ctx context.Context) error {
 		if order.BridgeTxSui == "" {
 			continue
 		}
-		status, err := d.lifi.GetStatus(ctx, lifi.StatusRequest{
+		d.pollOneBridge(ctx, order)
+	}
+	return nil
+}
+
+// pollOneBridge handles one /status poll for a single bridging order.
+// Outcomes:
+//   - LiFi DONE      → advance to `bridged` (with dest tx + amount)
+//   - LiFi FAILED    → terminal `failed`
+//   - "not found" within per-tool timeout → keep polling next tick
+//   - "not found" past per-tool timeout   → transition to
+//     `bridge_uncertain`; the late-arrival poller takes over
+//   - other transport error                → log + retry next tick
+//
+// Every poll writes a `bridge_poll` event so the timeline shows
+// exactly how long each upstream call took and what status came back.
+func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAOrder) {
+	var err error
+	timer := Time(ctx, order.ID, StepBridgePoll, ActorDispatcher).
+		With("bridge_tx_sui", order.BridgeTxSui).
+		With("lifi_tool", order.LifiTool)
+	defer timer.End(&err)
+
+	status, lerr := d.lifi.GetStatus(ctx, lifi.StatusRequest{
+		TxHash:    order.BridgeTxSui,
+		Bridge:    order.LifiTool,
+		FromChain: strconv.FormatInt(lifi.SuiChainID, 10),
+		ToChain:   strconv.FormatInt(d.conf.BaseChainID, 10),
+	})
+	if lerr != nil {
+		logger.Errorf("route-a: status poll for %d (tx=%s tool=%s): %v", order.ID, order.BridgeTxSui, order.LifiTool, lerr)
+		timer.With("upstream_error", lerr.Error())
+
+		// "not found" past the per-tool stale window → bridge_uncertain.
+		// We do NOT mark failed here anymore — the late-arrival poller
+		// may yet observe the bridged USDC at the Base aggregator. See
+		// 2026-05-25 incident.
+		staleAfter := bridgeStaleTimeoutFor(order.LifiTool)
+		if strings.Contains(lerr.Error(), "not found") && time.Since(order.UpdatedAt) > staleAfter {
+			reason := fmt.Sprintf("LiFi /status 'not found' for tx %s after %s — transitioned to bridge_uncertain",
+				order.BridgeTxSui, staleAfter)
+			if _, uerr := order.Update().
+				SetBridgeStatus(routeaorder.BridgeStatusBridgeUncertain).
+				SetFailureReason(reason).
+				Save(ctx); uerr != nil {
+				logger.Errorf("route-a: persist bridge_uncertain for %d: %v", order.ID, uerr)
+				err = uerr
+				return
+			}
+			logger.Infof("route-a: order %d → bridge_uncertain (tool=%s stale_after=%s)",
+				order.ID, order.LifiTool, staleAfter)
+			LogOnce(ctx, order.ID, StepBridgeUncertain, StatusStarted, ActorDispatcher,
+				map[string]any{
+					"reason":       reason,
+					"stale_after":  staleAfter.String(),
+					"lifi_tool":    order.LifiTool,
+					"bridge_tx":    order.BridgeTxSui,
+				}, "", "")
+			timer.With("transitioned", "bridge_uncertain").
+				With("stale_after", staleAfter.String())
+			return
+		}
+		err = lerr
+		return
+	}
+
+	timer.With("lifi_status", status.Status).With("lifi_substatus", status.Substatus)
+
+	switch status.Status {
+	case "DONE":
+		update := order.Update().SetBridgeStatus(routeaorder.BridgeStatusBridged)
+		if status.Receiving != nil {
+			if status.Receiving.TxHash != "" {
+				update = update.SetBridgeTxDest(status.Receiving.TxHash)
+				timer.With("bridge_tx_dest", status.Receiving.TxHash)
+			}
+			if status.Receiving.Amount != "" {
+				if amt, ok := parseAmountToDecimal(status.Receiving.Amount, status.Receiving.Token.Decimals); ok {
+					update = update.SetBridgedAmount(amt)
+					timer.With("bridged_amount", amt.String())
+				}
+			}
+		}
+		if _, uerr := update.Save(ctx); uerr != nil {
+			logger.Errorf("route-a: persist DONE for %d: %v", order.ID, uerr)
+			err = uerr
+			return
+		}
+		logger.Infof("route-a: bridge DONE order=%d", order.ID)
+		// Distinct `bridge_done` row so the timeline shows the
+		// completion moment cleanly (the poll row is just the call).
+		LogOnce(ctx, order.ID, StepBridgeDone, StatusSucceeded, ActorDispatcher,
+			map[string]any{
+				"bridge_tx_dest": order.BridgeTxDest,
+			}, "", "")
+
+	case "FAILED":
+		reason := status.SubstatusMsg
+		if reason == "" {
+			reason = status.Substatus
+		}
+		if _, uerr := order.Update().
+			SetBridgeStatus(routeaorder.BridgeStatusFailed).
+			SetFailureReason(reason).
+			Save(ctx); uerr != nil {
+			logger.Errorf("route-a: persist FAILED for %d: %v", order.ID, uerr)
+			err = uerr
+			return
+		}
+		logger.Infof("route-a: bridge FAILED order=%d reason=%s", order.ID, reason)
+		err = fmt.Errorf("lifi FAILED: %s", reason)
+
+	default:
+		// PENDING / NOT_FOUND inside the stale window — keep polling.
+		// `bridge_poll / succeeded` row records the call.
+	}
+}
+
+// advanceUncertain handles `bridge_uncertain` orders — those whose
+// LiFi /status has been "not found" past the per-tool stale timeout.
+// Two independent recovery paths run in parallel each tick:
+//
+//  1. Re-query LiFi /status. Sometimes their indexer just catches up
+//     late (especially under load) and reports DONE/FAILED after we
+//     already gave up. If we get a terminal status, advance the order.
+//  2. Read the Base aggregator wallet's USDC balance delta. If a new
+//     USDC transfer arrived to the wallet that matches the expected
+//     bridge amount within tolerance, the bridge has clearly completed
+//     even if LiFi never indexed it. Mark `bridged` and move on.
+//
+// After uncertainRecoveryWindow (24h) elapses with no recovery, the
+// order is finally marked `failed` so refund logic can pick it up.
+//
+// Triggered from Tick() every minute. Every order touched writes a
+// `bridge_uncertain` event so the timeline shows recovery attempts.
+func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
+	orders, err := db.Client.RouteAOrder.
+		Query().
+		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridgeUncertain)).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, order := range orders {
+		var loopErr error
+		timer := Time(ctx, order.ID, StepBridgeUncertain, ActorDispatcher).
+			With("bridge_tx_sui", order.BridgeTxSui).
+			With("lifi_tool", order.LifiTool).
+			With("age", time.Since(order.UpdatedAt).String())
+
+		// Path 1: re-query LiFi.
+		status, lerr := d.lifi.GetStatus(ctx, lifi.StatusRequest{
 			TxHash:    order.BridgeTxSui,
 			Bridge:    order.LifiTool,
 			FromChain: strconv.FormatInt(lifi.SuiChainID, 10),
 			ToChain:   strconv.FormatInt(d.conf.BaseChainID, 10),
 		})
-		if err != nil {
-			logger.Errorf("route-a: status poll for %d (tx=%s tool=%s): %v", order.ID, order.BridgeTxSui, order.LifiTool, err)
-
-			// If the tx has been "not found" for longer than bridgingStaleTimeout,
-			// mark it failed — the source tx likely never landed on-chain or was
-			// dropped. Without this, the order polls forever.
-			if strings.Contains(err.Error(), "not found") && time.Since(order.UpdatedAt) > bridgingStaleTimeout {
-				reason := fmt.Sprintf("LiFi status returned 'not found' for tx %s after %s", order.BridgeTxSui, bridgingStaleTimeout)
+		if lerr == nil {
+			timer.With("lifi_status", status.Status)
+			switch status.Status {
+			case "DONE":
+				if d.markBridgedFromStatus(ctx, order, status) {
+					timer.With("recovered_via", "lifi_late_done")
+					timer.End(&loopErr)
+					continue
+				}
+			case "FAILED":
+				reason := status.SubstatusMsg
+				if reason == "" {
+					reason = status.Substatus
+				}
 				if _, uerr := order.Update().
 					SetBridgeStatus(routeaorder.BridgeStatusFailed).
-					SetFailureReason(reason).
+					SetFailureReason("late LiFi FAILED: " + reason).
 					Save(ctx); uerr != nil {
-					logger.Errorf("route-a: persist stale-bridging FAILED for %d: %v", order.ID, uerr)
-				} else {
-					logger.Errorf("route-a: order %d marked FAILED — bridge tx not found after %s", order.ID, bridgingStaleTimeout)
+					logger.Errorf("route-a: persist late FAILED for %d: %v", order.ID, uerr)
 				}
+				timer.With("recovered_via", "lifi_late_failed")
+				timer.End(&loopErr)
+				continue
 			}
-			continue
+		} else {
+			timer.With("lifi_error", lerr.Error())
 		}
 
-		switch status.Status {
-		case "DONE":
-			update := order.Update().SetBridgeStatus(routeaorder.BridgeStatusBridged)
-			if status.Receiving != nil {
-				if status.Receiving.TxHash != "" {
-					update = update.SetBridgeTxDest(status.Receiving.TxHash)
-				}
-				if status.Receiving.Amount != "" {
-					if amt, ok := parseAmountToDecimal(status.Receiving.Amount, status.Receiving.Token.Decimals); ok {
-						update = update.SetBridgedAmount(amt)
-					}
-				}
-			}
-			if _, err := update.Save(ctx); err != nil {
-				logger.Errorf("route-a: persist DONE for %d: %v", order.ID, err)
-			} else {
-				logger.Infof("route-a: bridge DONE order=%d", order.ID)
-			}
+		// Path 2: check destination wallet for incoming USDC the
+		// indexer might not have surfaced. Implementation deferred —
+		// requires the EVM client (lazy-init below) and a fairly
+		// careful matching heuristic (look at recent transfers, match
+		// by amount within tolerance, dedupe across orders). Tracked
+		// in docs/route-a-hardening.md Phase 2 follow-ups.
+		// For now we just keep retrying LiFi.
 
-		case "FAILED":
-			reason := status.SubstatusMsg
-			if reason == "" {
-				reason = status.Substatus
-			}
-			if _, err := order.Update().
+		// Window expired → mark failed so the refund flow can run.
+		if time.Since(order.UpdatedAt) > uncertainRecoveryWindow {
+			reason := fmt.Sprintf("uncertain past %s window; LiFi still not found", uncertainRecoveryWindow)
+			if _, uerr := order.Update().
 				SetBridgeStatus(routeaorder.BridgeStatusFailed).
 				SetFailureReason(reason).
-				Save(ctx); err != nil {
-				logger.Errorf("route-a: persist FAILED for %d: %v", order.ID, err)
-			} else {
-				logger.Infof("route-a: bridge FAILED order=%d reason=%s", order.ID, reason)
+				Save(ctx); uerr != nil {
+				logger.Errorf("route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
 			}
-
-		default:
-			// PENDING / NOT_FOUND — keep polling.
+			timer.With("recovered_via", "window_expired_to_failed")
 		}
+		timer.End(&loopErr)
 	}
 	return nil
+}
+
+// markBridgedFromStatus applies a LiFi DONE response to an order
+// row, advancing it to `bridged`. Returns true on success. Used by
+// both the normal `bridging` poller (pollOneBridge) and the late-
+// arrival path (advanceUncertain).
+func (d *RouteADispatcher) markBridgedFromStatus(
+	ctx context.Context, order *ent.RouteAOrder, status *lifi.StatusResponse,
+) bool {
+	update := order.Update().
+		SetBridgeStatus(routeaorder.BridgeStatusBridged).
+		SetFailureReason("") // clear the uncertain marker
+	if status.Receiving != nil {
+		if status.Receiving.TxHash != "" {
+			update = update.SetBridgeTxDest(status.Receiving.TxHash)
+		}
+		if status.Receiving.Amount != "" {
+			if amt, ok := parseAmountToDecimal(status.Receiving.Amount, status.Receiving.Token.Decimals); ok {
+				update = update.SetBridgedAmount(amt)
+			}
+		}
+	}
+	if _, err := update.Save(ctx); err != nil {
+		logger.Errorf("route-a: persist late DONE for %d: %v", order.ID, err)
+		return false
+	}
+	LogOnce(ctx, order.ID, StepBridgeDone, StatusSucceeded, ActorDispatcher,
+		map[string]any{
+			"recovered_via":  "late_lifi_done",
+			"bridge_tx_dest": order.BridgeTxDest,
+		}, "", "")
+	return true
 }
 
 // advanceBridged finds RouteAOrder rows in 'bridged' state (Base USDC has
@@ -397,11 +699,13 @@ func (d *RouteADispatcher) advanceBridged(ctx context.Context) error {
 	orders, err := db.Client.RouteAOrder.
 		Query().
 		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridged)).
-		// dispatchLP needs both the PaymentOrder and its Recipient edge
-		// to build the settlement messageHash; eager-load them here so the
-		// dispatcher doesn't have to re-query per order.
+		// dispatchLP needs the PaymentOrder + its Recipient (for the
+		// settlement messageHash) and Token (to branch the rate
+		// conversion for native-SUI orders); eager-load them here so
+		// the dispatcher doesn't have to re-query per order.
 		WithPaymentOrder(func(poq *ent.PaymentOrderQuery) {
 			poq.WithRecipient()
+			poq.WithToken()
 		}).
 		All(ctx)
 	if err != nil {
@@ -434,7 +738,11 @@ func (d *RouteADispatcher) advanceBridged(ctx context.Context) error {
 // Hot-path failures (RPC unreachable, allowance race, revert) leave the
 // order in `bridged` for the next tick to retry. Hard failures (config
 // missing, invalid recipient) mark the order failed and surface to ops.
-func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrder) error {
+func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrder) (err error) {
+	timer := Time(ctx, order.ID, StepEvmCreateOrder, ActorDispatcher).
+		With("base_chain_id", d.conf.BaseChainID)
+	defer timer.End(&err)
+
 	if d.evm == nil || d.settlement == nil {
 		return ErrBaseDispatcherNotConfigured
 	}
@@ -463,9 +771,20 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 	amount := new(big.Int).Sub(bridged, senderFee) // amount + senderFee == bridged
 	senderFeeDec := decimal.NewFromBigInt(senderFee, -int32(d.conf.BaseUSDCDecimals))
 
-	// Rate: uint96 fixed-point (NGN per USDC × 100). PaymentOrder.Rate
-	// is decimal NGN per USDC.
-	rateScaled := order.Edges.PaymentOrder.Rate.Mul(decimal.NewFromInt(100)).Truncate(0)
+	// Rate: uint96 fixed-point (NGN per USDC × 100). The settlement
+	// Gateway on Base only knows about USDC, so we always submit
+	// NGN/USDC regardless of the source token.
+	//
+	// USDC source: PaymentOrder.Rate is already NGN/USDC — use as-is.
+	// Native SUI source: PaymentOrder.Rate is NGN/SUI (the composite
+	// the user signed). Recompute NGN/USDC from what LiFi actually
+	// delivered so the total NGN payout matches the user's quote.
+	usdcRate := po.Rate
+	if po.Edges.Token != nil && IsNativeSui(po.Edges.Token.ContractAddress) {
+		totalNGN := po.Amount.Mul(po.Rate)
+		usdcRate = totalNGN.Div(*order.BridgedAmount)
+	}
+	rateScaled := usdcRate.Mul(decimal.NewFromInt(100)).Truncate(0)
 	rate, _ := new(big.Int).SetString(rateScaled.String(), 10)
 
 	// Build + encrypt the recipient blob.
@@ -490,12 +809,24 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 	aggregatorAddr := ethcommon.HexToAddress(d.conf.BaseAggregatorAddress)
 	// Approve amount + senderFee in one go.
 	total := new(big.Int).Add(amount, senderFee)
-	if _, err := d.evm.USDC().Approve(ctx, d.evm.Config().GatewayAddr, total); err != nil {
-		return fmt.Errorf("approve USDC: %w", err)
+	timer.With("amount_subunit", amount.String()).
+		With("sender_fee_subunit", senderFee.String()).
+		With("rate_scaled", rate.String())
+
+	approveErr := func() (aerr error) {
+		atimer := Time(ctx, order.ID, StepEvmApprove, ActorDispatcher).
+			With("approve_total", total.String()).
+			With("spender", d.evm.Config().GatewayAddr.Hex())
+		defer atimer.End(&aerr)
+		_, aerr = d.evm.USDC().Approve(ctx, d.evm.Config().GatewayAddr, total)
+		return
+	}()
+	if approveErr != nil {
+		return fmt.Errorf("approve USDC: %w", approveErr)
 	}
 
 	// Submit createOrder + wait for receipt + parse orderId.
-	result, err := d.evm.Gateway().CreateOrder(ctx, evm.CreateOrderParams{
+	result, cerr := d.evm.Gateway().CreateOrder(ctx, evm.CreateOrderParams{
 		Token:              d.evm.Config().USDCAddr,
 		Amount:             amount,
 		Rate:               rate,
@@ -504,22 +835,25 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		RefundAddress:      aggregatorAddr, // refunds bounce back to us; ops handles reverse-bridge
 		MessageHash:        messageHash,
 	})
-	if err != nil {
-		return fmt.Errorf("createOrder: %w", err)
+	if cerr != nil {
+		return fmt.Errorf("createOrder: %w", cerr)
 	}
 
 	orderID := strings.ToLower(result.OrderID.Hex())
-	if _, err := order.Update().
+	if _, perr := order.Update().
 		SetGatewayOrderID(orderID).
 		SetGatewayChainID(uint64(d.conf.BaseChainID)).
 		SetSenderFeeSubunit(senderFeeDec).
 		SetBridgeTxDest(result.TxHash.Hex()).
 		SetBridgeStatus(routeaorder.BridgeStatusDispatching).
-		Save(ctx); err != nil {
-		return fmt.Errorf("persist dispatching: %w", err)
+		Save(ctx); perr != nil {
+		return fmt.Errorf("persist dispatching: %w", perr)
 	}
 	logger.Infof("route-a: createOrder submitted order=%d orderId=%s tx=%s gas=%d",
 		order.ID, orderID, result.TxHash.Hex(), result.GasUsed)
+	timer.With("gateway_order_id", orderID).
+		With("evm_tx_hash", result.TxHash.Hex()).
+		With("gas_used", result.GasUsed)
 	return nil
 }
 

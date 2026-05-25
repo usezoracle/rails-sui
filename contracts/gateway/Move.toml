@@ -4,7 +4,7 @@ edition = "2024.beta"
 version = "0.1.0"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
+Sui = { local = "/Users/mac/.move/git/https___github_com_MystenLabs_sui_git_2f5992f189cd24445cd010ccf0aa7ff418ff93b1/crates/sui-framework/packages/sui-framework" }
 
 [addresses]
 rails = "0x0"

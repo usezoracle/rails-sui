@@ -33,6 +33,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
 	"github.com/usezoracle/rails-sui/ent/receiveaddress"
 	"github.com/usezoracle/rails-sui/ent/refreshtoken"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
@@ -84,6 +85,8 @@ type Client struct {
 	ReceiveAddress *ReceiveAddressClient
 	// RefreshToken is the client for interacting with the RefreshToken builders.
 	RefreshToken *RefreshTokenClient
+	// RouteAEvent is the client for interacting with the RouteAEvent builders.
+	RouteAEvent *RouteAEventClient
 	// RouteAOrder is the client for interacting with the RouteAOrder builders.
 	RouteAOrder *RouteAOrderClient
 	// SenderOrderToken is the client for interacting with the SenderOrderToken builders.
@@ -132,6 +135,7 @@ func (c *Client) init() {
 	c.ProvisionBucket = NewProvisionBucketClient(c.config)
 	c.ReceiveAddress = NewReceiveAddressClient(c.config)
 	c.RefreshToken = NewRefreshTokenClient(c.config)
+	c.RouteAEvent = NewRouteAEventClient(c.config)
 	c.RouteAOrder = NewRouteAOrderClient(c.config)
 	c.SenderOrderToken = NewSenderOrderTokenClient(c.config)
 	c.SenderProfile = NewSenderProfileClient(c.config)
@@ -251,6 +255,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ProvisionBucket:             NewProvisionBucketClient(cfg),
 		ReceiveAddress:              NewReceiveAddressClient(cfg),
 		RefreshToken:                NewRefreshTokenClient(cfg),
+		RouteAEvent:                 NewRouteAEventClient(cfg),
 		RouteAOrder:                 NewRouteAOrderClient(cfg),
 		SenderOrderToken:            NewSenderOrderTokenClient(cfg),
 		SenderProfile:               NewSenderProfileClient(cfg),
@@ -297,6 +302,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ProvisionBucket:             NewProvisionBucketClient(cfg),
 		ReceiveAddress:              NewReceiveAddressClient(cfg),
 		RefreshToken:                NewRefreshTokenClient(cfg),
+		RouteAEvent:                 NewRouteAEventClient(cfg),
 		RouteAOrder:                 NewRouteAOrderClient(cfg),
 		SenderOrderToken:            NewSenderOrderTokenClient(cfg),
 		SenderProfile:               NewSenderProfileClient(cfg),
@@ -340,9 +346,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.Institution, c.LockOrderFulfillment, c.LockPaymentOrder,
 		c.MerchantBankAccount, c.Network, c.PaymentOrder, c.PaymentOrderRecipient,
 		c.ProviderOrderToken, c.ProviderProfile, c.ProviderRating, c.ProvisionBucket,
-		c.ReceiveAddress, c.RefreshToken, c.RouteAOrder, c.SenderOrderToken,
-		c.SenderProfile, c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog,
-		c.User, c.VerificationToken, c.WebhookRetryAttempt,
+		c.ReceiveAddress, c.RefreshToken, c.RouteAEvent, c.RouteAOrder,
+		c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress, c.TappCard, c.Token,
+		c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Use(hooks...)
 	}
@@ -356,9 +362,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.Institution, c.LockOrderFulfillment, c.LockPaymentOrder,
 		c.MerchantBankAccount, c.Network, c.PaymentOrder, c.PaymentOrderRecipient,
 		c.ProviderOrderToken, c.ProviderProfile, c.ProviderRating, c.ProvisionBucket,
-		c.ReceiveAddress, c.RefreshToken, c.RouteAOrder, c.SenderOrderToken,
-		c.SenderProfile, c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog,
-		c.User, c.VerificationToken, c.WebhookRetryAttempt,
+		c.ReceiveAddress, c.RefreshToken, c.RouteAEvent, c.RouteAOrder,
+		c.SenderOrderToken, c.SenderProfile, c.SuiReceiveAddress, c.TappCard, c.Token,
+		c.TransactionLog, c.User, c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -401,6 +407,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ReceiveAddress.mutate(ctx, m)
 	case *RefreshTokenMutation:
 		return c.RefreshToken.mutate(ctx, m)
+	case *RouteAEventMutation:
+		return c.RouteAEvent.mutate(ctx, m)
 	case *RouteAOrderMutation:
 		return c.RouteAOrder.mutate(ctx, m)
 	case *SenderOrderTokenMutation:
@@ -3311,6 +3319,155 @@ func (c *RefreshTokenClient) mutate(ctx context.Context, m *RefreshTokenMutation
 	}
 }
 
+// RouteAEventClient is a client for the RouteAEvent schema.
+type RouteAEventClient struct {
+	config
+}
+
+// NewRouteAEventClient returns a client for the RouteAEvent from the given config.
+func NewRouteAEventClient(c config) *RouteAEventClient {
+	return &RouteAEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `routeaevent.Hooks(f(g(h())))`.
+func (c *RouteAEventClient) Use(hooks ...Hook) {
+	c.hooks.RouteAEvent = append(c.hooks.RouteAEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `routeaevent.Intercept(f(g(h())))`.
+func (c *RouteAEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RouteAEvent = append(c.inters.RouteAEvent, interceptors...)
+}
+
+// Create returns a builder for creating a RouteAEvent entity.
+func (c *RouteAEventClient) Create() *RouteAEventCreate {
+	mutation := newRouteAEventMutation(c.config, OpCreate)
+	return &RouteAEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RouteAEvent entities.
+func (c *RouteAEventClient) CreateBulk(builders ...*RouteAEventCreate) *RouteAEventCreateBulk {
+	return &RouteAEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RouteAEventClient) MapCreateBulk(slice any, setFunc func(*RouteAEventCreate, int)) *RouteAEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RouteAEventCreateBulk{err: fmt.Errorf("calling to RouteAEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RouteAEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RouteAEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RouteAEvent.
+func (c *RouteAEventClient) Update() *RouteAEventUpdate {
+	mutation := newRouteAEventMutation(c.config, OpUpdate)
+	return &RouteAEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RouteAEventClient) UpdateOne(ra *RouteAEvent) *RouteAEventUpdateOne {
+	mutation := newRouteAEventMutation(c.config, OpUpdateOne, withRouteAEvent(ra))
+	return &RouteAEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RouteAEventClient) UpdateOneID(id int) *RouteAEventUpdateOne {
+	mutation := newRouteAEventMutation(c.config, OpUpdateOne, withRouteAEventID(id))
+	return &RouteAEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RouteAEvent.
+func (c *RouteAEventClient) Delete() *RouteAEventDelete {
+	mutation := newRouteAEventMutation(c.config, OpDelete)
+	return &RouteAEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RouteAEventClient) DeleteOne(ra *RouteAEvent) *RouteAEventDeleteOne {
+	return c.DeleteOneID(ra.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RouteAEventClient) DeleteOneID(id int) *RouteAEventDeleteOne {
+	builder := c.Delete().Where(routeaevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RouteAEventDeleteOne{builder}
+}
+
+// Query returns a query builder for RouteAEvent.
+func (c *RouteAEventClient) Query() *RouteAEventQuery {
+	return &RouteAEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRouteAEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RouteAEvent entity by its id.
+func (c *RouteAEventClient) Get(ctx context.Context, id int) (*RouteAEvent, error) {
+	return c.Query().Where(routeaevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RouteAEventClient) GetX(ctx context.Context, id int) *RouteAEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRouteAOrder queries the route_a_order edge of a RouteAEvent.
+func (c *RouteAEventClient) QueryRouteAOrder(ra *RouteAEvent) *RouteAOrderQuery {
+	query := (&RouteAOrderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ra.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(routeaevent.Table, routeaevent.FieldID, id),
+			sqlgraph.To(routeaorder.Table, routeaorder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, routeaevent.RouteAOrderTable, routeaevent.RouteAOrderColumn),
+		)
+		fromV = sqlgraph.Neighbors(ra.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RouteAEventClient) Hooks() []Hook {
+	return c.hooks.RouteAEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *RouteAEventClient) Interceptors() []Interceptor {
+	return c.inters.RouteAEvent
+}
+
+func (c *RouteAEventClient) mutate(ctx context.Context, m *RouteAEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RouteAEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RouteAEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RouteAEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RouteAEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RouteAEvent mutation op: %q", m.Op())
+	}
+}
+
 // RouteAOrderClient is a client for the RouteAOrder schema.
 type RouteAOrderClient struct {
 	config
@@ -3428,6 +3585,22 @@ func (c *RouteAOrderClient) QueryPaymentOrder(ra *RouteAOrder) *PaymentOrderQuer
 			sqlgraph.From(routeaorder.Table, routeaorder.FieldID, id),
 			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, true, routeaorder.PaymentOrderTable, routeaorder.PaymentOrderColumn),
+		)
+		fromV = sqlgraph.Neighbors(ra.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEvents queries the events edge of a RouteAOrder.
+func (c *RouteAOrderClient) QueryEvents(ra *RouteAOrder) *RouteAEventQuery {
+	query := (&RouteAEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ra.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(routeaorder.Table, routeaorder.FieldID, id),
+			sqlgraph.To(routeaevent.Table, routeaevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, routeaorder.EventsTable, routeaorder.EventsColumn),
 		)
 		fromV = sqlgraph.Neighbors(ra.driver.Dialect(), step)
 		return fromV, nil
@@ -5000,16 +5173,17 @@ type (
 		APIKey, CardServerNonce, FiatCurrency, IdentityVerificationRequest, Institution,
 		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
 		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
-		ProviderRating, ProvisionBucket, ReceiveAddress, RefreshToken, RouteAOrder,
-		SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard, Token,
-		TransactionLog, User, VerificationToken, WebhookRetryAttempt []ent.Hook
+		ProviderRating, ProvisionBucket, ReceiveAddress, RefreshToken, RouteAEvent,
+		RouteAOrder, SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard,
+		Token, TransactionLog, User, VerificationToken, WebhookRetryAttempt []ent.Hook
 	}
 	inters struct {
 		APIKey, CardServerNonce, FiatCurrency, IdentityVerificationRequest, Institution,
 		LockOrderFulfillment, LockPaymentOrder, MerchantBankAccount, Network,
 		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
-		ProviderRating, ProvisionBucket, ReceiveAddress, RefreshToken, RouteAOrder,
-		SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard, Token,
-		TransactionLog, User, VerificationToken, WebhookRetryAttempt []ent.Interceptor
+		ProviderRating, ProvisionBucket, ReceiveAddress, RefreshToken, RouteAEvent,
+		RouteAOrder, SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard,
+		Token, TransactionLog, User, VerificationToken,
+		WebhookRetryAttempt []ent.Interceptor
 	}
 )

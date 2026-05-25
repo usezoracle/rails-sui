@@ -63,9 +63,11 @@ type RouteAOrder struct {
 type RouteAOrderEdges struct {
 	// PaymentOrder holds the value of the payment_order edge.
 	PaymentOrder *PaymentOrder `json:"payment_order,omitempty"`
+	// Events holds the value of the events edge.
+	Events []*RouteAEvent `json:"events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // PaymentOrderOrErr returns the PaymentOrder value or an error if the edge
@@ -77,6 +79,15 @@ func (e RouteAOrderEdges) PaymentOrderOrErr() (*PaymentOrder, error) {
 		return nil, &NotFoundError{label: paymentorder.Label}
 	}
 	return nil, &NotLoadedError{edge: "payment_order"}
+}
+
+// EventsOrErr returns the Events value or an error if the edge
+// was not loaded in eager-loading.
+func (e RouteAOrderEdges) EventsOrErr() ([]*RouteAEvent, error) {
+	if e.loadedTypes[1] {
+		return e.Events, nil
+	}
+	return nil, &NotLoadedError{edge: "events"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -237,6 +248,11 @@ func (ra *RouteAOrder) Value(name string) (ent.Value, error) {
 // QueryPaymentOrder queries the "payment_order" edge of the RouteAOrder entity.
 func (ra *RouteAOrder) QueryPaymentOrder() *PaymentOrderQuery {
 	return NewRouteAOrderClient(ra.config).QueryPaymentOrder(ra)
+}
+
+// QueryEvents queries the "events" edge of the RouteAOrder entity.
+func (ra *RouteAOrder) QueryEvents() *RouteAEventQuery {
+	return NewRouteAOrderClient(ra.config).QueryEvents(ra)
 }
 
 // Update returns a builder for updating this RouteAOrder.
