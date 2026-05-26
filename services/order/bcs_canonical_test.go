@@ -65,6 +65,9 @@ func TestCanonicalSerializer_MatchesSDKForSimplePTB(t *testing.T) {
 
 func TestCanonicalSerializer_FixesSuiObjectRef(t *testing.T) {
 	// Construct a PTB that passes an ImmOrOwnedObject as input.
+	// Verify that our canonical serializer produces byte-identical
+	// output to the SDK. Both should include the ULEB128 length prefix
+	// on the digest (Sui's Digest type is Vec<u8> in BCS, not [u8; 32]).
 	tx := transaction.NewTransaction()
 
 	objIdStr := "0xe523f8c245622bc93a670a7fb97c4793e18097f64a4127367f783b727a696657"
@@ -105,35 +108,19 @@ func TestCanonicalSerializer_FixesSuiObjectRef(t *testing.T) {
 	canonicalBytes, err := marshalTransactionKindCanonical(tx.Data.V1.Kind)
 	require.NoError(t, err)
 
-	// Canonical bytes should be exactly 1 byte shorter due to the omission of the 0x20 prefix
-	require.Equal(t, len(sdkBytes)-1, len(canonicalBytes))
+	// Both should now be byte-identical since both include the length prefix.
+	require.Equal(t, len(sdkBytes), len(canonicalBytes),
+		"canonical and SDK TransactionKind bytes should have the same length")
+	require.Equal(t, sdkBytes, canonicalBytes,
+		"canonical and SDK TransactionKind bytes should be identical")
 
-	// We can locate the digest in both and check.
-	// Since ObjectID is 32 bytes, Version is 8 bytes, the ObjectRef starts after some input envelope.
-	// In the inputs list:
-	// Inputs len is ULEB128 (1 byte: 0x01)
-	// Input variant is CallArg::Object (1 byte: 0x01)
-	// ObjectArg variant is ImmOrOwnedObject (1 byte: 0x00)
-	// Then ObjectRef:
-	//   ObjectID: 32 bytes (indices 3..35)
-	//   Version: 8 bytes (indices 35..43)
-	//   Digest:
-	//     For SDK: 1 byte length prefix (0x20) followed by 32 bytes (indices 43..76)
-	//     For Canonical: 32 raw bytes (indices 43..75)
-
-	require.Equal(t, byte(0x20), sdkBytes[44])
-	require.Equal(t, digestBytes, sdkBytes[45:77])
-	require.Equal(t, digestBytes, canonicalBytes[44:76])
-
+	// Verify the SDK can unmarshal our canonical bytes back.
 	var unmarshaledKind transaction.TransactionKind
 	_, unmarshalErr := mystenbcs.Unmarshal(canonicalBytes, &unmarshaledKind)
-	t.Logf("Unmarshal of canonical bytes err: %v", unmarshalErr)
-	if unmarshalErr == nil {
-		inputs := unmarshaledKind.ProgrammableTransaction.Inputs
-		if len(inputs) > 0 && inputs[0].Object != nil && inputs[0].Object.ImmOrOwnedObject != nil {
-			t.Logf("Unmarshaled digest hex: %s", hex.EncodeToString(unmarshaledKind.ProgrammableTransaction.Inputs[0].Object.ImmOrOwnedObject.Digest))
-			t.Logf("Original digest hex:    %s", hex.EncodeToString(digestBytes))
-		}
+	require.NoError(t, unmarshalErr, "SDK should be able to unmarshal canonical bytes")
+	inputs := unmarshaledKind.ProgrammableTransaction.Inputs
+	if len(inputs) > 0 && inputs[0].Object != nil && inputs[0].Object.ImmOrOwnedObject != nil {
+		require.Equal(t, digestBytes, []byte(inputs[0].Object.ImmOrOwnedObject.Digest))
 	}
 }
 
@@ -185,9 +172,11 @@ func TestCanonicalSerializer_TransactionDataMatchesSDK(t *testing.T) {
 	canonicalBytes, err := marshalTransactionDataCanonical(&tx.Data)
 	require.NoError(t, err)
 
-	// Length difference: SDK has 0x20 in the gasCoin digest (1 byte) + 0x20 in any inputs if present.
-	// Since there are no input SuiObjectRefs, the difference is exactly 1 byte (from the single GasPayment).
-	require.Equal(t, len(sdkBytes)-1, len(canonicalBytes))
+	// Both should now be byte-identical since we include the ULEB128 length prefix on digests.
+	require.Equal(t, len(sdkBytes), len(canonicalBytes),
+		"canonical and SDK TransactionData bytes should have the same length")
+	require.Equal(t, sdkBytes, canonicalBytes,
+		"canonical and SDK TransactionData bytes should be identical")
 	_ = senderBytesPtr
 }
 

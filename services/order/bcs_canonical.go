@@ -215,23 +215,26 @@ func writeObjectArg(buf *bytes.Buffer, oa *transaction.ObjectArg) error {
 	return fmt.Errorf("ObjectArg has no variant set")
 }
 
-// writeSuiObjectRef writes the canonical 72-byte ObjectRef layout:
+// writeSuiObjectRef writes a SuiObjectRef in BCS:
 //
-//	32 raw bytes  ObjectId      ([u8; 32], no prefix)
-//	 8 raw bytes  Version       (u64 little-endian)
-//	32 raw bytes  Digest        ([u8; 32], NO LENGTH PREFIX — the fix)
+//	32 raw bytes  ObjectId   ([u8; 32], no prefix)
+//	 8 raw bytes  Version    (u64 little-endian)
+//	ULEB128 + N   Digest     (Vec<u8> — length-prefixed byte sequence)
 //
-// Anything other than a 32-byte digest is rejected up front; that means
-// either the upstream resolution returned a malformed digest or we're
-// passing the wrong value. Either way, better to fail here than ship
-// invalid bytes to Shinami.
+// Sui's Rust type `Digest([u8; 32])` uses `serde_as(as = "Readable<Base58,
+// Bytes>")`. The `serde_with::Bytes` adapter treats `[u8; 32]` as a byte
+// sequence (Vec<u8>) in binary formats, so BCS writes a ULEB128 length
+// prefix (0x20 = 32) before the 32 raw digest bytes. Total: 73 bytes.
+//
+// The block-vision Go SDK also length-prefixes the digest (because its
+// Go type is `[]byte`), which turns out to be correct for the same reason.
 func writeSuiObjectRef(buf *bytes.Buffer, ref *transaction.SuiObjectRef) error {
 	buf.Write(ref.ObjectId[:])
 	writeU64(buf, ref.Version)
 	if len(ref.Digest) != 32 {
 		return fmt.Errorf("SuiObjectRef.Digest must be 32 bytes, got %d", len(ref.Digest))
 	}
-	buf.Write(ref.Digest)
+	writeBytes(buf, ref.Digest) // Vec<u8>: ULEB128 length prefix + raw bytes
 	return nil
 }
 
