@@ -254,15 +254,37 @@ func (w *SuiDepositWatcher) forwardDeposits(ctx context.Context) error {
 			logger.Errorf("sui deposit watcher: address %s has no linked payment order — orphan", addr.Address)
 			continue
 		}
-		if err := w.orderService.CreateOrder(ctx, addr.Edges.PaymentOrder.ID); err != nil {
-			// Errors are non-fatal: address stays in 'deposited' and the next
-			// tick retries. Only surface unexpected ones (not the "not in deposited"
-			// guard from CreateOrder itself, which fires on race-conditions).
-			if !errors.Is(err, orderpkg.ErrCreateOrderPath1OnlyClientSide) {
-				logger.Errorf("sui deposit watcher: forward %s (order=%s): %v",
-					addr.Address, addr.Edges.PaymentOrder.ID, err)
-			}
-		}
+		// Wrap each CreateOrder in a panic recovery. Without this, a
+		// panic deep in the Sui SDK (e.g., strings.Repeat with a
+		// negative count from a too-long address-validation call —
+		// the bug that crashed Rails on 2026-05-26 over a long
+		// base64 messageHash) propagates up through the gocron
+		// executor and exits the entire process. Per-order panics
+		// must be contained so the rest of the pipeline keeps
+		// running and the next watcher tick retries.
+		safeForward(ctx, w.orderService, addr)
 	}
 	return nil
+}
+
+// safeForward calls orderService.CreateOrder with a deferred
+// recover() so a panic in one order doesn't crash the process.
+// Recovered panics are logged at error level and the address is
+// left in 'deposited' so the next tick retries (idempotent).
+func safeForward(ctx context.Context, svc types.OrderService, addr *ent.SuiReceiveAddress) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("sui deposit watcher: PANIC forward %s (order=%s): %v",
+				addr.Address, addr.Edges.PaymentOrder.ID, r)
+		}
+	}()
+	if err := svc.CreateOrder(ctx, addr.Edges.PaymentOrder.ID); err != nil {
+		// Errors are non-fatal: address stays in 'deposited' and the next
+		// tick retries. Only surface unexpected ones (not the "not in deposited"
+		// guard from CreateOrder itself, which fires on race-conditions).
+		if !errors.Is(err, orderpkg.ErrCreateOrderPath1OnlyClientSide) {
+			logger.Errorf("sui deposit watcher: forward %s (order=%s): %v",
+				addr.Address, addr.Edges.PaymentOrder.ID, err)
+		}
+	}
 }

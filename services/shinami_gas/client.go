@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sync/atomic"
 	"time"
 )
@@ -103,23 +104,21 @@ func (c *Client) SponsorTransactionBlock(
 	gasBudget uint64,
 	gasPrice uint64,
 ) (*SponsorTransactionBlockResult, error) {
-	// Per docs, omit gasBudget/gasPrice by passing them as missing
-	// (nil) JSON-RPC params, NOT as 0 — Shinami treats present-zero
-	// as "you want zero budget" which fails. We build the params
-	// slice variadic-style.
-	params := []any{txKindB64, sender}
-	if gasBudget > 0 {
-		params = append(params, fmt.Sprintf("%d", gasBudget))
-	}
+	// Match Shinami's own TS SDK shape exactly: trim trailing
+	// undefined values rather than padding with nulls. Their
+	// `trimTrailingParams([txKind, sender, gasBudget, gasPrice])`
+	// drops the right side until it hits a defined value. Sending
+	// nulls broke their parser in testing.
+	params := []any{txKindB64, sender, nil, nil}
 	if gasPrice > 0 {
-		// Two slots — Shinami expects positional: [txBytes, sender,
-		// gasBudget?, gasPrice?]. If we want to set gasPrice without
-		// gasBudget, we need a placeholder. Coalesce to "null" string
-		// only if budget wasn't passed.
-		if gasBudget == 0 {
-			params = append(params, nil)
-		}
-		params = append(params, fmt.Sprintf("%d", gasPrice))
+		params[3] = fmt.Sprintf("%d", gasPrice)
+	}
+	if gasBudget > 0 {
+		params[2] = fmt.Sprintf("%d", gasBudget)
+	}
+	// Trim trailing nils.
+	for len(params) > 2 && params[len(params)-1] == nil {
+		params = params[:len(params)-1]
 	}
 
 	var result SponsorTransactionBlockResult
@@ -225,9 +224,19 @@ func (c *Client) call(ctx context.Context, method string, params any, out any) e
 	}
 	if env.Error != nil {
 		// Per Shinami docs: code -32010 is rate limit; code -32602 is
-		// "transaction tried to use the gas object" (most common
-		// integration bug — tx_kind referenced tx.gas). Surface code
-		// + message so callers can branch.
+		// any param validation failure (gas-object reference, malformed
+		// txBytes, wrong sender format, etc.). Dump the params on
+		// -32602 so we can inspect what we actually sent. Redact the
+		// API key from the dump.
+		if env.Error.Code == -32602 {
+			paramsDump, _ := json.Marshal(map[string]any{
+				"method": method,
+				"params": params,
+			})
+			fmt.Fprintf(os.Stderr,
+				"[shinami_gas] -32602 Invalid params — dumping request: %s\n",
+				string(paramsDump))
+		}
 		return fmt.Errorf("rpc error %d: %s", env.Error.Code, env.Error.Message)
 	}
 	if out != nil && len(env.Result) > 0 {

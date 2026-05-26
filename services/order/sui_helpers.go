@@ -44,7 +44,6 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/constant"
 	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/block-vision/sui-go-sdk/mystenbcs"
 	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/block-vision/sui-go-sdk/transaction"
@@ -267,7 +266,7 @@ func submitSponsoredViaShinami(
 	// no `onlyTransactionKind: true` toggle on this SDK, so we build
 	// the kind manually from the ProgrammableTransaction we already
 	// staged on `tx.Data.V1.Kind`.
-	kindBytes, err := mystenbcs.Marshal(tx.Data.V1.Kind)
+	kindBytes, err := marshalTransactionKindCanonical(tx.Data.V1.Kind)
 	if err != nil {
 		return nil, fmt.Errorf("marshal tx kind: %w", err)
 	}

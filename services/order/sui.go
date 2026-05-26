@@ -243,7 +243,14 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 			}),
 			tx.Pure(rateAsU64(order.Rate)),
 			tx.Pure([]byte(order.Edges.Recipient.Institution)),
-			tx.Pure(messageHash),
+			// CRITICAL: cast to []byte. tx.Pure(stringValue) routes
+			// through the SDK's IsValidSuiAddress check, which calls
+			// strings.Repeat("0", 64-len(s)) without bounds-checking.
+			// messageHash is a ~344-char base64 RSA blob → panic with
+			// "strings: negative Repeat count" that crashes the whole
+			// Rails process (the cron goroutine isn't recover()'d).
+			// Same hazard applies to any string Pure value > 64 chars.
+			tx.Pure([]byte(messageHash)),
 			tx.Pure(senderFee),
 			pureAddress(tx, senderFeeRecipient),
 			pureAddress(tx, refundAddress),
@@ -814,7 +821,7 @@ func (s *OrderSui) SponsorTransaction(
 	tx.SetGasPayment([]transaction.SuiObjectRef{*gasCoin})
 
 	// 6. Marshal transaction data to BCS bytes
-	txDataBytes, err := tx.Data.Marshal()
+	txDataBytes, err := marshalTransactionDataCanonical(&tx.Data)
 	if err != nil {
 		return "", "", fmt.Errorf("sponsor_tx: marshal transaction data: %w", err)
 	}
