@@ -20,6 +20,7 @@ func Routes() *gin.Engine {
 	}
 
 	router := gin.New()
+	router.RemoveExtraSlash = true
 	err := router.SetTrustedProxies([]string{conf.AllowedHosts})
 	if err != nil {
 		logger.Fatalf("failed to set trusted proxies")

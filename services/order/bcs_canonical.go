@@ -28,6 +28,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/mystenbcs"
 	"github.com/block-vision/sui-go-sdk/transaction"
 )
@@ -422,4 +423,64 @@ func writeU64(buf *bytes.Buffer, v uint64) {
 	var b [8]byte
 	binary.LittleEndian.PutUint64(b[:], v)
 	buf.Write(b[:])
+}
+
+// marshalTransactionDataWithSerializedKind constructs the TransactionData BCS bytes
+// by directly splicing the pre-serialized TransactionKind bytes.
+func marshalTransactionDataWithSerializedKind(
+	kindBytes []byte,
+	sender string,
+	gasOwner string,
+	gasPrice uint64,
+	gasBudget uint64,
+	gasPayment transaction.SuiObjectRef,
+) ([]byte, error) {
+	var buf bytes.Buffer
+
+	// TransactionData variant 0 == V1.
+	buf.WriteByte(0)
+
+	// 1. Kind (pre-serialized TransactionKind bytes)
+	buf.Write(kindBytes)
+
+	// 2. Sender (SuiAddressBytes)
+	senderBytes, err := transaction.ConvertSuiAddressStringToBytes(models.SuiAddress(sender))
+	if err != nil {
+		return nil, fmt.Errorf("invalid sender address: %w", err)
+	}
+	buf.Write((*senderBytes)[:])
+
+	// 3. GasData
+	gasOwnerBytes, err := transaction.ConvertSuiAddressStringToBytes(models.SuiAddress(gasOwner))
+	if err != nil {
+		return nil, fmt.Errorf("invalid gas owner address: %w", err)
+	}
+
+	// GasData:
+	//   payment: Vec<SuiObjectRef>
+	//   owner: SuiAddress
+	//   price: u64
+	//   budget: u64
+
+	// payment is Vec<SuiObjectRef>. ULEB128 length prefix followed by SuiObjectRefs.
+	// Since we always have exactly 1 gas coin:
+	writeULEB128(&buf, 1)
+	if err := writeSuiObjectRef(&buf, &gasPayment); err != nil {
+		return nil, fmt.Errorf("gas payment object ref: %w", err)
+	}
+
+	// owner
+	buf.Write((*gasOwnerBytes)[:])
+
+	// price
+	writeU64(&buf, gasPrice)
+
+	// budget
+	writeU64(&buf, gasBudget)
+
+	// 4. Expiration (optional TransactionExpiration)
+	// We default to None (0)
+	buf.WriteByte(0)
+
+	return buf.Bytes(), nil
 }

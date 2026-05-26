@@ -26,7 +26,6 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/constant"
 	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/block-vision/sui-go-sdk/mystenbcs"
 	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/block-vision/sui-go-sdk/transaction"
@@ -788,14 +787,7 @@ func (s *OrderSui) SponsorTransaction(
 		return "", "", fmt.Errorf("sponsor_tx: decode txBytes: %w", err)
 	}
 
-	// 2. Unmarshal into TransactionKind struct
-	var kind transaction.TransactionKind
-	_, err = mystenbcs.Unmarshal(decodedKindBytes, &kind)
-	if err != nil {
-		return "", "", fmt.Errorf("sponsor_tx: unmarshal transaction kind: %w", err)
-	}
-
-	// 3. Fetch reference gas price
+	// 2. Fetch reference gas price
 	gasPriceResp, err := s.client.SuiXGetReferenceGasPrice(ctx)
 	if err != nil {
 		return "", "", fmt.Errorf("sponsor_tx: get reference gas price: %w", err)
@@ -805,29 +797,27 @@ func (s *OrderSui) SponsorTransaction(
 		return "", "", fmt.Errorf("sponsor_tx: parse gas price: %w", err)
 	}
 
-	// 4. Select gas coin from aggregator wallet
+	// 3. Select gas coin from aggregator wallet
 	gasCoin, err := s.selectGasCoin(ctx)
 	if err != nil {
 		return "", "", fmt.Errorf("sponsor_tx: select aggregator gas coin: %w", err)
 	}
 
-	// 5. Construct Transaction Data
-	tx := transaction.NewTransaction()
-	tx.Data.V1.Kind = &kind
-	tx.SetSender(models.SuiAddress(sender))
-	tx.SetGasOwner(models.SuiAddress(s.signer.Address))
-	tx.SetGasPrice(gasPrice)
-	tx.SetGasBudget(defaultGasBudget)
-	tx.SetGasPayment([]transaction.SuiObjectRef{*gasCoin})
-
-	// 6. Marshal transaction data to BCS bytes
-	txDataBytes, err := marshalTransactionDataCanonical(&tx.Data)
+	// 4. Construct Transaction Data BCS bytes directly
+	txDataBytes, err := marshalTransactionDataWithSerializedKind(
+		decodedKindBytes,
+		sender,
+		s.signer.Address,
+		gasPrice,
+		defaultGasBudget,
+		*gasCoin,
+	)
 	if err != nil {
 		return "", "", fmt.Errorf("sponsor_tx: marshal transaction data: %w", err)
 	}
 	b64TxDataBytes := base64.StdEncoding.EncodeToString(txDataBytes)
 
-	// 7. Sign transaction data as sponsor
+	// 5. Sign transaction data as sponsor
 	signedMsg, err := s.signer.SignMessage(b64TxDataBytes, constant.TransactionDataIntentScope)
 	if err != nil {
 		return "", "", fmt.Errorf("sponsor_tx: sign message: %w", err)

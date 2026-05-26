@@ -6,6 +6,7 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/mystenbcs"
+	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	"github.com/block-vision/sui-go-sdk/transaction"
 	"github.com/stretchr/testify/require"
 )
@@ -188,4 +189,73 @@ func TestCanonicalSerializer_TransactionDataMatchesSDK(t *testing.T) {
 	// Since there are no input SuiObjectRefs, the difference is exactly 1 byte (from the single GasPayment).
 	require.Equal(t, len(sdkBytes)-1, len(canonicalBytes))
 	_ = senderBytesPtr
+}
+
+func TestCanonicalSerializer_marshalTransactionDataWithSerializedKind(t *testing.T) {
+	// Construct a simple PTB
+	tx := transaction.NewTransaction()
+
+	senderStr := "0x1111111111111111111111111111111111111111111111111111111111111111"
+	tx.SetSender(models.SuiAddress(senderStr))
+
+	gasOwnerStr := "0x2222222222222222222222222222222222222222222222222222222222222222"
+	tx.SetGasOwner(models.SuiAddress(gasOwnerStr))
+
+	tx.SetGasPrice(1000)
+	tx.SetGasBudget(100000)
+
+	coinIdStr := "0x3333333333333333333333333333333333333333333333333333333333333333"
+	coinIdBytesPtr, err := transaction.ConvertSuiAddressStringToBytes(models.SuiAddress(coinIdStr))
+	require.NoError(t, err)
+
+	digestBytes := make([]byte, 32)
+	copy(digestBytes, []byte("digestdigestdigestdigestdigestdi"))
+
+	gasCoin := transaction.SuiObjectRef{
+		ObjectId: *coinIdBytesPtr,
+		Version:  1,
+		Digest:   models.ObjectDigestBytes(digestBytes),
+	}
+	tx.SetGasPayment([]transaction.SuiObjectRef{gasCoin})
+
+	// Split gas coin
+	arg := tx.Pure(uint64(500))
+	cmd := transaction.Command{
+		SplitCoins: &transaction.SplitCoins{
+			Coin: &transaction.Argument{
+				GasCoin: struct{}{},
+			},
+			Amount: []*transaction.Argument{&arg},
+		},
+	}
+	tx.Data.V1.Kind.ProgrammableTransaction.Commands = append(tx.Data.V1.Kind.ProgrammableTransaction.Commands, &cmd)
+
+	// Get serialized kind bytes canonically
+	kindBytes, err := marshalTransactionKindCanonical(tx.Data.V1.Kind)
+	require.NoError(t, err)
+
+	// Serialize full data using the helper
+	splicedBytes, err := marshalTransactionDataWithSerializedKind(
+		kindBytes,
+		senderStr,
+		gasOwnerStr,
+		1000,
+		100000,
+		gasCoin,
+	)
+	require.NoError(t, err)
+
+	// Serialize full data canonically using the existing method
+	canonicalBytes, err := marshalTransactionDataCanonical(&tx.Data)
+	require.NoError(t, err)
+
+	// They must match exactly!
+	require.Equal(t, canonicalBytes, splicedBytes)
+
+	// Print aggregator address
+	privKeyHex := "6dd76dad8f9c91cc613a244a6c47c6c093bdfe0af3f3bf2209e0fb9976644223"
+	seedBytes, err := hex.DecodeString(privKeyHex)
+	require.NoError(t, err)
+	s := suisigner.NewSigner(seedBytes)
+	t.Logf("AGGREGATOR ADDRESS: %s", s.Address)
 }

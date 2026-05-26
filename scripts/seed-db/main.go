@@ -33,6 +33,14 @@ func main() {
 	ctx := context.Background()
 
 	// Delete existing data in correct dependency order to avoid foreign key violations
+	_, _ = client.WebhookRetryAttempt.Delete().Exec(ctx)
+	_, _ = client.RouteAEvent.Delete().Exec(ctx)
+	_, _ = client.RouteAOrder.Delete().Exec(ctx)
+	_, _ = client.TransactionLog.Delete().Exec(ctx)
+	_, _ = client.VerificationToken.Delete().Exec(ctx)
+	_, _ = client.RefreshToken.Delete().Exec(ctx)
+	_, _ = client.CardServerNonce.Delete().Exec(ctx)
+	_, _ = client.ProviderRating.Delete().Exec(ctx)
 	_, _ = client.APIKey.Delete().Exec(ctx)
 	_, _ = client.SenderOrderToken.Delete().Exec(ctx)
 	_, _ = client.ProviderOrderToken.Delete().Exec(ctx)
@@ -50,8 +58,8 @@ func main() {
 	_, _ = client.Token.Delete().Exec(ctx)
 	_, _ = client.Network.Delete().Exec(ctx)
 	_, _ = client.ProvisionBucket.Delete().Exec(ctx)
-	_, _ = client.Institution.Delete().Exec(ctx)
-	_, _ = client.FiatCurrency.Delete().Exec(ctx)
+	// _, _ = client.Institution.Delete().Exec(ctx)
+	// _, _ = client.FiatCurrency.Delete().Exec(ctx)
 	_, _ = client.User.Delete().Exec(ctx)
 
 	// Seed Networks — Sui-aligned for the post-fork stack. The legacy
@@ -80,6 +88,18 @@ func main() {
 		Save(ctx)
 	if err != nil {
 		logger.Fatalf("failed seeding sui-testnet: %s", err)
+	}
+
+	suiMainnet, err := client.Network.
+		Create().
+		SetIdentifier("sui-mainnet").
+		SetChainID(0).
+		SetFee(decimal.NewFromInt(0)).
+		SetRPCEndpoint("https://fullnode.mainnet.sui.io:443").
+		SetIsTestnet(false).
+		Save(ctx)
+	if err != nil {
+		logger.Fatalf("failed seeding sui-mainnet: %s", err)
 	}
 
 	// Seed Tokens — keep the legacy 6TEST row for existing tests, add
@@ -139,6 +159,32 @@ func main() {
 	if err != nil {
 		logger.Fatalf("failed seeding SUI: %s", err)
 	}
+
+	// USDC on Sui Mainnet
+	_, err = client.Token.
+		Create().
+		SetSymbol("USDC").
+		SetContractAddress("0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC").
+		SetDecimals(6).
+		SetNetwork(suiMainnet).
+		SetIsEnabled(true).
+		Save(ctx)
+	if err != nil {
+		logger.Fatalf("failed seeding USDC on mainnet: %s", err)
+	}
+
+	// Native SUI on Sui Mainnet
+	_, err = client.Token.
+		Create().
+		SetSymbol("SUI").
+		SetContractAddress("0x2::sui::SUI").
+		SetDecimals(9).
+		SetNetwork(suiMainnet).
+		SetIsEnabled(true).
+		Save(ctx)
+	if err != nil {
+		logger.Fatalf("failed seeding SUI on mainnet: %s", err)
+	}
 	// Seed Fiat Currencies and Provision Buckets
 	fmt.Println("fiat currencies and provision buckets...")
 	currencies := []types.SupportedCurrencies{
@@ -156,22 +202,8 @@ func main() {
 			).
 			Only(ctx)
 		if ent.IsNotFound(err) {
-			// Seed access bank and MTN momo institutions
-			momo, _ := client.Institution.
-				Create().
-				SetName("MTN Momo").
-				SetCode("MOMONGPC").
-				SetType(institution.TypeMobileMoney).
-				Save(ctx)
-
-			access, _ := client.Institution.
-				Create().
-				SetName("Access Bank").
-				SetCode("ABNGNGLA").
-				SetType(institution.TypeBank).
-				Save(ctx)
-
-			currency, _ = client.FiatCurrency.
+			// Create NGN currency
+			currency, err = client.FiatCurrency.
 				Create().
 				SetCode(currencyVal.Code).
 				SetShortName(currencyVal.ShortName).
@@ -179,8 +211,38 @@ func main() {
 				SetName(currencyVal.Name).
 				SetMarketRate(currencyVal.MarketRate).
 				SetIsEnabled(true).
-				AddInstitutions(momo, access).
 				Save(ctx)
+			if err != nil {
+				logger.Fatalf("failed creating fiat currency: %s", err)
+			}
+
+			// Find or create MTN Momo
+			momo, err := client.Institution.Query().Where(institution.CodeEQ("MOMONGPC")).Only(ctx)
+			if ent.IsNotFound(err) {
+				momo, _ = client.Institution.
+					Create().
+					SetName("MTN Momo").
+					SetCode("MOMONGPC").
+					SetType(institution.TypeMobileMoney).
+					SetFiatCurrency(currency).
+					Save(ctx)
+			} else {
+				momo, _ = momo.Update().SetFiatCurrency(currency).Save(ctx)
+			}
+
+			// Find or create Access Bank
+			access, err := client.Institution.Query().Where(institution.CodeEQ("ABNGNGLA")).Only(ctx)
+			if ent.IsNotFound(err) {
+				access, _ = client.Institution.
+					Create().
+					SetName("Access Bank").
+					SetCode("ABNGNGLA").
+					SetType(institution.TypeBank).
+					SetFiatCurrency(currency).
+					Save(ctx)
+			} else {
+				access, _ = access.Update().SetFiatCurrency(currency).Save(ctx)
+			}
 		}
 
 		createProvisionBucket := func(min, max float64) *ent.ProvisionBucketCreate {
@@ -226,6 +288,13 @@ func main() {
 
 			fmt.Printf("Email: %s, API Client ID: %s, API Secret Key: %s\n\n", email, clientID, secretKey)
 		}
+	}
+
+	// Link any orphan NGN institutions that were created by migrations (which lacked NGN currency initially)
+	fmt.Println("linking NGN institutions...")
+	_, err = storage.DB.ExecContext(ctx, "UPDATE institutions SET fiat_currency_institutions = (SELECT id FROM fiat_currencies WHERE code = 'NGN') WHERE fiat_currency_institutions IS NULL;")
+	if err != nil {
+		logger.Fatalf("failed linking NGN institutions: %s", err)
 	}
 }
 
