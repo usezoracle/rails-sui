@@ -1,10 +1,21 @@
-# Start from golang base image
-FROM golang:1.22rc2-alpine3.19
+# syntax=docker/dockerfile:1
 
-RUN apk --no-cache add curl
-# Install the air binary so we get live code-reloading when we save files
-RUN curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+# ---- build: static binary, no CGO (prod DB driver is pure-Go pgx) ----
+FROM golang:1.25-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/rails .
 
-# Run the air command in the directory where our code will live
-WORKDIR /app
-CMD ["air"]
+# ---- runtime: minimal, non-root ----
+FROM alpine:3.20
+# ca-certificates: outbound HTTPS (Safe Haven, Paycrest, LiFi, Sui RPC).
+# tzdata: app calls time.LoadLocation (SERVER_TIMEZONE, e.g. Africa/Lagos).
+RUN apk add --no-cache ca-certificates tzdata \
+    && adduser -D -u 10001 app
+USER app
+COPY --from=build /out/rails /usr/local/bin/rails
+# Railway/containers inject PORT; the app honours it (falls back to SERVER_PORT).
+EXPOSE 8000
+ENTRYPOINT ["rails"]
