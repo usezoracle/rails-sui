@@ -42,6 +42,14 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 		return
 	}
 
+	shConf := config.SafehavenConfig()
+	// Guard against fat-finger / stolen-token catastrophe.
+	if shConf.MaxTransferNGN.IsPositive() && amount.GreaterThan(shConf.MaxTransferNGN) {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"amount "+amount.String()+" exceeds max single transfer "+shConf.MaxTransferNGN.String()+" (raise SAFEHAVEN_MAX_TRANSFER_NGN)", nil)
+		return
+	}
+
 	client := safehaven.Default()
 	if client == nil {
 		u.APIResponse(ctx, http.StatusServiceUnavailable, "error", "safe haven not configured", nil)
@@ -50,7 +58,7 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 
 	debit := body.DebitAccount
 	if debit == "" {
-		debit = config.SafehavenConfig().DebitAccountNumber
+		debit = shConf.DebitAccountNumber
 	}
 	if debit == "" {
 		u.APIResponse(ctx, http.StatusBadRequest, "error", "no debit_account and SAFEHAVEN_DEBIT_ACCOUNT_NUMBER unset", nil)

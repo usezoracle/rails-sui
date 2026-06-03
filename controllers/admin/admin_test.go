@@ -87,6 +87,15 @@ func TestFundingTransfer_Gates(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, unconfigured.Code)
 }
 
+// TestFundingTransfer_AmountCap: an amount above the configured max is rejected
+// before any money path (default cap 1,000,000 NGN).
+func TestFundingTransfer_AmountCap(t *testing.T) {
+	w := do(buildAdminRouter(), http.MethodPost, "/v1/admin/funding/transfer",
+		[]byte(`{"beneficiary_bank_code":"090286","beneficiary_account":"1234567890","amount":"2000000","reference":"x"}`))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "exceeds max")
+}
+
 // TestRefund_BadUUID is rejected before any DB access.
 func TestRefund_BadUUID(t *testing.T) {
 	w := do(buildAdminRouter(), http.MethodPost, "/v1/admin/orders/not-a-uuid/refund",

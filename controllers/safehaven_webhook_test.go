@@ -67,6 +67,18 @@ func TestSafeHavenWebhook_SignatureGate(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, postSafeHavenWebhook(body, hmacHex(body, "wrong-key")).Code, "valid HMAC but wrong key")
 }
 
+// TestSafeHavenWebhook_FailsClosedInProd: no secret + non-local env → 503
+// (an unsigned webhook must never be accepted in production).
+func TestSafeHavenWebhook_FailsClosedInProd(t *testing.T) {
+	oldSecret, oldEnv := safehavenConf.WebhookSecret, serverConf.Environment
+	safehavenConf.WebhookSecret = ""
+	serverConf.Environment = "production"
+	defer func() { safehavenConf.WebhookSecret = oldSecret; serverConf.Environment = oldEnv }()
+
+	w := postSafeHavenWebhook([]byte(`{"paymentReference":"routeA-x","status":"Completed"}`), "")
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
 func TestVerifySafeHavenSignature(t *testing.T) {
 	body := []byte("payload-bytes")
 	assert.True(t, verifySafeHavenSignature(body, hmacHex(body, "k"), "k"))

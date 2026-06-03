@@ -44,10 +44,18 @@ func (ctrl *Controller) SafeHavenWebhook(ctx *gin.Context) {
 		return
 	}
 
-	// Signature verification. Header name + scheme are best-effort (HMAC-SHA256
-	// over the raw body) until confirmed with Safe Haven; skipped when no secret
-	// is configured so local dev still works.
-	if secret := safehavenConf.WebhookSecret; secret != "" {
+	// Signature verification (HMAC-SHA256 over the raw body). FAIL CLOSED: an
+	// unsigned webhook can move order state, so outside local dev we reject when
+	// no secret is configured rather than trusting the caller.
+	secret := safehavenConf.WebhookSecret
+	if secret == "" {
+		if serverConf.Environment != "local" && serverConf.Environment != "" {
+			logger.Errorf("[safehaven] webhook REJECTED: SAFEHAVEN_WEBHOOK_SECRET not set in env=%s", serverConf.Environment)
+			ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "webhook signature not configured"})
+			return
+		}
+		logger.Warnf("[safehaven] webhook signature SKIPPED (no secret; local dev only)")
+	} else {
 		sig := ctx.GetHeader("X-Safehaven-Signature")
 		if !verifySafeHavenSignature(raw, sig, secret) {
 			logger.Errorf("[safehaven] webhook signature mismatch")
