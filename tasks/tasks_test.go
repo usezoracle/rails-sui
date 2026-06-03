@@ -6,11 +6,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jarcoal/httpmock"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/enttest"
 	"github.com/usezoracle/rails-sui/ent/webhookretryattempt"
@@ -18,8 +21,6 @@ import (
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/test"
-	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
 )
 
 var testCtx = struct {
@@ -130,6 +131,9 @@ func TestTasks(t *testing.T) {
 
 	// Setup test data
 	err := setup()
+	if err != nil && strings.Contains(err.Error(), "EVM test helper not available in Sui-only build") {
+		t.Skip(err)
+	}
 	assert.NoError(t, err)
 
 	t.Run("RetryFailedWebhookNotifications", func(t *testing.T) {

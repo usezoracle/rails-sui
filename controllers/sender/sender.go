@@ -1,6 +1,7 @@
 package sender
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -15,9 +16,9 @@ import (
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	providerprofile "github.com/usezoracle/rails-sui/ent/providerprofile"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
-	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
@@ -27,9 +28,9 @@ import (
 	"github.com/usezoracle/rails-sui/types"
 
 	suisigner "github.com/block-vision/sui-go-sdk/signer"
+	"github.com/shopspring/decimal"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
-	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -489,38 +490,26 @@ func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
 
 	var resolvedRate decimal.Decimal
 	var providerIDs []string
-	if svc.IsNativeSui(token.ContractAddress) {
-		if len(orderConf.SuiAggregatorPrivateKey) != 32 {
-			u.APIResponse(ctx, http.StatusServiceUnavailable, "error",
-				"SUI orders require SUI_AGGREGATOR_PRIVATE_KEY to be configured", nil)
-			return
-		}
-		lifiClient := lifi.New(orderConf.LiFiAPIKey)
-		aggSigner := suisigner.NewSigner(orderConf.SuiAggregatorPrivateKey)
-		composite, qerr := svc.QuoteSuiToNgn(ctx, lifiClient, settlementClient,
-			orderConf, aggSigner.Address, payload.Amount)
-		if qerr != nil {
-			logger.Errorf("InitiateRouteAOrder.composite_sui_rate: %v", qerr)
-			u.APIResponse(ctx, http.StatusBadGateway, "error",
-				"Couldn't compose SUI→NGN rate — try again in a moment", nil)
-			return
-		}
-		resolvedRate = composite.Rate
-		providerIDs = composite.ProviderIDs
-		logger.Infof("route-a: SUI composite rate amount=%s SUI usdc=%s ngn_per_sui=%s ngn_per_usdc=%s providers=%v",
-			payload.Amount, composite.UsdcEquivalent, composite.Rate, composite.UsdcToNgnRate, composite.ProviderIDs)
-	} else {
-		quote, qerr := settlementClient.FetchRate(ctx, "base",
-			strings.ToUpper(payload.Token), payload.Amount, "NGN")
-		if qerr != nil {
-			logger.Errorf("InitiateRouteAOrder.fetch_rate: %v", qerr)
-			u.APIResponse(ctx, http.StatusBadGateway, "error",
-				"Couldn't fetch settlement rate — try again in a moment", nil)
-			return
-		}
-		resolvedRate = quote.Rate
-		providerIDs = quote.ProviderIDs
+
+	if len(orderConf.SuiAggregatorPrivateKey) != 32 {
+		u.APIResponse(ctx, http.StatusServiceUnavailable, "error",
+			"Route A orders require SUI_AGGREGATOR_PRIVATE_KEY to be configured", nil)
+		return
 	}
+	lifiClient := lifi.New(orderConf.LiFiAPIKey)
+	aggSigner := suisigner.NewSigner(orderConf.SuiAggregatorPrivateKey)
+	composite, qerr := svc.QuoteSuiTokenToNgn(ctx, lifiClient, settlementClient,
+		orderConf, aggSigner.Address, payload.Amount, token.ContractAddress, int32(token.Decimals))
+	if qerr != nil {
+		logger.Errorf("InitiateRouteAOrder.composite_rate token=%s: %v", token.Symbol, qerr)
+		u.APIResponse(ctx, http.StatusBadGateway, "error",
+			fmt.Sprintf("Couldn't compose %s→NGN rate (bridge + settlement fees included) — try again in a moment", token.Symbol), nil)
+		return
+	}
+	resolvedRate = composite.Rate
+	providerIDs = composite.ProviderIDs
+	logger.Infof("route-a: %s composite rate amount=%s usdc_equiv=%s ngn_per_token=%s ngn_per_usdc=%s providers=%v",
+		token.Symbol, payload.Amount, composite.UsdcEquivalent, composite.Rate, composite.UsdcToNgnRate, composite.ProviderIDs)
 	if !payload.Rate.Equal(resolvedRate) {
 		logger.Infof("route-a: rate override token=%s requested=%s resolved=%s providers=%v",
 			payload.Token, payload.Rate.String(), resolvedRate.String(), providerIDs)
@@ -614,14 +603,14 @@ func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
 	}
 
 	u.APIResponse(ctx, http.StatusCreated, "success", "Route A payment order initiated", map[string]interface{}{
-		"id":             paymentOrder.ID,
-		"mode":           mode,
-		"amount":         paymentOrder.Amount,
-		"rate":           paymentOrder.Rate,
-		"coin_type":      token.ContractAddress,
+		"id":              paymentOrder.ID,
+		"mode":            mode,
+		"amount":          paymentOrder.Amount,
+		"rate":            paymentOrder.Rate,
+		"coin_type":       token.ContractAddress,
 		"receive_address": receiveAddress.Address,
-		"valid_until":    receiveAddress.ValidUntil,
-		"reference":      paymentOrder.Reference,
+		"valid_until":     receiveAddress.ValidUntil,
+		"reference":       paymentOrder.Reference,
 	})
 }
 

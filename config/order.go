@@ -27,6 +27,8 @@ type OrderConfiguration struct {
 	// Sui-specific.
 	SuiRpcURL               string
 	SuiWsURL                string // wss:// endpoint for event subscriptions (e.g. BlockVision); falls back to SuiRpcURL scheme-converted
+	SuiGrpcURL              string
+	SuiGrpcToken            string
 	SuiGatewayPackageID     string
 	SuiGatewayObjectID      string
 	SuiAggregatorCapID      string
@@ -107,6 +109,8 @@ func OrderConfig() *OrderConfiguration {
 		PercentDeviationFromMarketRate:   decimal.NewFromFloat(viper.GetFloat64("PERCENT_DEVIATION_FROM_MARKET_RATE")),
 		SuiRpcURL:                        viper.GetString("SUI_RPC_URL"),
 		SuiWsURL:                         viper.GetString("SUI_WS_URL"),
+		SuiGrpcURL:                       viper.GetString("SUI_GRPC_URL"),
+		SuiGrpcToken:                     viper.GetString("SUI_GRPC_TOKEN"),
 		SuiGatewayPackageID:              viper.GetString("SUI_GATEWAY_PACKAGE_ID"),
 		SuiGatewayObjectID:               viper.GetString("SUI_GATEWAY_OBJECT_ID"),
 		SuiAggregatorCapID:               viper.GetString("SUI_AGGREGATOR_CAP_ID"),

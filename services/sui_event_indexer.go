@@ -4,9 +4,9 @@
 // (OrderCreated / OrderSettled / OrderRefunded / SenderFeeTransferred).
 //
 // On each event:
-//   1. Decode the ParsedJson payload into the matching types.Sui*Event struct.
-//   2. Dispatch to the matching handler (UpdateOrderStatusSettled etc.)
-//      which translates the on-chain state change into DB state transitions.
+//  1. Decode the ParsedJson payload into the matching types.Sui*Event struct.
+//  2. Dispatch to the matching handler (UpdateOrderStatusSettled etc.)
+//     which translates the on-chain state change into DB state transitions.
 //
 // The handlers themselves preserve the upstream business logic (LockPaymentOrder
 // lifecycle, matching engine triggers) — see indexer.go for the surface; the
@@ -18,7 +18,9 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -27,8 +29,14 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
+
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"github.com/usezoracle/rails-sui/types/suigrpc"
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
@@ -53,6 +61,8 @@ import (
 // dispatches them to handlers that update the DB state machine.
 type SuiEventIndexer struct {
 	wsURL         string
+	grpcURL       string
+	grpcToken     string
 	packageID     string
 	networkKey    string // "sui-mainnet" or "sui-testnet", used to scope DB Network lookups
 	priorityQueue *PriorityQueueService
@@ -66,16 +76,18 @@ type subscription struct {
 	handler   func(ctx context.Context, raw models.SuiEventResponse) error
 }
 
-// NewSuiEventIndexer builds an indexer pointed at the given Sui WebSocket
+// NewSuiEventIndexer builds an indexer pointed at the given Sui WebSocket / gRPC
 // endpoint and Gateway package ID. networkKey identifies which Network row
 // the indexer associates created LockPaymentOrders with (e.g. "sui-mainnet").
-func NewSuiEventIndexer(wsURL, packageID, networkKey string) *SuiEventIndexer {
+func NewSuiEventIndexer(wsURL, grpcURL, grpcToken, packageID, networkKey string) *SuiEventIndexer {
 	var orderSui *orderpkg.OrderSui
 	if svc, ok := orderpkg.NewOrderSui().(*orderpkg.OrderSui); ok {
 		orderSui = svc
 	}
 	idx := &SuiEventIndexer{
 		wsURL:         wsURL,
+		grpcURL:       grpcURL,
+		grpcToken:     grpcToken,
 		packageID:     packageID,
 		networkKey:    networkKey,
 		priorityQueue: NewPriorityQueueService(),
@@ -93,21 +105,168 @@ func NewSuiEventIndexer(wsURL, packageID, networkKey string) *SuiEventIndexer {
 	return idx
 }
 
-// Start opens a WebSocket subscription per event type and blocks until ctx
-// is cancelled. Each subscription runs in its own goroutine; failures in one
-// don't stop the others.
+// Start opens a subscription (gRPC or WebSocket) and blocks until ctx
+// is cancelled.
 func (s *SuiEventIndexer) Start(ctx context.Context) error {
 	if s.packageID == "" {
 		return fmt.Errorf("sui event indexer: SUI_GATEWAY_PACKAGE_ID not configured")
 	}
 
-	for _, sub := range s.subscribers {
-		sub := sub // capture per-goroutine
-		go s.runSubscription(ctx, sub)
+	if s.grpcURL != "" {
+		go s.runGrpcSubscription(ctx)
+	} else {
+		for _, sub := range s.subscribers {
+			sub := sub // capture per-goroutine
+			go s.runSubscription(ctx, sub)
+		}
 	}
 
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+// runGrpcSubscription starts a long-lived gRPC checkpoint subscription
+// that automatically reconnects on failure.
+func (s *SuiEventIndexer) runGrpcSubscription(ctx context.Context) {
+	logger.Infof("sui event indexer: starting gRPC checkpoint subscription against %s", s.grpcURL)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		err := s.subscribeGrpcCheckpoints(ctx)
+		if err != nil {
+			logger.Errorf("sui event indexer: gRPC subscriber error: %v, retrying in 5 seconds...", err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+			}
+		}
+	}
+}
+
+// subscribeGrpcCheckpoints opens a secure connection to the gRPC subscription endpoint
+// and streams checkpoints, decoding and dispatching Move events.
+func (s *SuiEventIndexer) subscribeGrpcCheckpoints(ctx context.Context) error {
+	keepaliveParams := keepalive.ClientParameters{
+		Time:                30 * time.Second, // Send keepalive pings every 30 seconds
+		Timeout:             10 * time.Second, // Wait 10 seconds for ping ack before disconnecting
+		PermitWithoutStream: true,             // Send pings even if there are no active streams
+	}
+	conn, err := grpc.NewClient(
+		s.grpcURL,
+		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})),
+		grpc.WithKeepaliveParams(keepaliveParams),
+	)
+	if err != nil {
+		return fmt.Errorf("grpc dial %s: %w", s.grpcURL, err)
+	}
+	defer conn.Close()
+
+	client := suigrpc.NewSubscriptionServiceClient(conn)
+
+	reqCtx := ctx
+	if s.grpcToken != "" {
+		reqCtx = metadata.AppendToOutgoingContext(ctx, "x-token", s.grpcToken)
+	}
+
+	stream, err := client.SubscribeCheckpoints(reqCtx, &suigrpc.SubscribeCheckpointsRequest{})
+	if err != nil {
+		return fmt.Errorf("subscribe checkpoints: %w", err)
+	}
+
+	logger.Infof("sui event indexer: successfully subscribed to checkpoints stream over gRPC")
+
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			return fmt.Errorf("stream recv: %w", err)
+		}
+
+		checkpoint := resp.GetCheckpoint()
+		if checkpoint == nil {
+			continue
+		}
+
+		for _, tx := range checkpoint.GetTransactions() {
+			txDigest := tx.GetDigest()
+			events := tx.GetEvents()
+			if events == nil {
+				continue
+			}
+
+			for _, evt := range events.GetEvents() {
+				// Match package ID
+				if !pkgIDsMatch(evt.GetPackageId(), s.packageID) {
+					continue
+				}
+
+				// gRPC Event.module is the top-level MoveCall module that emitted
+				// the event (e.g. "order"), not the module that defines the event
+				// type (e.g. "events"). Match against event_type instead.
+				eventType := evt.GetEventType()
+				var matchedSub *subscription
+				for _, sub := range s.subscribers {
+					if eventTypeMatches(s.packageID, eventType, sub.eventName) {
+						matchedSub = sub
+						break
+					}
+				}
+
+				if matchedSub == nil {
+					continue
+				}
+
+				// Decode google.protobuf.Value to map[string]interface{}
+				var parsedJsonMap map[string]interface{}
+				if jsonVal := evt.GetJson(); jsonVal != nil {
+					if structVal := jsonVal.GetStructValue(); structVal != nil {
+						parsedJsonMap = structVal.AsMap()
+					}
+				}
+
+				if parsedJsonMap == nil {
+					logger.Warnf("sui event indexer: event %s has no json payload, skipping", eventType)
+					continue
+				}
+
+				rawResponse := models.SuiEventResponse{
+					Id: models.EventId{
+						TxDigest: txDigest,
+					},
+					Type:       eventType,
+					ParsedJson: parsedJsonMap,
+				}
+
+				if err := matchedSub.handler(ctx, rawResponse); err != nil {
+					logger.Errorf("sui event indexer: handle %s: %v (tx=%s)", matchedSub.eventName, err, txDigest)
+				}
+			}
+		}
+	}
+}
+
+// pkgIDsMatch compares two package IDs, normalizing 0x prefixes and leading zeroes.
+func pkgIDsMatch(a, b string) bool {
+	normA := strings.TrimPrefix(a, "0x")
+	normB := strings.TrimPrefix(b, "0x")
+	normA = strings.ToLower(strings.TrimLeft(normA, "0"))
+	normB = strings.ToLower(strings.TrimLeft(normB, "0"))
+	return normA == normB
+}
+
+func eventTypeMatches(packageID, eventType, eventName string) bool {
+	parts := strings.Split(eventType, "::")
+	if len(parts) != 3 {
+		return false
+	}
+	return pkgIDsMatch(parts[0], packageID) &&
+		parts[1] == contracts.ModuleEvents &&
+		parts[2] == eventName
 }
 
 // runSubscription opens one WebSocket subscription for one event type and
@@ -160,12 +319,12 @@ func (s *SuiEventIndexer) handleOrderCreated(ctx context.Context, raw models.Sui
 	evt := &types.SuiOrderCreatedEvent{
 		OrderID:         getString(parsed, "order_id"),
 		Sender:          getString(parsed, "sender"),
-		CoinType:        getString(parsed, "coin_type"),
+		CoinType:        getMoveString(parsed, "coin_type"),
 		Amount:          getUint64(parsed, "amount"),
 		ProtocolFee:     getUint64(parsed, "protocol_fee"),
 		Rate:            getUint64(parsed, "rate"),
 		InstitutionCode: getBytes(parsed, "institution_code"),
-		MessageHash:     getString(parsed, "message_hash"),
+		MessageHash:     base64.StdEncoding.EncodeToString(getBytes(parsed, "message_hash")),
 		TxDigest:        raw.Id.TxDigest,
 	}
 
@@ -272,8 +431,22 @@ func (s *SuiEventIndexer) handleRouteAIfApplicable(ctx context.Context, evt *typ
 	}
 
 	if err := s.orderSui.SelfSettleToAggregator(ctx, evt.OrderID, evt.CoinType); err != nil {
+		LogOnce(ctx, po.Edges.RouteAOrder.ID, StepSelfSettle, StatusFailed, ActorIndexer,
+			map[string]any{
+				"gateway_order_id": evt.OrderID,
+				"coin_type":        evt.CoinType,
+				"forward_tx":       evt.TxDigest,
+			},
+			err.Error(), evt.TxDigest)
 		return true, fmt.Errorf("self-settle to aggregator: %w", err)
 	}
+	LogOnce(ctx, po.Edges.RouteAOrder.ID, StepSelfSettle, StatusSucceeded, ActorIndexer,
+		map[string]any{
+			"gateway_order_id": evt.OrderID,
+			"coin_type":        evt.CoinType,
+			"forward_tx":       evt.TxDigest,
+		},
+		"", evt.TxDigest)
 
 	// Stamp the PaymentOrder so we can correlate later and surface state.
 	if _, err := po.Update().SetGatewayID(evt.OrderID).SetTxHash(evt.TxDigest).Save(ctx); err != nil {
@@ -678,7 +851,6 @@ func (s *SuiEventIndexer) updateOrderStatusRefunded(ctx context.Context, evt *ty
 	return nil
 }
 
-
 func (s *SuiEventIndexer) handleSenderFeeTransferred(ctx context.Context, raw models.SuiEventResponse) error {
 	parsed, err := decodeMoveEvent(raw)
 	if err != nil {
@@ -790,6 +962,37 @@ func getString(m map[string]interface{}, key string) string {
 	return fmt.Sprintf("%v", v)
 }
 
+// getMoveString retrieves a string and automatically base64 decodes it if it is a
+// serialized Move string representation (checking for standard delimiters like "::").
+func getMoveString(m map[string]interface{}, key string) string {
+	val := getString(m, key)
+	if val == "" {
+		return ""
+	}
+	if strings.Contains(val, "::") {
+		return val
+	}
+	if strings.HasPrefix(val, "0x") {
+		return val
+	}
+	if decoded, err := base64.StdEncoding.DecodeString(val); err == nil {
+		decodedStr := string(decoded)
+		if isPrintable(decodedStr) {
+			return decodedStr
+		}
+	}
+	return val
+}
+
+func isPrintable(s string) bool {
+	for _, r := range s {
+		if r < 32 && r != '\n' && r != '\r' && r != '\t' {
+			return false
+		}
+	}
+	return true
+}
+
 // getUint64 extracts a numeric field. Sui Move u64 values arrive as strings
 // (to avoid JSON number-precision issues for large values).
 func getUint64(m map[string]interface{}, key string) uint64 {
@@ -813,7 +1016,8 @@ func getUint64(m map[string]interface{}, key string) uint64 {
 }
 
 // getBytes extracts a vector<u8> field. ParsedJson typically delivers these
-// as either a hex string or a []interface{} of bytes.
+// as either a hex string or a []interface{} of bytes. It automatically handles
+// decoding hex and base64-encoded strings if returned by the gRPC stream.
 func getBytes(m map[string]interface{}, key string) []byte {
 	v, ok := m[key]
 	if !ok {
@@ -821,9 +1025,14 @@ func getBytes(m map[string]interface{}, key string) []byte {
 	}
 	switch x := v.(type) {
 	case string:
-		// Sui often base64-encodes bytes but Move-formatted events deliver
-		// them as their UTF-8 bytes when they look textual (e.g. institution
-		// codes like "044"). Try raw bytes first.
+		if strings.HasPrefix(x, "0x") {
+			if decoded, err := hex.DecodeString(x[2:]); err == nil {
+				return decoded
+			}
+		}
+		if decoded, err := base64.StdEncoding.DecodeString(x); err == nil {
+			return decoded
+		}
 		return []byte(x)
 	case []interface{}:
 		out := make([]byte, 0, len(x))

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -37,6 +38,8 @@ import (
 	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	svc "github.com/usezoracle/rails-sui/services"
+	"github.com/usezoracle/rails-sui/services/lifi"
+	"github.com/usezoracle/rails-sui/services/settlement"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	u "github.com/usezoracle/rails-sui/utils"
@@ -302,7 +305,32 @@ func (ctrl *SenderController) InitiateTapPayment(ctx *gin.Context) {
 		return
 	}
 
-	cryptoAmount := payload.Amount.Div(currency.MarketRate).Round(int32(tok.Decimals))
+	if len(orderConf.SuiAggregatorPrivateKey) != 32 {
+		u.APIResponse(ctx, http.StatusServiceUnavailable, "error",
+			"Route A orders require SUI_AGGREGATOR_PRIVATE_KEY to be configured", nil)
+		return
+	}
+	settlementTTL := time.Duration(orderConf.SettlementPubkeyTTLSeconds) * time.Second
+	settlementClient := settlement.New(orderConf.SettlementAPIURL, settlementTTL)
+	lifiClient := lifi.New(orderConf.LiFiAPIKey)
+	aggSigner := suisigner.NewSigner(orderConf.SuiAggregatorPrivateKey)
+	composite, cryptoAmount, qerr := svc.QuoteSuiTokenAmountForFiat(
+		ctx,
+		lifiClient,
+		settlementClient,
+		orderConf,
+		aggSigner.Address,
+		payload.Amount,
+		currency.MarketRate,
+		tok.ContractAddress,
+		int32(tok.Decimals),
+	)
+	if qerr != nil {
+		logger.Errorf("InitiateTapPayment.route_a_quote token=%s fiat=%s: %v", tok.Symbol, payload.Amount, qerr)
+		u.APIResponse(ctx, http.StatusBadGateway, "error",
+			"Couldn't quote Route A settlement rate — try again in a moment", nil)
+		return
+	}
 	if !cryptoAmount.IsPositive() {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
 			"Computed crypto amount rounds to zero — increase fiat amount", nil)
@@ -380,7 +408,7 @@ func (ctrl *SenderController) InitiateTapPayment(ctx *gin.Context) {
 		SetProtocolFee(decimal.NewFromInt(0)).
 		SetSenderFee(decimal.NewFromInt(0)).
 		SetToken(tok).
-		SetRate(currency.MarketRate).
+		SetRate(composite.Rate).
 		SetSuiReceiveAddress(receiveAddr).
 		SetReceiveAddressText(receiveAddr.Address).
 		SetFeePercent(decimal.NewFromInt(0)).
@@ -444,7 +472,7 @@ func (ctrl *SenderController) InitiateTapPayment(ctx *gin.Context) {
 			Currency:    currencyCode,
 			Token:       tok.Symbol,
 			Network:     tok.Edges.Network.Identifier,
-			Rate:        currency.MarketRate.String(),
+			Rate:        composite.Rate.String(),
 			ExpiresAt:   validUntil,
 		})
 }

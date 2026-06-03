@@ -13,22 +13,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/viper"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/routers/middleware"
 	svc "github.com/usezoracle/rails-sui/services"
+	authSvc "github.com/usezoracle/rails-sui/services/auth"
 	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
-	"github.com/spf13/viper"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/usezoracle/rails-sui/ent/enttest"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/ent/verificationtoken"
 	"github.com/usezoracle/rails-sui/utils/crypto"
 	"github.com/usezoracle/rails-sui/utils/test"
-	"github.com/usezoracle/rails-sui/utils/token"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestAuth(t *testing.T) {
@@ -638,12 +638,15 @@ func TestAuth(t *testing.T) {
 
 	t.Run("RefreshJWT", func(t *testing.T) {
 		t.Run("with a valid refresh token", func(t *testing.T) {
-			refreshToken, err := token.GenerateRefreshJWT(userID, "sender")
+			parsedUserID, err := uuid.Parse(userID)
+			assert.NoError(t, err, "failed to parse user id")
+
+			issuedRefresh, err := authSvc.IssueNewFamily(context.Background(), parsedUserID, time.Hour, "", "")
 			assert.NoError(t, err, "failed to generate refresh token")
 
 			// Test refresh token with valid refresh token
 			payload := types.RefreshJWTPayload{
-				RefreshToken: refreshToken,
+				RefreshToken: issuedRefresh.Raw,
 			}
 
 			res, err := test.PerformRequest(t, "POST", "/refresh", payload, nil, router)
@@ -663,7 +666,8 @@ func TestAuth(t *testing.T) {
 			// Assert the response data
 			assert.Contains(t, data, "accessToken")
 			assert.NotEmpty(t, data["accessToken"].(string))
-			assert.NotContains(t, data, "refreshToken")
+			assert.Contains(t, data, "refreshToken")
+			assert.NotEmpty(t, data["refreshToken"].(string))
 			accessToken = data["accessToken"].(string)
 		})
 

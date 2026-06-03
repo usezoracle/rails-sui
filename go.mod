@@ -10,6 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-co-op/gocron v1.35.0
 	github.com/golang-jwt/jwt/v5 v5.0.0
+	github.com/golang/protobuf v1.5.4
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/mailgun/mailgun-go/v3 v3.6.4
 	github.com/mattn/go-sqlite3 v1.14.16
@@ -20,6 +21,8 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/api v0.280.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60
+	google.golang.org/grpc v1.81.1
 )
 
 require (
@@ -62,7 +65,6 @@ require (
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
@@ -98,8 +100,6 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60 // indirect
-	google.golang.org/grpc v1.81.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
@@ -148,7 +148,7 @@ require (
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
