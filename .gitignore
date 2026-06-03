@@ -7,6 +7,14 @@
 *.so
 *.dylib
 
+# Compiled server binaries (built from `go build`)
+/main
+/rails-sui
+
+# Logs
+*.log
+server.log
+
 # Test binary, built with `go test -c`
 *.test
 
