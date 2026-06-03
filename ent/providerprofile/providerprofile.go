@@ -45,6 +45,10 @@ const (
 	FieldBusinessDocument = "business_document"
 	// FieldIsKybVerified holds the string denoting the is_kyb_verified field in the database.
 	FieldIsKybVerified = "is_kyb_verified"
+	// FieldSafehavenAccountNumber holds the string denoting the safehaven_account_number field in the database.
+	FieldSafehavenAccountNumber = "safehaven_account_number"
+	// FieldSafehavenAccountID holds the string denoting the safehaven_account_id field in the database.
+	FieldSafehavenAccountID = "safehaven_account_id"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeAPIKey holds the string denoting the api_key edge name in mutations.
@@ -128,6 +132,8 @@ var Columns = []string{
 	FieldIdentityDocument,
 	FieldBusinessDocument,
 	FieldIsKybVerified,
+	FieldSafehavenAccountNumber,
+	FieldSafehavenAccountID,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "provider_profiles"
@@ -332,6 +338,16 @@ func ByBusinessDocument(opts ...sql.OrderTermOption) OrderOption {
 // ByIsKybVerified orders the results by the is_kyb_verified field.
 func ByIsKybVerified(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsKybVerified, opts...).ToFunc()
+}
+
+// BySafehavenAccountNumber orders the results by the safehaven_account_number field.
+func BySafehavenAccountNumber(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSafehavenAccountNumber, opts...).ToFunc()
+}
+
+// BySafehavenAccountID orders the results by the safehaven_account_id field.
+func BySafehavenAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSafehavenAccountID, opts...).ToFunc()
 }
 
 // ByUserField orders the results by user field.

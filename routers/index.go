@@ -65,6 +65,9 @@ func RegisterRoutes(route *gin.Engine) {
 	v1.GET("kyc/:wallet_address", ctrl.GetIDVerificationStatus)
 	v1.POST("kyc/webhook", ctrl.KYCWebhook)
 
+	// Safe Haven (BaaS) transfer/credit callbacks
+	v1.POST("safehaven/webhook", ctrl.SafeHavenWebhook)
+
 }
 
 func authRoutes(route *gin.Engine) {

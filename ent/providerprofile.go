@@ -52,6 +52,10 @@ type ProviderProfile struct {
 	BusinessDocument string `json:"business_document,omitempty"`
 	// IsKybVerified holds the value of the "is_kyb_verified" field.
 	IsKybVerified bool `json:"is_kyb_verified,omitempty"`
+	// SafehavenAccountNumber holds the value of the "safehaven_account_number" field.
+	SafehavenAccountNumber string `json:"safehaven_account_number,omitempty"`
+	// SafehavenAccountID holds the value of the "safehaven_account_id" field.
+	SafehavenAccountID string `json:"safehaven_account_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProviderProfileQuery when eager-loading is set.
 	Edges                   ProviderProfileEdges `json:"edges"`
@@ -159,7 +163,7 @@ func (*ProviderProfile) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case providerprofile.FieldIsActive, providerprofile.FieldIsAvailable, providerprofile.FieldIsKybVerified:
 			values[i] = new(sql.NullBool)
-		case providerprofile.FieldID, providerprofile.FieldTradingName, providerprofile.FieldHostIdentifier, providerprofile.FieldProvisionMode, providerprofile.FieldVisibilityMode, providerprofile.FieldAddress, providerprofile.FieldMobileNumber, providerprofile.FieldBusinessName, providerprofile.FieldIdentityDocumentType, providerprofile.FieldIdentityDocument, providerprofile.FieldBusinessDocument:
+		case providerprofile.FieldID, providerprofile.FieldTradingName, providerprofile.FieldHostIdentifier, providerprofile.FieldProvisionMode, providerprofile.FieldVisibilityMode, providerprofile.FieldAddress, providerprofile.FieldMobileNumber, providerprofile.FieldBusinessName, providerprofile.FieldIdentityDocumentType, providerprofile.FieldIdentityDocument, providerprofile.FieldBusinessDocument, providerprofile.FieldSafehavenAccountNumber, providerprofile.FieldSafehavenAccountID:
 			values[i] = new(sql.NullString)
 		case providerprofile.FieldUpdatedAt, providerprofile.FieldDateOfBirth:
 			values[i] = new(sql.NullTime)
@@ -277,6 +281,18 @@ func (pp *ProviderProfile) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field is_kyb_verified", values[i])
 			} else if value.Valid {
 				pp.IsKybVerified = value.Bool
+			}
+		case providerprofile.FieldSafehavenAccountNumber:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field safehaven_account_number", values[i])
+			} else if value.Valid {
+				pp.SafehavenAccountNumber = value.String
+			}
+		case providerprofile.FieldSafehavenAccountID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field safehaven_account_id", values[i])
+			} else if value.Valid {
+				pp.SafehavenAccountID = value.String
 			}
 		case providerprofile.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -407,6 +423,12 @@ func (pp *ProviderProfile) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("is_kyb_verified=")
 	builder.WriteString(fmt.Sprintf("%v", pp.IsKybVerified))
+	builder.WriteString(", ")
+	builder.WriteString("safehaven_account_number=")
+	builder.WriteString(pp.SafehavenAccountNumber)
+	builder.WriteString(", ")
+	builder.WriteString("safehaven_account_id=")
+	builder.WriteString(pp.SafehavenAccountID)
 	builder.WriteByte(')')
 	return builder.String()
 }

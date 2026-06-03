@@ -11881,6 +11881,8 @@ type ProviderProfileMutation struct {
 	identity_document        *string
 	business_document        *string
 	is_kyb_verified          *bool
+	safehaven_account_number *string
+	safehaven_account_id     *string
 	clearedFields            map[string]struct{}
 	user                     *uuid.UUID
 	cleareduser              bool
@@ -12665,6 +12667,104 @@ func (m *ProviderProfileMutation) ResetIsKybVerified() {
 	m.is_kyb_verified = nil
 }
 
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (m *ProviderProfileMutation) SetSafehavenAccountNumber(s string) {
+	m.safehaven_account_number = &s
+}
+
+// SafehavenAccountNumber returns the value of the "safehaven_account_number" field in the mutation.
+func (m *ProviderProfileMutation) SafehavenAccountNumber() (r string, exists bool) {
+	v := m.safehaven_account_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSafehavenAccountNumber returns the old "safehaven_account_number" field's value of the ProviderProfile entity.
+// If the ProviderProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProviderProfileMutation) OldSafehavenAccountNumber(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSafehavenAccountNumber is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSafehavenAccountNumber requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSafehavenAccountNumber: %w", err)
+	}
+	return oldValue.SafehavenAccountNumber, nil
+}
+
+// ClearSafehavenAccountNumber clears the value of the "safehaven_account_number" field.
+func (m *ProviderProfileMutation) ClearSafehavenAccountNumber() {
+	m.safehaven_account_number = nil
+	m.clearedFields[providerprofile.FieldSafehavenAccountNumber] = struct{}{}
+}
+
+// SafehavenAccountNumberCleared returns if the "safehaven_account_number" field was cleared in this mutation.
+func (m *ProviderProfileMutation) SafehavenAccountNumberCleared() bool {
+	_, ok := m.clearedFields[providerprofile.FieldSafehavenAccountNumber]
+	return ok
+}
+
+// ResetSafehavenAccountNumber resets all changes to the "safehaven_account_number" field.
+func (m *ProviderProfileMutation) ResetSafehavenAccountNumber() {
+	m.safehaven_account_number = nil
+	delete(m.clearedFields, providerprofile.FieldSafehavenAccountNumber)
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (m *ProviderProfileMutation) SetSafehavenAccountID(s string) {
+	m.safehaven_account_id = &s
+}
+
+// SafehavenAccountID returns the value of the "safehaven_account_id" field in the mutation.
+func (m *ProviderProfileMutation) SafehavenAccountID() (r string, exists bool) {
+	v := m.safehaven_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSafehavenAccountID returns the old "safehaven_account_id" field's value of the ProviderProfile entity.
+// If the ProviderProfile object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProviderProfileMutation) OldSafehavenAccountID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSafehavenAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSafehavenAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSafehavenAccountID: %w", err)
+	}
+	return oldValue.SafehavenAccountID, nil
+}
+
+// ClearSafehavenAccountID clears the value of the "safehaven_account_id" field.
+func (m *ProviderProfileMutation) ClearSafehavenAccountID() {
+	m.safehaven_account_id = nil
+	m.clearedFields[providerprofile.FieldSafehavenAccountID] = struct{}{}
+}
+
+// SafehavenAccountIDCleared returns if the "safehaven_account_id" field was cleared in this mutation.
+func (m *ProviderProfileMutation) SafehavenAccountIDCleared() bool {
+	_, ok := m.clearedFields[providerprofile.FieldSafehavenAccountID]
+	return ok
+}
+
+// ResetSafehavenAccountID resets all changes to the "safehaven_account_id" field.
+func (m *ProviderProfileMutation) ResetSafehavenAccountID() {
+	m.safehaven_account_id = nil
+	delete(m.clearedFields, providerprofile.FieldSafehavenAccountID)
+}
+
 // SetUserID sets the "user" edge to the User entity by id.
 func (m *ProviderProfileMutation) SetUserID(id uuid.UUID) {
 	m.user = &id
@@ -13017,7 +13117,7 @@ func (m *ProviderProfileMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProviderProfileMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 17)
 	if m.trading_name != nil {
 		fields = append(fields, providerprofile.FieldTradingName)
 	}
@@ -13063,6 +13163,12 @@ func (m *ProviderProfileMutation) Fields() []string {
 	if m.is_kyb_verified != nil {
 		fields = append(fields, providerprofile.FieldIsKybVerified)
 	}
+	if m.safehaven_account_number != nil {
+		fields = append(fields, providerprofile.FieldSafehavenAccountNumber)
+	}
+	if m.safehaven_account_id != nil {
+		fields = append(fields, providerprofile.FieldSafehavenAccountID)
+	}
 	return fields
 }
 
@@ -13101,6 +13207,10 @@ func (m *ProviderProfileMutation) Field(name string) (ent.Value, bool) {
 		return m.BusinessDocument()
 	case providerprofile.FieldIsKybVerified:
 		return m.IsKybVerified()
+	case providerprofile.FieldSafehavenAccountNumber:
+		return m.SafehavenAccountNumber()
+	case providerprofile.FieldSafehavenAccountID:
+		return m.SafehavenAccountID()
 	}
 	return nil, false
 }
@@ -13140,6 +13250,10 @@ func (m *ProviderProfileMutation) OldField(ctx context.Context, name string) (en
 		return m.OldBusinessDocument(ctx)
 	case providerprofile.FieldIsKybVerified:
 		return m.OldIsKybVerified(ctx)
+	case providerprofile.FieldSafehavenAccountNumber:
+		return m.OldSafehavenAccountNumber(ctx)
+	case providerprofile.FieldSafehavenAccountID:
+		return m.OldSafehavenAccountID(ctx)
 	}
 	return nil, fmt.Errorf("unknown ProviderProfile field %s", name)
 }
@@ -13254,6 +13368,20 @@ func (m *ProviderProfileMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetIsKybVerified(v)
 		return nil
+	case providerprofile.FieldSafehavenAccountNumber:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSafehavenAccountNumber(v)
+		return nil
+	case providerprofile.FieldSafehavenAccountID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSafehavenAccountID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ProviderProfile field %s", name)
 }
@@ -13311,6 +13439,12 @@ func (m *ProviderProfileMutation) ClearedFields() []string {
 	if m.FieldCleared(providerprofile.FieldBusinessDocument) {
 		fields = append(fields, providerprofile.FieldBusinessDocument)
 	}
+	if m.FieldCleared(providerprofile.FieldSafehavenAccountNumber) {
+		fields = append(fields, providerprofile.FieldSafehavenAccountNumber)
+	}
+	if m.FieldCleared(providerprofile.FieldSafehavenAccountID) {
+		fields = append(fields, providerprofile.FieldSafehavenAccountID)
+	}
 	return fields
 }
 
@@ -13351,6 +13485,12 @@ func (m *ProviderProfileMutation) ClearField(name string) error {
 		return nil
 	case providerprofile.FieldBusinessDocument:
 		m.ClearBusinessDocument()
+		return nil
+	case providerprofile.FieldSafehavenAccountNumber:
+		m.ClearSafehavenAccountNumber()
+		return nil
+	case providerprofile.FieldSafehavenAccountID:
+		m.ClearSafehavenAccountID()
 		return nil
 	}
 	return fmt.Errorf("unknown ProviderProfile nullable field %s", name)
@@ -13404,6 +13544,12 @@ func (m *ProviderProfileMutation) ResetField(name string) error {
 		return nil
 	case providerprofile.FieldIsKybVerified:
 		m.ResetIsKybVerified()
+		return nil
+	case providerprofile.FieldSafehavenAccountNumber:
+		m.ResetSafehavenAccountNumber()
+		return nil
+	case providerprofile.FieldSafehavenAccountID:
+		m.ResetSafehavenAccountID()
 		return nil
 	}
 	return fmt.Errorf("unknown ProviderProfile field %s", name)

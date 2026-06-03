@@ -291,6 +291,46 @@ func (ppu *ProviderProfileUpdate) SetNillableIsKybVerified(b *bool) *ProviderPro
 	return ppu
 }
 
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (ppu *ProviderProfileUpdate) SetSafehavenAccountNumber(s string) *ProviderProfileUpdate {
+	ppu.mutation.SetSafehavenAccountNumber(s)
+	return ppu
+}
+
+// SetNillableSafehavenAccountNumber sets the "safehaven_account_number" field if the given value is not nil.
+func (ppu *ProviderProfileUpdate) SetNillableSafehavenAccountNumber(s *string) *ProviderProfileUpdate {
+	if s != nil {
+		ppu.SetSafehavenAccountNumber(*s)
+	}
+	return ppu
+}
+
+// ClearSafehavenAccountNumber clears the value of the "safehaven_account_number" field.
+func (ppu *ProviderProfileUpdate) ClearSafehavenAccountNumber() *ProviderProfileUpdate {
+	ppu.mutation.ClearSafehavenAccountNumber()
+	return ppu
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (ppu *ProviderProfileUpdate) SetSafehavenAccountID(s string) *ProviderProfileUpdate {
+	ppu.mutation.SetSafehavenAccountID(s)
+	return ppu
+}
+
+// SetNillableSafehavenAccountID sets the "safehaven_account_id" field if the given value is not nil.
+func (ppu *ProviderProfileUpdate) SetNillableSafehavenAccountID(s *string) *ProviderProfileUpdate {
+	if s != nil {
+		ppu.SetSafehavenAccountID(*s)
+	}
+	return ppu
+}
+
+// ClearSafehavenAccountID clears the value of the "safehaven_account_id" field.
+func (ppu *ProviderProfileUpdate) ClearSafehavenAccountID() *ProviderProfileUpdate {
+	ppu.mutation.ClearSafehavenAccountID()
+	return ppu
+}
+
 // SetAPIKeyID sets the "api_key" edge to the APIKey entity by ID.
 func (ppu *ProviderProfileUpdate) SetAPIKeyID(id uuid.UUID) *ProviderProfileUpdate {
 	ppu.mutation.SetAPIKeyID(id)
@@ -621,6 +661,18 @@ func (ppu *ProviderProfileUpdate) sqlSave(ctx context.Context) (n int, err error
 	}
 	if value, ok := ppu.mutation.IsKybVerified(); ok {
 		_spec.SetField(providerprofile.FieldIsKybVerified, field.TypeBool, value)
+	}
+	if value, ok := ppu.mutation.SafehavenAccountNumber(); ok {
+		_spec.SetField(providerprofile.FieldSafehavenAccountNumber, field.TypeString, value)
+	}
+	if ppu.mutation.SafehavenAccountNumberCleared() {
+		_spec.ClearField(providerprofile.FieldSafehavenAccountNumber, field.TypeString)
+	}
+	if value, ok := ppu.mutation.SafehavenAccountID(); ok {
+		_spec.SetField(providerprofile.FieldSafehavenAccountID, field.TypeString, value)
+	}
+	if ppu.mutation.SafehavenAccountIDCleared() {
+		_spec.ClearField(providerprofile.FieldSafehavenAccountID, field.TypeString)
 	}
 	if ppu.mutation.APIKeyCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1120,6 +1172,46 @@ func (ppuo *ProviderProfileUpdateOne) SetNillableIsKybVerified(b *bool) *Provide
 	return ppuo
 }
 
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (ppuo *ProviderProfileUpdateOne) SetSafehavenAccountNumber(s string) *ProviderProfileUpdateOne {
+	ppuo.mutation.SetSafehavenAccountNumber(s)
+	return ppuo
+}
+
+// SetNillableSafehavenAccountNumber sets the "safehaven_account_number" field if the given value is not nil.
+func (ppuo *ProviderProfileUpdateOne) SetNillableSafehavenAccountNumber(s *string) *ProviderProfileUpdateOne {
+	if s != nil {
+		ppuo.SetSafehavenAccountNumber(*s)
+	}
+	return ppuo
+}
+
+// ClearSafehavenAccountNumber clears the value of the "safehaven_account_number" field.
+func (ppuo *ProviderProfileUpdateOne) ClearSafehavenAccountNumber() *ProviderProfileUpdateOne {
+	ppuo.mutation.ClearSafehavenAccountNumber()
+	return ppuo
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (ppuo *ProviderProfileUpdateOne) SetSafehavenAccountID(s string) *ProviderProfileUpdateOne {
+	ppuo.mutation.SetSafehavenAccountID(s)
+	return ppuo
+}
+
+// SetNillableSafehavenAccountID sets the "safehaven_account_id" field if the given value is not nil.
+func (ppuo *ProviderProfileUpdateOne) SetNillableSafehavenAccountID(s *string) *ProviderProfileUpdateOne {
+	if s != nil {
+		ppuo.SetSafehavenAccountID(*s)
+	}
+	return ppuo
+}
+
+// ClearSafehavenAccountID clears the value of the "safehaven_account_id" field.
+func (ppuo *ProviderProfileUpdateOne) ClearSafehavenAccountID() *ProviderProfileUpdateOne {
+	ppuo.mutation.ClearSafehavenAccountID()
+	return ppuo
+}
+
 // SetAPIKeyID sets the "api_key" edge to the APIKey entity by ID.
 func (ppuo *ProviderProfileUpdateOne) SetAPIKeyID(id uuid.UUID) *ProviderProfileUpdateOne {
 	ppuo.mutation.SetAPIKeyID(id)
@@ -1480,6 +1572,18 @@ func (ppuo *ProviderProfileUpdateOne) sqlSave(ctx context.Context) (_node *Provi
 	}
 	if value, ok := ppuo.mutation.IsKybVerified(); ok {
 		_spec.SetField(providerprofile.FieldIsKybVerified, field.TypeBool, value)
+	}
+	if value, ok := ppuo.mutation.SafehavenAccountNumber(); ok {
+		_spec.SetField(providerprofile.FieldSafehavenAccountNumber, field.TypeString, value)
+	}
+	if ppuo.mutation.SafehavenAccountNumberCleared() {
+		_spec.ClearField(providerprofile.FieldSafehavenAccountNumber, field.TypeString)
+	}
+	if value, ok := ppuo.mutation.SafehavenAccountID(); ok {
+		_spec.SetField(providerprofile.FieldSafehavenAccountID, field.TypeString, value)
+	}
+	if ppuo.mutation.SafehavenAccountIDCleared() {
+		_spec.ClearField(providerprofile.FieldSafehavenAccountID, field.TypeString)
 	}
 	if ppuo.mutation.APIKeyCleared() {
 		edge := &sqlgraph.EdgeSpec{

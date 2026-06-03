@@ -2,25 +2,26 @@ package config
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/viper"
 )
 
 // ServerConfiguration type defines the server configurations
 type ServerConfiguration struct {
-	Debug           bool
-	Host            string
-	Port            string
-	Timezone        string
-	AllowedHosts    string
-	Environment     string
-	SentryDSN       string
-	HostDomain      string
-	CheckoutBaseURL    string
-	PWABaseURL         string
-	AdminAPIToken      string
+	Debug               bool
+	Host                string
+	Port                string
+	Timezone            string
+	AllowedHosts        string
+	Environment         string
+	SentryDSN           string
+	HostDomain          string
+	CheckoutBaseURL     string
+	PWABaseURL          string
+	AdminAPIToken       string
 	GoogleOAuthClientID string
-	SettlementAPIURL      string
+	SettlementAPIURL    string
 }
 
 // ServerConfig sets the server configuration
@@ -38,10 +39,18 @@ func ServerConfig() *ServerConfiguration {
 	viper.SetDefault("GOOGLE_OAUTH_CLIENT_ID", "")
 	viper.SetDefault("SETTLEMENT_API_URL", "https://api.paycrest.io")
 
+	// Railway/Heroku/Cloud Run inject the listen port via PORT. Honour it when
+	// present so the app binds where the platform routes; otherwise fall back to
+	// SERVER_PORT (default 8000) for local/dev.
+	port := viper.GetString("SERVER_PORT")
+	if p := os.Getenv("PORT"); p != "" {
+		port = p
+	}
+
 	return &ServerConfiguration{
 		Debug:               viper.GetBool("DEBUG"),
 		Host:                viper.GetString("SERVER_HOST"),
-		Port:                viper.GetString("SERVER_PORT"),
+		Port:                port,
 		Timezone:            viper.GetString("SERVER_TIMEZONE"),
 		AllowedHosts:        viper.GetString("ALLOWED_HOSTS"),
 		Environment:         viper.GetString("ENVIRONMENT"),
@@ -51,7 +60,7 @@ func ServerConfig() *ServerConfiguration {
 		PWABaseURL:          viper.GetString("PWA_BASE_URL"),
 		AdminAPIToken:       viper.GetString("ADMIN_API_TOKEN"),
 		GoogleOAuthClientID: viper.GetString("GOOGLE_OAUTH_CLIENT_ID"),
-		SettlementAPIURL:      viper.GetString("SETTLEMENT_API_URL"),
+		SettlementAPIURL:    viper.GetString("SETTLEMENT_API_URL"),
 	}
 }
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -35,8 +36,14 @@ func SetupConfig() error {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Printf("Error to reading config file, %s", err)
-		return err
+		// A missing .env is expected in containers (Railway, Docker) where env
+		// vars are injected directly — fall back to AutomaticEnv + defaults.
+		// Only a malformed/unreadable file is fatal.
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) && !os.IsNotExist(err) {
+			fmt.Printf("Error to reading config file, %s", err)
+			return err
+		}
 	}
 
 	if err := viper.Unmarshal(&configuration); err != nil {

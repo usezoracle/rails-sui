@@ -241,6 +241,34 @@ func (ppc *ProviderProfileCreate) SetNillableIsKybVerified(b *bool) *ProviderPro
 	return ppc
 }
 
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (ppc *ProviderProfileCreate) SetSafehavenAccountNumber(s string) *ProviderProfileCreate {
+	ppc.mutation.SetSafehavenAccountNumber(s)
+	return ppc
+}
+
+// SetNillableSafehavenAccountNumber sets the "safehaven_account_number" field if the given value is not nil.
+func (ppc *ProviderProfileCreate) SetNillableSafehavenAccountNumber(s *string) *ProviderProfileCreate {
+	if s != nil {
+		ppc.SetSafehavenAccountNumber(*s)
+	}
+	return ppc
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (ppc *ProviderProfileCreate) SetSafehavenAccountID(s string) *ProviderProfileCreate {
+	ppc.mutation.SetSafehavenAccountID(s)
+	return ppc
+}
+
+// SetNillableSafehavenAccountID sets the "safehaven_account_id" field if the given value is not nil.
+func (ppc *ProviderProfileCreate) SetNillableSafehavenAccountID(s *string) *ProviderProfileCreate {
+	if s != nil {
+		ppc.SetSafehavenAccountID(*s)
+	}
+	return ppc
+}
+
 // SetID sets the "id" field.
 func (ppc *ProviderProfileCreate) SetID(s string) *ProviderProfileCreate {
 	ppc.mutation.SetID(s)
@@ -566,6 +594,14 @@ func (ppc *ProviderProfileCreate) createSpec() (*ProviderProfile, *sqlgraph.Crea
 	if value, ok := ppc.mutation.IsKybVerified(); ok {
 		_spec.SetField(providerprofile.FieldIsKybVerified, field.TypeBool, value)
 		_node.IsKybVerified = value
+	}
+	if value, ok := ppc.mutation.SafehavenAccountNumber(); ok {
+		_spec.SetField(providerprofile.FieldSafehavenAccountNumber, field.TypeString, value)
+		_node.SafehavenAccountNumber = value
+	}
+	if value, ok := ppc.mutation.SafehavenAccountID(); ok {
+		_spec.SetField(providerprofile.FieldSafehavenAccountID, field.TypeString, value)
+		_node.SafehavenAccountID = value
 	}
 	if nodes := ppc.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -967,6 +1003,42 @@ func (u *ProviderProfileUpsert) UpdateIsKybVerified() *ProviderProfileUpsert {
 	return u
 }
 
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (u *ProviderProfileUpsert) SetSafehavenAccountNumber(v string) *ProviderProfileUpsert {
+	u.Set(providerprofile.FieldSafehavenAccountNumber, v)
+	return u
+}
+
+// UpdateSafehavenAccountNumber sets the "safehaven_account_number" field to the value that was provided on create.
+func (u *ProviderProfileUpsert) UpdateSafehavenAccountNumber() *ProviderProfileUpsert {
+	u.SetExcluded(providerprofile.FieldSafehavenAccountNumber)
+	return u
+}
+
+// ClearSafehavenAccountNumber clears the value of the "safehaven_account_number" field.
+func (u *ProviderProfileUpsert) ClearSafehavenAccountNumber() *ProviderProfileUpsert {
+	u.SetNull(providerprofile.FieldSafehavenAccountNumber)
+	return u
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (u *ProviderProfileUpsert) SetSafehavenAccountID(v string) *ProviderProfileUpsert {
+	u.Set(providerprofile.FieldSafehavenAccountID, v)
+	return u
+}
+
+// UpdateSafehavenAccountID sets the "safehaven_account_id" field to the value that was provided on create.
+func (u *ProviderProfileUpsert) UpdateSafehavenAccountID() *ProviderProfileUpsert {
+	u.SetExcluded(providerprofile.FieldSafehavenAccountID)
+	return u
+}
+
+// ClearSafehavenAccountID clears the value of the "safehaven_account_id" field.
+func (u *ProviderProfileUpsert) ClearSafehavenAccountID() *ProviderProfileUpsert {
+	u.SetNull(providerprofile.FieldSafehavenAccountID)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -1285,6 +1357,48 @@ func (u *ProviderProfileUpsertOne) SetIsKybVerified(v bool) *ProviderProfileUpse
 func (u *ProviderProfileUpsertOne) UpdateIsKybVerified() *ProviderProfileUpsertOne {
 	return u.Update(func(s *ProviderProfileUpsert) {
 		s.UpdateIsKybVerified()
+	})
+}
+
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (u *ProviderProfileUpsertOne) SetSafehavenAccountNumber(v string) *ProviderProfileUpsertOne {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.SetSafehavenAccountNumber(v)
+	})
+}
+
+// UpdateSafehavenAccountNumber sets the "safehaven_account_number" field to the value that was provided on create.
+func (u *ProviderProfileUpsertOne) UpdateSafehavenAccountNumber() *ProviderProfileUpsertOne {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.UpdateSafehavenAccountNumber()
+	})
+}
+
+// ClearSafehavenAccountNumber clears the value of the "safehaven_account_number" field.
+func (u *ProviderProfileUpsertOne) ClearSafehavenAccountNumber() *ProviderProfileUpsertOne {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.ClearSafehavenAccountNumber()
+	})
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (u *ProviderProfileUpsertOne) SetSafehavenAccountID(v string) *ProviderProfileUpsertOne {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.SetSafehavenAccountID(v)
+	})
+}
+
+// UpdateSafehavenAccountID sets the "safehaven_account_id" field to the value that was provided on create.
+func (u *ProviderProfileUpsertOne) UpdateSafehavenAccountID() *ProviderProfileUpsertOne {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.UpdateSafehavenAccountID()
+	})
+}
+
+// ClearSafehavenAccountID clears the value of the "safehaven_account_id" field.
+func (u *ProviderProfileUpsertOne) ClearSafehavenAccountID() *ProviderProfileUpsertOne {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.ClearSafehavenAccountID()
 	})
 }
 
@@ -1773,6 +1887,48 @@ func (u *ProviderProfileUpsertBulk) SetIsKybVerified(v bool) *ProviderProfileUps
 func (u *ProviderProfileUpsertBulk) UpdateIsKybVerified() *ProviderProfileUpsertBulk {
 	return u.Update(func(s *ProviderProfileUpsert) {
 		s.UpdateIsKybVerified()
+	})
+}
+
+// SetSafehavenAccountNumber sets the "safehaven_account_number" field.
+func (u *ProviderProfileUpsertBulk) SetSafehavenAccountNumber(v string) *ProviderProfileUpsertBulk {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.SetSafehavenAccountNumber(v)
+	})
+}
+
+// UpdateSafehavenAccountNumber sets the "safehaven_account_number" field to the value that was provided on create.
+func (u *ProviderProfileUpsertBulk) UpdateSafehavenAccountNumber() *ProviderProfileUpsertBulk {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.UpdateSafehavenAccountNumber()
+	})
+}
+
+// ClearSafehavenAccountNumber clears the value of the "safehaven_account_number" field.
+func (u *ProviderProfileUpsertBulk) ClearSafehavenAccountNumber() *ProviderProfileUpsertBulk {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.ClearSafehavenAccountNumber()
+	})
+}
+
+// SetSafehavenAccountID sets the "safehaven_account_id" field.
+func (u *ProviderProfileUpsertBulk) SetSafehavenAccountID(v string) *ProviderProfileUpsertBulk {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.SetSafehavenAccountID(v)
+	})
+}
+
+// UpdateSafehavenAccountID sets the "safehaven_account_id" field to the value that was provided on create.
+func (u *ProviderProfileUpsertBulk) UpdateSafehavenAccountID() *ProviderProfileUpsertBulk {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.UpdateSafehavenAccountID()
+	})
+}
+
+// ClearSafehavenAccountID clears the value of the "safehaven_account_id" field.
+func (u *ProviderProfileUpsertBulk) ClearSafehavenAccountID() *ProviderProfileUpsertBulk {
+	return u.Update(func(s *ProviderProfileUpsert) {
+		s.ClearSafehavenAccountID()
 	})
 }
 

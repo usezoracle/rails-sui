@@ -125,6 +125,16 @@ func IsKybVerified(v bool) predicate.ProviderProfile {
 	return predicate.ProviderProfile(sql.FieldEQ(FieldIsKybVerified, v))
 }
 
+// SafehavenAccountNumber applies equality check predicate on the "safehaven_account_number" field. It's identical to SafehavenAccountNumberEQ.
+func SafehavenAccountNumber(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldEQ(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountID applies equality check predicate on the "safehaven_account_id" field. It's identical to SafehavenAccountIDEQ.
+func SafehavenAccountID(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldEQ(FieldSafehavenAccountID, v))
+}
+
 // TradingNameEQ applies the EQ predicate on the "trading_name" field.
 func TradingNameEQ(v string) predicate.ProviderProfile {
 	return predicate.ProviderProfile(sql.FieldEQ(FieldTradingName, v))
@@ -838,6 +848,156 @@ func IsKybVerifiedEQ(v bool) predicate.ProviderProfile {
 // IsKybVerifiedNEQ applies the NEQ predicate on the "is_kyb_verified" field.
 func IsKybVerifiedNEQ(v bool) predicate.ProviderProfile {
 	return predicate.ProviderProfile(sql.FieldNEQ(FieldIsKybVerified, v))
+}
+
+// SafehavenAccountNumberEQ applies the EQ predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberEQ(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldEQ(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberNEQ applies the NEQ predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberNEQ(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldNEQ(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberIn applies the In predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberIn(vs ...string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldIn(FieldSafehavenAccountNumber, vs...))
+}
+
+// SafehavenAccountNumberNotIn applies the NotIn predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberNotIn(vs ...string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldNotIn(FieldSafehavenAccountNumber, vs...))
+}
+
+// SafehavenAccountNumberGT applies the GT predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberGT(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldGT(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberGTE applies the GTE predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberGTE(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldGTE(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberLT applies the LT predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberLT(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldLT(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberLTE applies the LTE predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberLTE(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldLTE(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberContains applies the Contains predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberContains(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldContains(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberHasPrefix applies the HasPrefix predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberHasPrefix(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldHasPrefix(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberHasSuffix applies the HasSuffix predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberHasSuffix(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldHasSuffix(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberIsNil applies the IsNil predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberIsNil() predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldIsNull(FieldSafehavenAccountNumber))
+}
+
+// SafehavenAccountNumberNotNil applies the NotNil predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberNotNil() predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldNotNull(FieldSafehavenAccountNumber))
+}
+
+// SafehavenAccountNumberEqualFold applies the EqualFold predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberEqualFold(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldEqualFold(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountNumberContainsFold applies the ContainsFold predicate on the "safehaven_account_number" field.
+func SafehavenAccountNumberContainsFold(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldContainsFold(FieldSafehavenAccountNumber, v))
+}
+
+// SafehavenAccountIDEQ applies the EQ predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDEQ(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldEQ(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDNEQ applies the NEQ predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDNEQ(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldNEQ(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDIn applies the In predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDIn(vs ...string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldIn(FieldSafehavenAccountID, vs...))
+}
+
+// SafehavenAccountIDNotIn applies the NotIn predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDNotIn(vs ...string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldNotIn(FieldSafehavenAccountID, vs...))
+}
+
+// SafehavenAccountIDGT applies the GT predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDGT(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldGT(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDGTE applies the GTE predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDGTE(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldGTE(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDLT applies the LT predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDLT(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldLT(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDLTE applies the LTE predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDLTE(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldLTE(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDContains applies the Contains predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDContains(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldContains(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDHasPrefix applies the HasPrefix predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDHasPrefix(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldHasPrefix(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDHasSuffix applies the HasSuffix predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDHasSuffix(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldHasSuffix(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDIsNil applies the IsNil predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDIsNil() predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldIsNull(FieldSafehavenAccountID))
+}
+
+// SafehavenAccountIDNotNil applies the NotNil predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDNotNil() predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldNotNull(FieldSafehavenAccountID))
+}
+
+// SafehavenAccountIDEqualFold applies the EqualFold predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDEqualFold(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldEqualFold(FieldSafehavenAccountID, v))
+}
+
+// SafehavenAccountIDContainsFold applies the ContainsFold predicate on the "safehaven_account_id" field.
+func SafehavenAccountIDContainsFold(v string) predicate.ProviderProfile {
+	return predicate.ProviderProfile(sql.FieldContainsFold(FieldSafehavenAccountID, v))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.

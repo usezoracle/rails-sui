@@ -50,6 +50,11 @@ func (ProviderProfile) Fields() []ent.Field {
 		field.String("identity_document").Optional(),
 		field.String("business_document").Optional(),
 		field.Bool("is_kyb_verified").Default(false),
+
+		// Safe Haven (Route B): the LP's deposit sub-account that merchant
+		// payouts debit, plus its Safe Haven account id.
+		field.String("safehaven_account_number").Optional(),
+		field.String("safehaven_account_id").Optional(),
 	}
 }
 
