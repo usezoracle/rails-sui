@@ -33,6 +33,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
+	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/services/evm"
 	"github.com/usezoracle/rails-sui/services/lifi"
@@ -71,8 +72,8 @@ var ErrTreasuryDispatcherNotWired = errors.New("rails: BaaS partner not integrat
 // audit log records this as `skipped`, not `failed`.
 type awaitingDepositErr struct{ msg string }
 
-func (e *awaitingDepositErr) Error() string  { return e.msg }
-func (e *awaitingDepositErr) skipSentinel()  {}
+func (e *awaitingDepositErr) Error() string { return e.msg }
+func (e *awaitingDepositErr) skipSentinel() {}
 
 var ErrAwaitingDepositAtAggregator error = &awaitingDepositErr{
 	msg: "rails: aggregator wallet hasn't received the deposit yet — waiting for indexer/self-settle",
@@ -97,12 +98,12 @@ const (
 // "wait a bit more" instead of "mark failed too early" — see
 // docs/incidents/2026-05-25-route-a-stuck-deposit.md.
 var bridgeStaleTimeouts = map[string]time.Duration{
-	"allbridge":         60 * time.Minute,
-	"wormhole":          30 * time.Minute,
-	"cctp":              20 * time.Minute,
-	"mayan":             15 * time.Minute,
-	"stargate":          25 * time.Minute,
-	"":                  45 * time.Minute, // unknown tool
+	"allbridge": 60 * time.Minute,
+	"wormhole":  30 * time.Minute,
+	"cctp":      20 * time.Minute,
+	"mayan":     15 * time.Minute,
+	"stargate":  25 * time.Minute,
+	"":          45 * time.Minute, // unknown tool
 }
 
 func bridgeStaleTimeoutFor(tool string) time.Duration {
@@ -124,7 +125,7 @@ type RouteADispatcher struct {
 	// can run for Sui-only flows even when Base env isn't configured.
 	// Nil when configuration is incomplete; dispatchLP returns a typed
 	// error in that case.
-	evm      *evm.Client
+	evm        *evm.Client
 	settlement *settlement.Client
 
 	// quoteFailCounts tracks consecutive LiFi quote failures per order
@@ -170,7 +171,7 @@ func NewRouteADispatcher() *RouteADispatcher {
 		defer cancel()
 		evmClient, err := evm.NewClient(ctx, d.baseChainConfig())
 		if err != nil {
-			logger.Errorf("route-a: EVM client init failed: %v", err)
+			logger.Errorf("❌ route-a: EVM client init failed: %v", err)
 		} else {
 			d.evm = evmClient
 		}
@@ -218,29 +219,34 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 		return errors.New("route-a dispatcher: SUI_AGGREGATOR_PRIVATE_KEY not configured")
 	}
 	if err := d.advancePending(ctx); err != nil {
-		logger.Errorf("route-a: advance pending: %v", err)
+		logger.Errorf("❌ route-a: advance pending: %v", err)
 	}
 	if err := d.advanceBridging(ctx); err != nil {
-		logger.Errorf("route-a: advance bridging: %v", err)
+		logger.Errorf("❌ route-a: advance bridging: %v", err)
 	}
 	if err := d.advanceUncertain(ctx); err != nil {
-		logger.Errorf("route-a: advance uncertain: %v", err)
+		logger.Errorf("❌ route-a: advance uncertain: %v", err)
 	}
 	if err := d.advanceBridged(ctx); err != nil {
-		logger.Errorf("route-a: advance bridged: %v", err)
+		logger.Errorf("❌ route-a: advance bridged: %v", err)
 	}
 	if err := d.advanceDispatching(ctx); err != nil {
-		logger.Errorf("route-a: advance dispatching: %v", err)
+		logger.Errorf("❌ route-a: advance dispatching: %v", err)
 	}
 	return nil
 }
 
-// advancePending finds RouteAOrder rows in 'pending' state, fetches a LiFi
-// quote, submits the Sui-side bridge tx, and transitions to 'bridging'.
+// advancePending finds RouteAOrder rows in 'pending' or 'awaiting_funds' state,
+// fetches a LiFi quote, submits the Sui-side bridge tx, and transitions to 'bridging'.
+// Orders in 'awaiting_funds' are re-checked every tick until the aggregator wallet
+// has received the self-settled deposit.
 func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 	orders, err := db.Client.RouteAOrder.
 		Query().
-		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusPending)).
+		Where(routeaorder.BridgeStatusIn(
+			routeaorder.BridgeStatusPending,
+			routeaorder.BridgeStatusAwaitingFunds,
+		)).
 		WithPaymentOrder(func(poq *ent.PaymentOrderQuery) {
 			poq.WithToken()
 		}).
@@ -251,11 +257,19 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 
 	for _, order := range orders {
 		if err := d.startBridge(ctx, order); err != nil {
-			// Awaiting-funds is the expected state between order
-			// creation and the indexer's self-settle. Skip the retry
-			// counter — we want to keep checking forever (or until ops
-			// intervenes), not mark as FAILED after 10 ticks.
+			// Awaiting-funds: the deposit hasn't self-settled to the aggregator yet.
+			// Persist awaiting_funds so the DB reflects reality, skip the
+			// retry counter — we recheck every tick until funds arrive.
 			if errors.Is(err, ErrAwaitingDepositAtAggregator) {
+				if order.BridgeStatus != routeaorder.BridgeStatusAwaitingFunds {
+					if _, uerr := order.Update().
+						SetBridgeStatus(routeaorder.BridgeStatusAwaitingFunds).
+						Save(ctx); uerr != nil {
+						logger.Errorf("❌ route-a: persist awaiting_funds for %d: %v", order.ID, uerr)
+					} else {
+						logger.Infof("🤔 route-a: order %d → awaiting_funds (aggregator deposit not yet settled)", order.ID)
+					}
+				}
 				continue
 			}
 			d.quoteFailMu.Lock()
@@ -263,7 +277,7 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 			count := d.quoteFailCounts[order.ID]
 			d.quoteFailMu.Unlock()
 
-			logger.Errorf("route-a: start bridge for order %d (attempt %d/%d): %v",
+			logger.Errorf("❌ route-a: start bridge for order %d (attempt %d/%d): %v",
 				order.ID, count, maxQuoteRetries, err)
 
 			if count >= maxQuoteRetries {
@@ -272,9 +286,9 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 					SetBridgeStatus(routeaorder.BridgeStatusFailed).
 					SetFailureReason(reason).
 					Save(ctx); uerr != nil {
-					logger.Errorf("route-a: persist quote-fail for %d: %v", order.ID, uerr)
+					logger.Errorf("❌ route-a: persist quote-fail for %d: %v", order.ID, uerr)
 				} else {
-					logger.Errorf("route-a: order %d marked FAILED after %d quote retries", order.ID, count)
+					logger.Errorf("❌ route-a: order %d marked FAILED after %d quote retries", order.ID, count)
 				}
 				d.quoteFailMu.Lock()
 				delete(d.quoteFailCounts, order.ID)
@@ -353,9 +367,18 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 	if !ok {
 		return fmt.Errorf("parse fromAmount %q", fromAmount)
 	}
+	if order.BridgeStatus == routeaorder.BridgeStatusAwaitingFunds &&
+		!hasSuccessfulRouteAEvent(ctx, order.ID, StepSelfSettle) {
+		timer.With("aggregator_have", have.String()).
+			With("need", need.String()).
+			With("coin_type", tok.ContractAddress)
+		return ErrAwaitingDepositAtAggregator
+	}
 	if have.Cmp(need) < 0 {
-		logger.Infof("route-a: order %d awaiting funds — aggregator has %s, need %s (%s); will recheck next tick",
-			order.ID, have.String(), need.String(), tok.ContractAddress)
+		haveDec := decimal.NewFromBigInt(have, 0).Shift(-int32(tok.Decimals))
+		needDec := decimal.NewFromBigInt(need, 0).Shift(-int32(tok.Decimals))
+		logger.Infof("🤔 route-a: order %d awaiting funds — aggregator has %s, need %s %s; will recheck next tick",
+			order.ID, haveDec.String(), needDec.String(), tok.Symbol)
 		timer.With("aggregator_have", have.String()).
 			With("need", need.String()).
 			With("coin_type", tok.ContractAddress)
@@ -379,7 +402,7 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 	}
 	quote, err := d.lifi.GetQuote(ctx, qr)
 	if err != nil {
-		logger.Errorf("route-a: quote request details order=%d fromChain=%s toChain=%s fromToken=%s toToken=%s fromAmount=%s fromAddr=%s toAddr=%s",
+		logger.Errorf("❌ route-a: quote request details order=%d fromChain=%s toChain=%s fromToken=%s toToken=%s fromAmount=%s fromAddr=%s toAddr=%s",
 			order.ID, qr.FromChain, qr.ToChain, qr.FromToken, qr.ToToken, qr.FromAmount, qr.FromAddress, qr.ToAddress)
 		return fmt.Errorf("get quote: %w", err)
 	}
@@ -424,7 +447,7 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 		With("bridge_tx_sui", resp.Digest).
 		With("estimated_to_amount", quote.Estimate.ToAmount).
 		With("estimated_to_amount_min", quote.Estimate.ToAmountMin)
-	logger.Infof("route-a: bridge initiated order=%d tool=%s tx=%s", order.ID, quote.Tool, resp.Digest)
+	logger.Infof("✅ route-a: bridge initiated order=%d tool=%s tx=%s", order.ID, quote.Tool, resp.Digest)
 	return nil
 }
 
@@ -474,7 +497,7 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 		ToChain:   strconv.FormatInt(d.conf.BaseChainID, 10),
 	})
 	if lerr != nil {
-		logger.Errorf("route-a: status poll for %d (tx=%s tool=%s): %v", order.ID, order.BridgeTxSui, order.LifiTool, lerr)
+		logger.Errorf("❌ route-a: status poll for %d (tx=%s tool=%s): %v", order.ID, order.BridgeTxSui, order.LifiTool, lerr)
 		timer.With("upstream_error", lerr.Error())
 
 		// "not found" past the per-tool stale window → bridge_uncertain.
@@ -489,18 +512,18 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 				SetBridgeStatus(routeaorder.BridgeStatusBridgeUncertain).
 				SetFailureReason(reason).
 				Save(ctx); uerr != nil {
-				logger.Errorf("route-a: persist bridge_uncertain for %d: %v", order.ID, uerr)
+				logger.Errorf("❌ route-a: persist bridge_uncertain for %d: %v", order.ID, uerr)
 				err = uerr
 				return
 			}
-			logger.Infof("route-a: order %d → bridge_uncertain (tool=%s stale_after=%s)",
+			logger.Infof("🤔 route-a: order %d → bridge_uncertain (tool=%s stale_after=%s)",
 				order.ID, order.LifiTool, staleAfter)
 			LogOnce(ctx, order.ID, StepBridgeUncertain, StatusStarted, ActorDispatcher,
 				map[string]any{
-					"reason":       reason,
-					"stale_after":  staleAfter.String(),
-					"lifi_tool":    order.LifiTool,
-					"bridge_tx":    order.BridgeTxSui,
+					"reason":      reason,
+					"stale_after": staleAfter.String(),
+					"lifi_tool":   order.LifiTool,
+					"bridge_tx":   order.BridgeTxSui,
 				}, "", "")
 			timer.With("transitioned", "bridge_uncertain").
 				With("stale_after", staleAfter.String())
@@ -528,11 +551,11 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			}
 		}
 		if _, uerr := update.Save(ctx); uerr != nil {
-			logger.Errorf("route-a: persist DONE for %d: %v", order.ID, uerr)
+			logger.Errorf("❌ route-a: persist DONE for %d: %v", order.ID, uerr)
 			err = uerr
 			return
 		}
-		logger.Infof("route-a: bridge DONE order=%d", order.ID)
+		logger.Infof("✅ route-a: bridge DONE order=%d", order.ID)
 		// Distinct `bridge_done` row so the timeline shows the
 		// completion moment cleanly (the poll row is just the call).
 		LogOnce(ctx, order.ID, StepBridgeDone, StatusSucceeded, ActorDispatcher,
@@ -549,11 +572,11 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			SetBridgeStatus(routeaorder.BridgeStatusFailed).
 			SetFailureReason(reason).
 			Save(ctx); uerr != nil {
-			logger.Errorf("route-a: persist FAILED for %d: %v", order.ID, uerr)
+			logger.Errorf("❌ route-a: persist FAILED for %d: %v", order.ID, uerr)
 			err = uerr
 			return
 		}
-		logger.Infof("route-a: bridge FAILED order=%d reason=%s", order.ID, reason)
+		logger.Infof("❌ route-a: bridge FAILED order=%d reason=%s", order.ID, reason)
 		err = fmt.Errorf("lifi FAILED: %s", reason)
 
 	default:
@@ -620,7 +643,7 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 					SetBridgeStatus(routeaorder.BridgeStatusFailed).
 					SetFailureReason("late LiFi FAILED: " + reason).
 					Save(ctx); uerr != nil {
-					logger.Errorf("route-a: persist late FAILED for %d: %v", order.ID, uerr)
+					logger.Errorf("❌ route-a: persist late FAILED for %d: %v", order.ID, uerr)
 				}
 				timer.With("recovered_via", "lifi_late_failed")
 				timer.End(&loopErr)
@@ -645,7 +668,7 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 				SetBridgeStatus(routeaorder.BridgeStatusFailed).
 				SetFailureReason(reason).
 				Save(ctx); uerr != nil {
-				logger.Errorf("route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
+				logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
 			}
 			timer.With("recovered_via", "window_expired_to_failed")
 		}
@@ -675,7 +698,7 @@ func (d *RouteADispatcher) markBridgedFromStatus(
 		}
 	}
 	if _, err := update.Save(ctx); err != nil {
-		logger.Errorf("route-a: persist late DONE for %d: %v", order.ID, err)
+		logger.Errorf("❌ route-a: persist late DONE for %d: %v", order.ID, err)
 		return false
 	}
 	LogOnce(ctx, order.ID, StepBridgeDone, StatusSucceeded, ActorDispatcher,
@@ -723,7 +746,7 @@ func (d *RouteADispatcher) advanceBridged(ctx context.Context) error {
 			dispatchErr = fmt.Errorf("unknown mode %q", order.Mode)
 		}
 		if dispatchErr != nil {
-			logger.Errorf("route-a: dispatch order=%d mode=%s: %v", order.ID, order.Mode, dispatchErr)
+			logger.Errorf("❌ route-a: dispatch order=%d mode=%s: %v", order.ID, order.Mode, dispatchErr)
 		}
 	}
 	return nil
@@ -784,6 +807,16 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		totalNGN := po.Amount.Mul(po.Rate)
 		usdcRate = totalNGN.Div(*order.BridgedAmount)
 	}
+
+	// Fetch fresh rate quote from Paycrest to ensure we don't submit an expired/stale rate
+	// that LPs will reject.
+	liveQuote, err := d.settlement.FetchRate(ctx, "base", "USDC", *order.BridgedAmount, "NGN")
+	if err != nil {
+		return fmt.Errorf("fetch live Paycrest rate: %w", err)
+	}
+	logger.Infof("📈 route-a: fetched fresh Paycrest rate for order %d: NGN/USDC=%s (original NGN/USDC was %s)", order.ID, liveQuote.Rate.String(), usdcRate.String())
+	usdcRate = liveQuote.Rate
+
 	rateScaled := usdcRate.Mul(decimal.NewFromInt(100)).Truncate(0)
 	rate, _ := new(big.Int).SetString(rateScaled.String(), 10)
 
@@ -849,7 +882,7 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		Save(ctx); perr != nil {
 		return fmt.Errorf("persist dispatching: %w", perr)
 	}
-	logger.Infof("route-a: createOrder submitted order=%d orderId=%s tx=%s gas=%d",
+	logger.Infof("✅ route-a: createOrder submitted order=%d orderId=%s tx=%s gas=%d",
 		order.ID, orderID, result.TxHash.Hex(), result.GasUsed)
 	timer.With("gateway_order_id", orderID).
 		With("evm_tx_hash", result.TxHash.Hex()).
@@ -891,7 +924,7 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 		}
 		info, err := d.settlement.FetchOrderStatus(ctx, int64(order.GatewayChainID), order.GatewayOrderID)
 		if err != nil {
-			logger.Errorf("route-a: settlement status %d: %v", order.ID, err)
+			logger.Errorf("❌ route-a: settlement status %d: %v", order.ID, err)
 			continue
 		}
 		// Only publish on actual change so every 30s poll doesn't re-fire
@@ -915,23 +948,53 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 				if _, perr := order.Edges.PaymentOrder.Update().
 					SetStatus(paymentorder.StatusSettled).
 					Save(ctx); perr != nil {
-					logger.Errorf("route-a: payment_order → settled (%d): %v", order.ID, perr)
+					logger.Errorf("❌ route-a: payment_order → settled (%d): %v", order.ID, perr)
 				}
 			}
 		case settlement.StatusRefunded, settlement.StatusExpired:
-			upd = upd.SetBridgeStatus(routeaorder.BridgeStatusRefunded)
-			bridgeFlipped = routeaorder.BridgeStatusRefunded
-			poFlipped = paymentorder.StatusRefunded
-			if order.Edges.PaymentOrder != nil {
-				if _, perr := order.Edges.PaymentOrder.Update().
-					SetStatus(paymentorder.StatusRefunded).
-					Save(ctx); perr != nil {
-					logger.Errorf("route-a: payment_order → refunded (%d): %v", order.ID, perr)
+			// Query the number of times we've tried evm_create_order
+			attempts, qerr := order.QueryEvents().
+				Where(
+					routeaevent.StepEQ(routeaevent.StepEvmCreateOrder),
+					routeaevent.StatusEQ(routeaevent.StatusStarted),
+				).
+				Count(ctx)
+			if qerr != nil {
+				logger.Errorf("❌ route-a: query attempts count (%d): %v", order.ID, qerr)
+				attempts = 1 // default fallback
+			}
+
+			if attempts < 3 {
+				// Retry by moving the status back to bridged so dispatchLP runs on next tick.
+				// We also clear the gateway_order_id so we do not query the old expired one again.
+				upd = upd.SetBridgeStatus(routeaorder.BridgeStatusBridged).
+					ClearSettlementStatus().
+					ClearGatewayOrderID()
+
+				LogOnce(ctx, order.ID, StepSettlementTerminal, StatusRetrying, ActorDispatcher, map[string]any{
+					"reason":         string(info.Status),
+					"attempt":        attempts,
+					"old_gateway_id": order.GatewayOrderID,
+				}, fmt.Sprintf("Order was %s. Retrying with a new rate quote (attempt %d).", info.Status, attempts+1), "")
+
+				logger.Infof("🔄 route-a: order %d was %s. Resetting state to bridged to retry (attempt %d/3)", order.ID, info.Status, attempts+1)
+			} else {
+				// Retry limit reached, mark as refunded
+				upd = upd.SetBridgeStatus(routeaorder.BridgeStatusRefunded)
+				bridgeFlipped = routeaorder.BridgeStatusRefunded
+				poFlipped = paymentorder.StatusRefunded
+				if order.Edges.PaymentOrder != nil {
+					if _, perr := order.Edges.PaymentOrder.Update().
+						SetStatus(paymentorder.StatusRefunded).
+						Save(ctx); perr != nil {
+						logger.Errorf("❌ route-a: payment_order → refunded (%d): %v", order.ID, perr)
+					}
 				}
+				logger.Warnf("❌ route-a: order %d reached maximum retry attempts (%d). Marking refunded.", order.ID, attempts)
 			}
 		}
 		if _, err := upd.Save(ctx); err != nil {
-			logger.Errorf("route-a: persist dispatching → %s (%d): %v", info.Status, order.ID, err)
+			logger.Errorf("❌ route-a: persist dispatching → %s (%d): %v", info.Status, order.ID, err)
 		}
 
 		if statusChanged {
@@ -967,14 +1030,14 @@ func (d *RouteADispatcher) publishOrderEvent(
 	}
 
 	payload := map[string]any{
-		"order_id":         order.Edges.PaymentOrder.ID.String(),
-		"route_a_order_id": order.ID,
-		"bridge_status":    string(order.BridgeStatus),
-		"settlement_status":  string(pcStatus),
-		"gateway_order_id": order.GatewayOrderID,
-		"dest_tx_hash":     order.BridgeTxDest,
-		"chain_id":         order.GatewayChainID,
-		"updated_at":       time.Now().UTC().Format(time.RFC3339),
+		"order_id":          order.Edges.PaymentOrder.ID.String(),
+		"route_a_order_id":  order.ID,
+		"bridge_status":     string(order.BridgeStatus),
+		"settlement_status": string(pcStatus),
+		"gateway_order_id":  order.GatewayOrderID,
+		"dest_tx_hash":      order.BridgeTxDest,
+		"chain_id":          order.GatewayChainID,
+		"updated_at":        time.Now().UTC().Format(time.RFC3339),
 	}
 	if poFlipped != "" {
 		payload["payment_status"] = string(poFlipped)
@@ -1004,9 +1067,11 @@ func (d *RouteADispatcher) CheckNativeBalance(ctx context.Context) error {
 		return fmt.Errorf("query native balance: %w", err)
 	}
 	if bal.Cmp(threshold) < 0 {
+		balDec := decimal.NewFromBigInt(bal, 0).Shift(-18)
+		thresholdDec := decimal.NewFromBigInt(threshold, 0).Shift(-18)
 		logger.Errorf(
-			"route-a: Base aggregator wallet LOW on native (ETH) — balance=%s wei, threshold=%s wei, address=%s. Top up before dispatches stall.",
-			bal.String(), threshold.String(), d.evm.From().Hex(),
+			"❌ route-a: Base aggregator wallet LOW on native (ETH) — balance=%s ETH, threshold=%s ETH, address=%s. Top up before dispatches stall.",
+			balDec.String(), thresholdDec.String(), d.evm.From().Hex(),
 		)
 	}
 	return nil

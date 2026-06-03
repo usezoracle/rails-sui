@@ -1,13 +1,15 @@
+//go:build ignore
+
 package main
 
 import (
 	"context"
 	"fmt"
-	"github.com/usezoracle/rails-sui/config"
-	"github.com/usezoracle/rails-sui/storage"
-	"github.com/usezoracle/rails-sui/ent/senderprofile"
-	"github.com/usezoracle/rails-sui/ent/senderordertoken"
 	"github.com/shopspring/decimal"
+	"github.com/usezoracle/rails-sui/config"
+	"github.com/usezoracle/rails-sui/ent/senderordertoken"
+	"github.com/usezoracle/rails-sui/ent/senderprofile"
+	"github.com/usezoracle/rails-sui/storage"
 )
 
 func main() {
@@ -35,7 +37,7 @@ func main() {
 		if s.Edges.User != nil {
 			email = s.Edges.User.Email
 		}
-		
+
 		// Activate sender
 		if !s.IsActive {
 			_, err = client.SenderProfile.UpdateOne(s).SetIsActive(true).Save(ctx)

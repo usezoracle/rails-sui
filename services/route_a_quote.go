@@ -91,20 +91,7 @@ type SuiCompositeRate struct {
 	RefundTimeoutMinutes int
 }
 
-// QuoteSuiToNgn composes a SUI/NGN rate for the requested SUI amount.
-//
-// It first asks LiFi for a (bridgedSui SUI → USDC) quote — bridgedSui
-// is requested-amount minus the gas reservation. Then it asks Paycrest
-// for the NGN/USDC rate at the USDC amount LiFi will deliver. The
-// composite SUI/NGN is (USDC/SUI) × (NGN/USDC).
-//
-// The aggregator's Sui address is required because LiFi's /quote
-// endpoint conditions the route (and therefore the rate) on the
-// sender; passing a junk address can change which bridges LiFi offers.
-//
-// Errors surface as-is: a LiFi outage or Paycrest 5xx fails the order
-// creation. The caller should return 502 to the user, matching the
-// USDC path's behavior on rate-fetch failure.
+// QuoteSuiToNgn is a backward-compatible wrapper for SUI-specific off-ramp quoting.
 func QuoteSuiToNgn(
 	ctx context.Context,
 	lifiClient *lifi.Client,
@@ -113,6 +100,22 @@ func QuoteSuiToNgn(
 	suiAggregatorAddress string,
 	requestedSui decimal.Decimal,
 ) (*SuiCompositeRate, error) {
+	return QuoteSuiTokenToNgn(ctx, lifiClient, settlementClient, conf, suiAggregatorAddress, requestedSui, NativeSuiCoinType, NativeSuiDecimals)
+}
+
+// QuoteSuiTokenToNgn composes a off-ramp rate for any Sui token (e.g. SUI, USDC)
+// to fiat (NGN) by chaining the cross-chain bridge quote (Sui -> Base USDC) and the
+// Paycrest NGN/USDC rate quote. This factors in all bridge fees, gas reservations, and slippage.
+func QuoteSuiTokenToNgn(
+	ctx context.Context,
+	lifiClient *lifi.Client,
+	settlementClient *settlement.Client,
+	conf *config.OrderConfiguration,
+	suiAggregatorAddress string,
+	requestedAmount decimal.Decimal,
+	fromToken string,
+	fromDecimals int32,
+) (*SuiCompositeRate, error) {
 	if suiAggregatorAddress == "" {
 		return nil, fmt.Errorf("sui aggregator address not configured (SUI_AGGREGATOR_PRIVATE_KEY)")
 	}
@@ -120,32 +123,43 @@ func QuoteSuiToNgn(
 		return nil, fmt.Errorf("base destination not configured (BASE_USDC_CONTRACT / BASE_AGGREGATOR_ADDRESS / BASE_CHAIN_ID)")
 	}
 
-	// Reserve gas before quoting. The user-facing rate must reflect
-	// what actually gets bridged, not what they deposited.
-	gasReservation := decimal.NewFromInt(NativeSuiGasReservation).Shift(-int32(NativeSuiDecimals))
-	bridgedSui := requestedSui.Sub(gasReservation)
-	if bridgedSui.Sign() <= 0 {
-		return nil, fmt.Errorf("amount %s SUI is below gas reservation %s SUI", requestedSui, gasReservation)
+	var bridgedAmount decimal.Decimal
+	var fromAmount string
+
+	if IsNativeSui(fromToken) {
+		// Reserve gas for native SUI bridging
+		gasReservation := decimal.NewFromInt(NativeSuiGasReservation).Shift(-int32(NativeSuiDecimals))
+		bridgedAmount = requestedAmount.Sub(gasReservation)
+		if bridgedAmount.Sign() <= 0 {
+			return nil, fmt.Errorf("amount %s SUI is below gas reservation %s SUI", requestedAmount, gasReservation)
+		}
+		fromAmount = bridgedAmount.Shift(int32(NativeSuiDecimals)).Truncate(0).String()
+	} else {
+		// USDC/stablecoin has no gas reservation on the token itself
+		bridgedAmount = requestedAmount
+		fromAmount = bridgedAmount.Shift(int32(fromDecimals)).Truncate(0).String()
 	}
 
-	fromAmount := bridgedSui.Shift(int32(NativeSuiDecimals)).Truncate(0).String()
 	qreq := lifi.QuoteRequest{
 		FromChain:   strconv.FormatInt(lifi.SuiChainID, 10),
 		ToChain:     strconv.FormatInt(conf.BaseChainID, 10),
-		FromToken:   NativeSuiCoinType,
+		FromToken:   fromToken,
 		ToToken:     conf.BaseUSDCContract,
 		FromAmount:  fromAmount,
 		FromAddress: suiAggregatorAddress,
 		ToAddress:   conf.BaseAggregatorAddress,
-		Slippage:    NativeSuiSlippage(),
+		Slippage:    0.01, // Standard 1% slippage for stable-stable / general path
 	}
+	if IsNativeSui(fromToken) {
+		qreq.Slippage = NativeSuiSlippage()
+	}
+
 	quote, err := lifiClient.GetQuote(ctx, qreq)
 	if err != nil {
-		return nil, fmt.Errorf("lifi sui→usdc quote: %w", err)
+		return nil, fmt.Errorf("lifi bridge quote: %w", err)
 	}
-	// ToAmountMin is the floor LiFi guarantees at this slippage; quoting
-	// off the floor (rather than ToAmount, the optimistic estimate)
-	// means the user is never surprised by under-delivery at bridge time.
+
+	// ToAmountMin is the floor LiFi guarantees; quoting off the floor ensures the user is not surprised by under-delivery
 	usdcSubunit, ok := new(big.Int).SetString(quote.Estimate.ToAmountMin, 10)
 	if !ok || usdcSubunit.Sign() <= 0 {
 		return nil, fmt.Errorf("lifi returned no usable ToAmountMin (got %q)", quote.Estimate.ToAmountMin)
@@ -157,17 +171,65 @@ func QuoteSuiToNgn(
 		return nil, fmt.Errorf("paycrest usdc/ngn rate: %w", err)
 	}
 
-	// NGN per SUI = (USDC per SUI) × (NGN per USDC).
-	usdcPerSui := usdcEquivalent.Div(bridgedSui)
-	composite := usdcPerSui.Mul(paycrest.Rate)
+	// NGN per Token = (USDC per Token) × (NGN per USDC).
+	usdcPerToken := usdcEquivalent.Div(bridgedAmount)
+	composite := usdcPerToken.Mul(paycrest.Rate)
 
 	return &SuiCompositeRate{
 		Rate:                 composite,
 		UsdcEquivalent:       usdcEquivalent,
 		UsdcToNgnRate:        paycrest.Rate,
-		BridgedSuiAmount:     bridgedSui,
+		BridgedSuiAmount:     bridgedAmount, // Holds the actual bridged token amount (net of gas reservation if SUI)
 		ProviderIDs:          paycrest.ProviderIDs,
 		OrderType:            paycrest.OrderType,
 		RefundTimeoutMinutes: paycrest.RefundTimeoutMinutes,
 	}, nil
+}
+
+// QuoteSuiTokenAmountForFiat resolves the source-token amount needed to deliver
+// a target fiat amount through Route A. The Route-A quote is amount-sensitive
+// because LiFi fees/slippage and Paycrest rates depend on size, so callers
+// cannot safely use fiat / market_rate. We bootstrap with fallbackRate, quote,
+// then re-quote once using the derived token amount.
+func QuoteSuiTokenAmountForFiat(
+	ctx context.Context,
+	lifiClient *lifi.Client,
+	settlementClient *settlement.Client,
+	conf *config.OrderConfiguration,
+	suiAggregatorAddress string,
+	targetFiat decimal.Decimal,
+	fallbackRate decimal.Decimal,
+	fromToken string,
+	fromDecimals int32,
+) (*SuiCompositeRate, decimal.Decimal, error) {
+	if !targetFiat.IsPositive() {
+		return nil, decimal.Zero, fmt.Errorf("target fiat amount must be positive")
+	}
+	if !fallbackRate.IsPositive() {
+		return nil, decimal.Zero, fmt.Errorf("fallback rate must be positive")
+	}
+
+	sourceAmount := targetFiat.Div(fallbackRate).Round(fromDecimals)
+	var quote *SuiCompositeRate
+	var err error
+	for i := 0; i < 2; i++ {
+		quote, err = QuoteSuiTokenToNgn(
+			ctx,
+			lifiClient,
+			settlementClient,
+			conf,
+			suiAggregatorAddress,
+			sourceAmount,
+			fromToken,
+			fromDecimals,
+		)
+		if err != nil {
+			return nil, decimal.Zero, err
+		}
+		if !quote.Rate.IsPositive() {
+			return nil, decimal.Zero, fmt.Errorf("route-a quote returned non-positive rate")
+		}
+		sourceAmount = targetFiat.Div(quote.Rate).Round(fromDecimals)
+	}
+	return quote, sourceAmount, nil
 }

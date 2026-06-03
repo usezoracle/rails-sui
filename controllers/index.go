@@ -13,9 +13,11 @@ import (
 	"strings"
 	"time"
 
+	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	fastshot "github.com/opus-domini/fast-shot"
+	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
@@ -26,12 +28,13 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/token"
 	svc "github.com/usezoracle/rails-sui/services"
+	"github.com/usezoracle/rails-sui/services/lifi"
 	orderSvc "github.com/usezoracle/rails-sui/services/order"
+	"github.com/usezoracle/rails-sui/services/settlement"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
-	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,6 +42,7 @@ import (
 var cryptoConf = config.CryptoConfig()
 var serverConf = config.ServerConfig()
 var identityConf = config.IdentityConfig()
+var orderConf = config.OrderConfig()
 
 // Controller is the default controller for other endpoints
 type Controller struct {
@@ -125,6 +129,7 @@ func (ctrl *Controller) GetTokenRate(ctx *gin.Context) {
 			token.SymbolEQ(strings.ToUpper(ctx.Param("token"))),
 			token.IsEnabledEQ(true),
 		).
+		WithNetwork().
 		First(ctx)
 	if err != nil {
 		logger.Errorf("error: %v", err)
@@ -157,9 +162,46 @@ func (ctrl *Controller) GetTokenRate(ctx *gin.Context) {
 	}
 
 	rateResponse := currency.MarketRate
+	routeAQuoted := false
+	if strings.EqualFold(currency.Code, "NGN") &&
+		token.Edges.Network != nil &&
+		strings.HasPrefix(token.Edges.Network.Identifier, "sui-") {
+		if len(orderConf.SuiAggregatorPrivateKey) != 32 {
+			u.APIResponse(ctx, http.StatusServiceUnavailable, "error",
+				"Route A rate requires SUI_AGGREGATOR_PRIVATE_KEY to be configured", nil)
+			return
+		}
+		settlementTTL := time.Duration(orderConf.SettlementPubkeyTTLSeconds) * time.Second
+		settlementClient := settlement.New(orderConf.SettlementAPIURL, settlementTTL)
+		lifiClient := lifi.New(orderConf.LiFiAPIKey)
+		aggSigner := suisigner.NewSigner(orderConf.SuiAggregatorPrivateKey)
+		composite, _, qerr := svc.QuoteSuiTokenAmountForFiat(
+			ctx,
+			lifiClient,
+			settlementClient,
+			orderConf,
+			aggSigner.Address,
+			tokenAmount,
+			currency.MarketRate,
+			token.ContractAddress,
+			int32(token.Decimals),
+		)
+		if qerr != nil {
+			logger.Errorf("GetTokenRate.route_a_quote token=%s fiat=%s: %v", token.Symbol, tokenAmount, qerr)
+			u.APIResponse(ctx, http.StatusBadGateway, "error",
+				"Couldn't quote Route A settlement rate", nil)
+			return
+		}
+		rateResponse = composite.Rate
+		routeAQuoted = true
+	}
 
 	// get providerID from query params
 	providerID := ctx.Query("provider_id")
+	if routeAQuoted {
+		u.APIResponse(ctx, http.StatusOK, "success", "Rate fetched successfully", rateResponse)
+		return
+	}
 	if providerID != "" {
 		// get the provider from the bucket
 		provider, err := storage.Client.ProviderProfile.
@@ -300,7 +342,7 @@ func (ctrl *Controller) VerifyAccount(ctx *gin.Context) {
 			"accountIdentifier": payload.AccountIdentifier,
 		}
 		res, err := fastshot.NewClient(settlementURL).
-			Config().SetTimeout(15 * time.Second).
+			Config().SetTimeout(15*time.Second).
 			Header().Add("Content-Type", "application/json").
 			Build().POST("/v2/verify-account").
 			Body().AsJSON(pcPayload).
@@ -670,7 +712,6 @@ func (ctrl *Controller) GetLockPaymentOrderStatus(ctx *gin.Context) {
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Order status fetched successfully", response)
 }
-
 
 // RequestIDVerification controller requests identity verification details
 func (ctrl *Controller) RequestIDVerification(ctx *gin.Context) {
@@ -1224,6 +1265,8 @@ func (ctrl *Controller) ConfirmOrderPayment(ctx *gin.Context) {
 			"sui_tx_hash": payload.TxDigest,
 		})
 	}
+
+	logger.Infof("\n================================================================\n🔔 [ConfirmOrderPayment] Payment confirmation received for Order: %s (txDigest: %s)\n================================================================", po.ID, payload.TxDigest)
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Confirmation recorded", gin.H{
 		"id":     po.ID,

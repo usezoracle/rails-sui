@@ -121,12 +121,14 @@ type formatter struct {
 func (f *formatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var sb bytes.Buffer
 
+	sb.WriteString("\n")
 	sb.WriteString(strings.ToUpper(entry.Level.String()))
 	sb.WriteString(" ")
 	sb.WriteString(entry.Time.Format(time.RFC3339))
 	sb.WriteString(" ")
 	sb.WriteString(f.prefix)
 	sb.WriteString(entry.Message)
+	sb.WriteString("\n")
 
 	return sb.Bytes(), nil
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usezoracle/rails-sui/ent/routeaevent"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
@@ -115,6 +116,23 @@ func LogOnce(
 		logger.Errorf("route-a events: write %s/%s for order %d: %v",
 			step, status, orderID, err)
 	}
+}
+
+func hasSuccessfulRouteAEvent(ctx context.Context, orderID int, step EventStep) bool {
+	ok, err := db.Client.RouteAEvent.
+		Query().
+		Where(
+			routeaevent.StepEQ(step),
+			routeaevent.StatusEQ(StatusSucceeded),
+			routeaevent.HasRouteAOrderWith(routeaorder.IDEQ(orderID)),
+		).
+		Exist(ctx)
+	if err != nil {
+		logger.Errorf("route-a events: lookup %s/%s for order %d: %v",
+			step, StatusSucceeded, orderID, err)
+		return false
+	}
+	return ok
 }
 
 // Timer is the builder returned by Time(). Chain With(k, v) calls to

@@ -11,6 +11,10 @@ import (
 	"testing"
 
 	"github.com/jarcoal/httpmock"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/redis/go-redis/v9"
+	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/enttest"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
@@ -20,9 +24,6 @@ import (
 	cryptoUtils "github.com/usezoracle/rails-sui/utils/crypto"
 	"github.com/usezoracle/rails-sui/utils/test"
 	tokenUtils "github.com/usezoracle/rails-sui/utils/token"
-	"github.com/redis/go-redis/v9"
-	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/assert"
 )
 
 var testCtxForPQ = struct {
@@ -192,6 +193,9 @@ func TestPriorityQueueTest(t *testing.T) {
 
 	// Setup test data
 	err := setupForPQ()
+	if err != nil && strings.Contains(err.Error(), "EVM test helper not available in Sui-only build") {
+		t.Skip(err)
+	}
 	assert.NoError(t, err)
 
 	service := NewPriorityQueueService()

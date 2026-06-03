@@ -738,8 +738,14 @@ func StartCronJobs() {
 	// the block-vision SDK's WS error path will take down the process
 	// when handed an HTTPS URL instead of WSS. Lets local dev boot
 	// against a non-deployed Gateway.
-	if orderConf.SuiGatewayPackageID != "" && orderConf.SuiWsURL != "" {
-		suiIndexer := services.NewSuiEventIndexer(orderConf.SuiWsURL, orderConf.SuiGatewayPackageID, suiNetwork)
+	if orderConf.SuiGatewayPackageID != "" && (orderConf.SuiWsURL != "" || orderConf.SuiGrpcURL != "") {
+		suiIndexer := services.NewSuiEventIndexer(
+			orderConf.SuiWsURL,
+			orderConf.SuiGrpcURL,
+			orderConf.SuiGrpcToken,
+			orderConf.SuiGatewayPackageID,
+			suiNetwork,
+		)
 		go func() {
 			if err := suiIndexer.Start(context.Background()); err != nil && err != context.Canceled {
 				logger.Errorf("StartCronJobs: sui event indexer exited: %v", err)
@@ -749,7 +755,7 @@ func StartCronJobs() {
 		if orderConf.SuiGatewayPackageID == "" {
 			logger.Infof("StartCronJobs: SUI_GATEWAY_PACKAGE_ID empty — skipping event indexer")
 		} else {
-			logger.Infof("StartCronJobs: SUI_WS_URL empty — skipping event indexer (public fullnode doesn't support WebSocket)")
+			logger.Infof("StartCronJobs: SUI_WS_URL and SUI_GRPC_URL empty — skipping event indexer")
 		}
 	}
 
@@ -836,8 +842,10 @@ func StartCronJobs() {
 				return
 			}
 			if fund.Balance < lowFundThresholdMist {
-				logger.Errorf("Shinami gas fund LOW — %s (network=%s) balance=%d MIST (%.4f SUI) in_flight=%d MIST. Top up at depositAddress=%s. Below threshold ALL aggregator Move calls (CreateOrder, SettleOrder, RefundOrder, DebitCard) will start failing.",
-					fund.Name, fund.Network, fund.Balance, float64(fund.Balance)/1e9, fund.InFlight, fund.DepositAddress)
+				balanceDec := decimal.NewFromInt(fund.Balance).Shift(-9)
+				inFlightDec := decimal.NewFromInt(fund.InFlight).Shift(-9)
+				logger.Errorf("❌ Shinami gas fund LOW — %s (network=%s) balance=%s SUI, in_flight=%s SUI. Top up at depositAddress=%s. Below threshold ALL aggregator Move calls (CreateOrder, SettleOrder, RefundOrder, DebitCard) will start failing.",
+					fund.Name, fund.Network, balanceDec.String(), inFlightDec.String(), fund.DepositAddress)
 			}
 		}); err != nil {
 			logger.Errorf("StartCronJobs: %v", err)

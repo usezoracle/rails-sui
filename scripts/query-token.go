@@ -1,12 +1,14 @@
+//go:build ignore
+
 package main
 
 import (
 	"context"
 	"fmt"
 	"github.com/usezoracle/rails-sui/config"
-	"github.com/usezoracle/rails-sui/storage"
-	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/network"
+	tokenEnt "github.com/usezoracle/rails-sui/ent/token"
+	"github.com/usezoracle/rails-sui/storage"
 )
 
 func main() {

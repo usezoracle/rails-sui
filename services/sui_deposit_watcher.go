@@ -32,7 +32,9 @@ import (
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
+	"github.com/usezoracle/rails-sui/services/contracts"
 	orderpkg "github.com/usezoracle/rails-sui/services/order"
 	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
@@ -76,6 +78,9 @@ func (w *SuiDepositWatcher) CheckDeposits(ctx context.Context) error {
 	}
 	if err := w.forwardDeposits(ctx); err != nil {
 		return fmt.Errorf("sui deposit watcher: forward: %w", err)
+	}
+	if err := w.reconcileForwardedRouteA(ctx); err != nil {
+		return fmt.Errorf("sui deposit watcher: reconcile route-a: %w", err)
 	}
 	return nil
 }
@@ -287,4 +292,134 @@ func safeForward(ctx context.Context, svc types.OrderService, addr *ent.SuiRecei
 				addr.Address, addr.Edges.PaymentOrder.ID, err)
 		}
 	}
+}
+
+// reconcileForwardedRouteA closes the reliability gap between the Path-2
+// deposit watcher and the live Sui event indexer. A successful forward tx
+// creates a Gateway Order and emits OrderCreated, but the event subscription is
+// live-only: deploys, reconnects, provider gaps, or older buggy event matching
+// can miss it. Route A cannot progress until the Gateway escrow is self-settled
+// to the aggregator wallet, so recover the order_id from the recorded forward
+// transaction and perform the same self-settle action idempotently.
+func (w *SuiDepositWatcher) reconcileForwardedRouteA(ctx context.Context) error {
+	orderSui, ok := w.orderService.(*orderpkg.OrderSui)
+	if !ok || orderSui == nil {
+		return nil
+	}
+
+	addrs, err := db.Client.SuiReceiveAddress.
+		Query().
+		Where(
+			suireceiveaddress.StatusEQ(suireceiveaddress.StatusForwarded),
+			suireceiveaddress.ForwardTxDigestNotNil(),
+			suireceiveaddress.ForwardTxDigestNEQ(""),
+		).
+		WithPaymentOrder(func(q *ent.PaymentOrderQuery) {
+			q.WithRouteAOrder()
+			q.WithToken()
+		}).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, addr := range addrs {
+		po := addr.Edges.PaymentOrder
+		if po == nil || po.Edges.RouteAOrder == nil || po.Edges.Token == nil {
+			continue
+		}
+		ro := po.Edges.RouteAOrder
+		if ro.BridgeStatus != routeaorder.BridgeStatusPending &&
+			ro.BridgeStatus != routeaorder.BridgeStatusAwaitingFunds {
+			continue
+		}
+
+		gatewayOrderID := po.GatewayID
+		if gatewayOrderID == "" {
+			var lookupErr error
+			gatewayOrderID, lookupErr = w.gatewayOrderIDFromForwardTx(ctx, addr.ForwardTxDigest)
+			if lookupErr != nil {
+				logger.Errorf("sui deposit watcher: route-a reconcile order=%s tx=%s: %v",
+					po.ID, addr.ForwardTxDigest, lookupErr)
+				LogOnce(ctx, ro.ID, StepOrderCreatedEvent, StatusFailed, ActorReconciler,
+					map[string]any{"forward_tx": addr.ForwardTxDigest},
+					lookupErr.Error(), addr.ForwardTxDigest)
+				continue
+			}
+			if _, err := po.Update().
+				SetGatewayID(gatewayOrderID).
+				SetTxHash(addr.ForwardTxDigest).
+				Save(ctx); err != nil {
+				logger.Errorf("sui deposit watcher: route-a reconcile persist gateway order=%s tx=%s: %v",
+					po.ID, addr.ForwardTxDigest, err)
+				continue
+			}
+			LogOnce(ctx, ro.ID, StepOrderCreatedEvent, StatusSucceeded, ActorReconciler,
+				map[string]any{
+					"gateway_order_id": gatewayOrderID,
+					"forward_tx":       addr.ForwardTxDigest,
+				},
+				"", addr.ForwardTxDigest)
+		}
+
+		if hasSuccessfulRouteAEvent(ctx, ro.ID, StepSelfSettle) {
+			continue
+		}
+		if err := orderSui.SelfSettleToAggregator(ctx, gatewayOrderID, addr.CoinType); err != nil {
+			logger.Errorf("sui deposit watcher: route-a reconcile self-settle order=%s gateway=%s: %v",
+				po.ID, gatewayOrderID, err)
+			LogOnce(ctx, ro.ID, StepSelfSettle, StatusFailed, ActorReconciler,
+				map[string]any{
+					"gateway_order_id": gatewayOrderID,
+					"coin_type":        addr.CoinType,
+					"forward_tx":       addr.ForwardTxDigest,
+				},
+				err.Error(), addr.ForwardTxDigest)
+			continue
+		}
+		LogOnce(ctx, ro.ID, StepSelfSettle, StatusSucceeded, ActorReconciler,
+			map[string]any{
+				"gateway_order_id": gatewayOrderID,
+				"coin_type":        addr.CoinType,
+				"forward_tx":       addr.ForwardTxDigest,
+			},
+			"", addr.ForwardTxDigest)
+	}
+	return nil
+}
+
+func (w *SuiDepositWatcher) gatewayOrderIDFromForwardTx(ctx context.Context, txDigest string) (string, error) {
+	resp, err := w.suiClient.SuiGetTransactionBlock(ctx, models.SuiGetTransactionBlockRequest{
+		Digest: txDigest,
+		Options: models.SuiTransactionBlockOptions{
+			ShowEvents: true,
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("get forward transaction: %w", err)
+	}
+	if !suiTxSuccess(resp) {
+		return "", fmt.Errorf("forward transaction did not succeed: %s", txDigest)
+	}
+	for _, evt := range resp.Events {
+		if !eventTypeMatches(config.OrderConfig().SuiGatewayPackageID, evt.Type, contracts.EventOrderCreated) {
+			continue
+		}
+		orderID := getString(evt.ParsedJson, "order_id")
+		if orderID == "" {
+			return "", fmt.Errorf("OrderCreated event missing order_id in tx %s", txDigest)
+		}
+		return orderID, nil
+	}
+	return "", fmt.Errorf("OrderCreated event not found in forward tx %s", txDigest)
+}
+
+func suiTxSuccess(resp models.SuiTransactionBlockResponse) bool {
+	if resp.Digest == "" {
+		return false
+	}
+	if resp.Effects.Status.Status == "" {
+		return true
+	}
+	return resp.Effects.Status.Status == "success"
 }

@@ -39,6 +39,7 @@ import (
 	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	cryptoUtils "github.com/usezoracle/rails-sui/utils/crypto"
+	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
 // rateScaleE6 mirrors the Move package's u64-scaled rate format (6 decimals).
@@ -273,6 +274,8 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 		return fmt.Errorf("create_order: persist receive address forward state: %w", err)
 	}
 
+	logger.Infof("\n🚀 [OrderSui.CreateOrder] Successfully forwarded funds on-chain for order %s (tx: %s)\n----------------------------------------------------------------", orderID, resp.Digest)
+
 	return nil
 }
 
@@ -482,6 +485,9 @@ func (s *OrderSui) SelfSettleToAggregator(ctx context.Context, gatewayOrderID, c
 	if !isTxSuccess(resp) {
 		return fmt.Errorf("self_settle: on-chain failure: digest=%s", resp.Digest)
 	}
+
+	logger.Infof("\n🚀 [OrderSui.SelfSettleToAggregator] Successfully self-settled order %s to aggregator (tx: %s)\n----------------------------------------------------------------", gatewayOrderID, resp.Digest)
+
 	return nil
 }
 

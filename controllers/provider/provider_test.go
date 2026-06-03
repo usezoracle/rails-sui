@@ -7,25 +7,26 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/redis/go-redis/v9"
+	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/routers/middleware"
 	"github.com/usezoracle/rails-sui/services"
 	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
-	"github.com/redis/go-redis/v9"
-	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/usezoracle/rails-sui/ent/enttest"
 	"github.com/usezoracle/rails-sui/utils/test"
 	"github.com/usezoracle/rails-sui/utils/token"
-	"github.com/stretchr/testify/assert"
 )
 
 var testCtx = struct {
@@ -128,6 +129,9 @@ func TestProvider(t *testing.T) {
 
 	// Setup test data
 	err := setup()
+	if err != nil && strings.Contains(err.Error(), "EVM test helper not available in Sui-only build") {
+		t.Skip(err)
+	}
 	assert.NoError(t, err)
 
 	// Set up test routers

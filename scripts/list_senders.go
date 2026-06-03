@@ -1,12 +1,14 @@
+//go:build ignore
+
 package main
 
 import (
 	"context"
 	"fmt"
 	"github.com/usezoracle/rails-sui/config"
-	"github.com/usezoracle/rails-sui/storage"
-	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/senderordertoken"
+	"github.com/usezoracle/rails-sui/ent/senderprofile"
+	"github.com/usezoracle/rails-sui/storage"
 )
 
 func main() {
@@ -40,7 +42,7 @@ func main() {
 			email = s.Edges.User.Email
 		}
 		fmt.Printf("Sender ID: %s, Email: %s, Active: %v\n", s.ID, email, s.IsActive)
-		
+
 		tokens, err := client.SenderOrderToken.Query().
 			Where(senderordertoken.HasSenderWith(senderprofile.IDEQ(s.ID))).
 			WithToken().
