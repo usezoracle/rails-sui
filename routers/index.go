@@ -217,4 +217,31 @@ func cardsRoutes(route *gin.Engine) {
 	adminRouteACtrl := adminCtrl.NewRouteAController()
 	adminRouteA.GET("orders/:id/events", adminRouteACtrl.GetOrderEvents)
 	adminRouteA.POST("orders/:id/force-state", adminRouteACtrl.ForceState)
+
+	// Admin: operator console — transaction timeline, funding dashboard +
+	// gated money-movement, config management, refunds. Shared-secret-gated;
+	// all writes audited to admin_audit_logs.
+	adminConsole := route.Group("/v1/admin/")
+	adminConsole.Use(cards.AdminTokenMiddleware)
+
+	txCtrl := adminCtrl.NewTransactionsController()
+	adminConsole.GET("transactions", txCtrl.GetTransactions)
+	adminConsole.GET("transactions/:id", txCtrl.GetTransactionTimeline)
+
+	fundCtrl := adminCtrl.NewFundingController()
+	adminConsole.GET("funding/balances", fundCtrl.GetBalances)
+	adminConsole.POST("funding/transfer", fundCtrl.Transfer)
+
+	cfgCtrl := adminCtrl.NewConfigController()
+	adminConsole.GET("config/currencies", cfgCtrl.GetCurrencies)
+	adminConsole.PATCH("config/currencies/:id", cfgCtrl.UpdateCurrency)
+	adminConsole.GET("config/tokens", cfgCtrl.GetTokens)
+	adminConsole.PATCH("config/tokens/:id", cfgCtrl.UpdateToken)
+	adminConsole.GET("config/networks", cfgCtrl.GetNetworks)
+	adminConsole.GET("config/providers", cfgCtrl.GetProviders)
+	adminConsole.PATCH("config/providers/:id", cfgCtrl.UpdateProvider)
+	adminConsole.GET("config/params", cfgCtrl.GetParams)
+
+	refundCtrl := adminCtrl.NewRefundController()
+	adminConsole.POST("orders/:id/refund", refundCtrl.RefundOrder)
 }

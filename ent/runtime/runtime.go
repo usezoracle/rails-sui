@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/adminauditlog"
 	"github.com/usezoracle/rails-sui/ent/apikey"
 	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
@@ -50,6 +51,16 @@ func init() {
 	apikeyDescID := apikeyFields[0].Descriptor()
 	// apikey.DefaultID holds the default value on creation for the id field.
 	apikey.DefaultID = apikeyDescID.Default.(func() uuid.UUID)
+	adminauditlogFields := schema.AdminAuditLog{}.Fields()
+	_ = adminauditlogFields
+	// adminauditlogDescCreatedAt is the schema descriptor for created_at field.
+	adminauditlogDescCreatedAt := adminauditlogFields[5].Descriptor()
+	// adminauditlog.DefaultCreatedAt holds the default value on creation for the created_at field.
+	adminauditlog.DefaultCreatedAt = adminauditlogDescCreatedAt.Default.(func() time.Time)
+	// adminauditlogDescID is the schema descriptor for id field.
+	adminauditlogDescID := adminauditlogFields[0].Descriptor()
+	// adminauditlog.DefaultID holds the default value on creation for the id field.
+	adminauditlog.DefaultID = adminauditlogDescID.Default.(func() uuid.UUID)
 	cardservernonceMixin := schema.CardServerNonce{}.Mixin()
 	cardservernonceMixinFields0 := cardservernonceMixin[0].Fields()
 	_ = cardservernonceMixinFields0
