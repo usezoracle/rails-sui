@@ -35,6 +35,21 @@ var (
 			},
 		},
 	}
+	// AdminAuditLogsColumns holds the columns for the "admin_audit_logs" table.
+	AdminAuditLogsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "actor", Type: field.TypeString},
+		{Name: "action", Type: field.TypeString},
+		{Name: "target", Type: field.TypeString, Nullable: true},
+		{Name: "detail", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// AdminAuditLogsTable holds the schema information for the "admin_audit_logs" table.
+	AdminAuditLogsTable = &schema.Table{
+		Name:       "admin_audit_logs",
+		Columns:    AdminAuditLogsColumns,
+		PrimaryKey: []*schema.Column{AdminAuditLogsColumns[0]},
+	}
 	// CardServerNoncesColumns holds the columns for the "card_server_nonces" table.
 	CardServerNoncesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -902,6 +917,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		AdminAuditLogsTable,
 		CardServerNoncesTable,
 		FiatCurrenciesTable,
 		IdentityVerificationRequestsTable,

@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// AdminAuditLog is the client for interacting with the AdminAuditLog builders.
+	AdminAuditLog *AdminAuditLogClient
 	// CardServerNonce is the client for interacting with the CardServerNonce builders.
 	CardServerNonce *CardServerNonceClient
 	// FiatCurrency is the client for interacting with the FiatCurrency builders.
@@ -200,6 +202,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
+	tx.AdminAuditLog = NewAdminAuditLogClient(tx.config)
 	tx.CardServerNonce = NewCardServerNonceClient(tx.config)
 	tx.FiatCurrency = NewFiatCurrencyClient(tx.config)
 	tx.IdentityVerificationRequest = NewIdentityVerificationRequestClient(tx.config)

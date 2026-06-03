@@ -1,0 +1,258 @@
+package admin
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+
+	"github.com/usezoracle/rails-sui/config"
+	"github.com/usezoracle/rails-sui/ent"
+	"github.com/usezoracle/rails-sui/storage"
+	u "github.com/usezoracle/rails-sui/utils"
+	"github.com/usezoracle/rails-sui/utils/logger"
+)
+
+// ConfigController manages the DB-backed operational config — currencies &
+// rates, tokens, networks, providers/LPs — plus a read-only view of the static
+// env params. All writes are audited.
+type ConfigController struct{}
+
+// NewConfigController constructs the controller.
+func NewConfigController() *ConfigController { return &ConfigController{} }
+
+// --- Currencies & rates -----------------------------------------------------
+
+// GetCurrencies lists fiat currencies with their market rate + enabled flag.
+//
+//	GET /v1/admin/config/currencies
+func (c *ConfigController) GetCurrencies(ctx *gin.Context) {
+	rows, err := storage.Client.FiatCurrency.Query().All(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to load currencies", nil)
+		return
+	}
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, gin.H{
+			"id": r.ID.String(), "code": r.Code, "name": r.Name, "symbol": r.Symbol,
+			"market_rate": r.MarketRate.String(), "is_enabled": r.IsEnabled,
+		})
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", out)
+}
+
+type currencyPatch struct {
+	MarketRate *string `json:"market_rate"`
+	IsEnabled  *bool   `json:"is_enabled"`
+}
+
+// UpdateCurrency sets a currency's market rate and/or enabled flag.
+//
+//	PATCH /v1/admin/config/currencies/:id
+func (c *ConfigController) UpdateCurrency(ctx *gin.Context) {
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "id must be a uuid", nil)
+		return
+	}
+	var body currencyPatch
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "invalid body", nil)
+		return
+	}
+	upd := storage.Client.FiatCurrency.UpdateOneID(id)
+	detail := map[string]any{}
+	if body.MarketRate != nil {
+		rate, err := decimal.NewFromString(*body.MarketRate)
+		if err != nil {
+			u.APIResponse(ctx, http.StatusBadRequest, "error", "market_rate must be numeric", nil)
+			return
+		}
+		upd.SetMarketRate(rate)
+		detail["market_rate"] = rate.String()
+	}
+	if body.IsEnabled != nil {
+		upd.SetIsEnabled(*body.IsEnabled)
+		detail["is_enabled"] = *body.IsEnabled
+	}
+	if len(detail) == 0 {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "nothing to update", nil)
+		return
+	}
+	if _, err := upd.Save(ctx); err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "currency not found", nil)
+			return
+		}
+		logger.Errorf("admin UpdateCurrency %s: %v", id, err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to update", nil)
+		return
+	}
+	writeAudit(ctx, "config.currency.update", id.String(), detail)
+	u.APIResponse(ctx, http.StatusOK, "success", "currency updated", detail)
+}
+
+// --- Tokens -----------------------------------------------------------------
+
+// GetTokens lists supported tokens.
+//
+//	GET /v1/admin/config/tokens
+func (c *ConfigController) GetTokens(ctx *gin.Context) {
+	rows, err := storage.Client.Token.Query().All(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to load tokens", nil)
+		return
+	}
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, gin.H{
+			"id": r.ID, "symbol": r.Symbol, "contract_address": r.ContractAddress,
+			"decimals": r.Decimals, "is_enabled": r.IsEnabled,
+		})
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", out)
+}
+
+type tokenPatch struct {
+	IsEnabled *bool `json:"is_enabled"`
+}
+
+// UpdateToken toggles a token's enabled flag.
+//
+//	PATCH /v1/admin/config/tokens/:id
+func (c *ConfigController) UpdateToken(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "id must be an integer", nil)
+		return
+	}
+	var body tokenPatch
+	if err := ctx.ShouldBindJSON(&body); err != nil || body.IsEnabled == nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "is_enabled required", nil)
+		return
+	}
+	if _, err := storage.Client.Token.UpdateOneID(id).SetIsEnabled(*body.IsEnabled).Save(ctx); err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "token not found", nil)
+			return
+		}
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to update", nil)
+		return
+	}
+	detail := map[string]any{"is_enabled": *body.IsEnabled}
+	writeAudit(ctx, "config.token.update", strconv.Itoa(id), detail)
+	u.APIResponse(ctx, http.StatusOK, "success", "token updated", detail)
+}
+
+// --- Networks ---------------------------------------------------------------
+
+// GetNetworks lists configured networks (read-only).
+//
+//	GET /v1/admin/config/networks
+func (c *ConfigController) GetNetworks(ctx *gin.Context) {
+	rows, err := storage.Client.Network.Query().All(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to load networks", nil)
+		return
+	}
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, gin.H{
+			"id": r.ID, "identifier": r.Identifier, "rpc_endpoint": r.RPCEndpoint,
+			"is_testnet": r.IsTestnet, "fee": r.Fee.String(),
+		})
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", out)
+}
+
+// --- Providers / LPs --------------------------------------------------------
+
+// GetProviders lists LPs with their activation, KYB, and Safe Haven mapping.
+//
+//	GET /v1/admin/config/providers
+func (c *ConfigController) GetProviders(ctx *gin.Context) {
+	rows, err := storage.Client.ProviderProfile.Query().All(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to load providers", nil)
+		return
+	}
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, gin.H{
+			"id": r.ID, "trading_name": r.TradingName, "is_active": r.IsActive,
+			"is_available": r.IsAvailable, "is_kyb_verified": r.IsKybVerified,
+			"safehaven_account_number": r.SafehavenAccountNumber,
+		})
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", out)
+}
+
+type providerPatch struct {
+	IsActive               *bool   `json:"is_active"`
+	IsKYBVerified          *bool   `json:"is_kyb_verified"`
+	SafehavenAccountNumber *string `json:"safehaven_account_number"`
+}
+
+// UpdateProvider sets a provider's activation / KYB / Safe Haven deposit account.
+//
+//	PATCH /v1/admin/config/providers/:id
+func (c *ConfigController) UpdateProvider(ctx *gin.Context) {
+	id := ctx.Param("id")
+	var body providerPatch
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "invalid body", nil)
+		return
+	}
+	upd := storage.Client.ProviderProfile.UpdateOneID(id)
+	detail := map[string]any{}
+	if body.IsActive != nil {
+		upd.SetIsActive(*body.IsActive)
+		detail["is_active"] = *body.IsActive
+	}
+	if body.IsKYBVerified != nil {
+		upd.SetIsKybVerified(*body.IsKYBVerified)
+		detail["is_kyb_verified"] = *body.IsKYBVerified
+	}
+	if body.SafehavenAccountNumber != nil {
+		upd.SetSafehavenAccountNumber(*body.SafehavenAccountNumber)
+		detail["safehaven_account_number"] = *body.SafehavenAccountNumber
+	}
+	if len(detail) == 0 {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "nothing to update", nil)
+		return
+	}
+	if _, err := upd.Save(ctx); err != nil {
+		if ent.IsNotFound(err) {
+			u.APIResponse(ctx, http.StatusNotFound, "error", "provider not found", nil)
+			return
+		}
+		logger.Errorf("admin UpdateProvider %s: %v", id, err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to update", nil)
+		return
+	}
+	writeAudit(ctx, "config.provider.update", id, detail)
+	u.APIResponse(ctx, http.StatusOK, "success", "provider updated", detail)
+}
+
+// --- Env params (read-only) -------------------------------------------------
+
+// GetParams returns the static env-backed params. These need a redeploy to
+// change (they're not DB-backed); shown so operators can see current values.
+//
+//	GET /v1/admin/config/params
+func (c *ConfigController) GetParams(ctx *gin.Context) {
+	conf := config.OrderConfig()
+	u.APIResponse(ctx, http.StatusOK, "success", "ok (read-only — env-backed, redeploy to change)", gin.H{
+		"base_sender_fee_bps":                  conf.BaseSenderFeeBPS,
+		"percent_deviation_from_external_rate": conf.PercentDeviationFromExternalRate.String(),
+		"percent_deviation_from_market_rate":   conf.PercentDeviationFromMarketRate.String(),
+		"order_fulfillment_validity":           conf.OrderFulfillmentValidity.String(),
+		"receive_address_validity":             conf.ReceiveAddressValidity.String(),
+		"order_request_validity":               conf.OrderRequestValidity.String(),
+		"refund_cancellation_count":            conf.RefundCancellationCount,
+		"base_chain_id":                        conf.BaseChainID,
+	})
+}

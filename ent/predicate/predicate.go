@@ -9,6 +9,9 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// AdminAuditLog is the predicate function for adminauditlog builders.
+type AdminAuditLog func(*sql.Selector)
+
 // CardServerNonce is the predicate function for cardservernonce builders.
 type CardServerNonce func(*sql.Selector)
 

@@ -21,6 +21,18 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The AdminAuditLogFunc type is an adapter to allow the use of ordinary
+// function as AdminAuditLog mutator.
+type AdminAuditLogFunc func(context.Context, *ent.AdminAuditLogMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AdminAuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AdminAuditLogMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AdminAuditLogMutation", m)
+}
+
 // The CardServerNonceFunc type is an adapter to allow the use of ordinary
 // function as CardServerNonce mutator.
 type CardServerNonceFunc func(context.Context, *ent.CardServerNonceMutation) (ent.Value, error)
