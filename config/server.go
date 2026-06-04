@@ -14,6 +14,7 @@ type ServerConfiguration struct {
 	Port                string
 	Timezone            string
 	AllowedHosts        string
+	TrustedProxies      string
 	Environment         string
 	SentryDSN           string
 	HostDomain          string
@@ -31,6 +32,7 @@ func ServerConfig() *ServerConfiguration {
 	viper.SetDefault("SERVER_PORT", "8000")
 	viper.SetDefault("SERVER_TIMEZONE", "Africa/Lagos")
 	viper.SetDefault("ALLOWED_HOSTS", "*")
+	viper.SetDefault("TRUSTED_PROXIES", "*")
 	viper.SetDefault("ENVIRONMENT", "local")
 	viper.SetDefault("SENTRY_DSN", "")
 	viper.SetDefault("CHECKOUT_BASE_URL", "https://checkout.zoracle.com")
@@ -53,6 +55,7 @@ func ServerConfig() *ServerConfiguration {
 		Port:                port,
 		Timezone:            viper.GetString("SERVER_TIMEZONE"),
 		AllowedHosts:        viper.GetString("ALLOWED_HOSTS"),
+		TrustedProxies:      viper.GetString("TRUSTED_PROXIES"),
 		Environment:         viper.GetString("ENVIRONMENT"),
 		SentryDSN:           viper.GetString("SENTRY_DSN"),
 		HostDomain:          viper.GetString("HOST_DOMAIN"),
