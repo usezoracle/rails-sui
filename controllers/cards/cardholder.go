@@ -85,17 +85,17 @@ func cardForUser(ctx *gin.Context, user *ent.User) (*ent.TappCard, bool) {
 // -----------------------------------------------------------------------------
 
 type linkCompleteRequest struct {
-	CardUIDHash             string `json:"card_uid_hash"               binding:"required"`
-	CapObjectID             string `json:"cap_object_id"               binding:"required"`
-	CoinType                string `json:"coin_type"                   binding:"required"`
-	LinkingProof            string `json:"linking_proof"               binding:"required"`
-	PinVerifier             string `json:"pin_verifier"                binding:"required"`
-	CardPassword            string `json:"card_password"               binding:"required"`
-	CurrentTokenCT          string `json:"current_token_ct"            binding:"required"`
-	TxDigest                string `json:"tx_digest"                   binding:"required"`
-	DailyLimitSubunit       uint64 `json:"daily_limit_subunit"         binding:"required"`
-	PerTapLimitSubunit      uint64 `json:"per_tap_limit_subunit"       binding:"required"`
-	StepUpThresholdSubunit  uint64 `json:"step_up_threshold_subunit"   binding:"required"`
+	CardUIDHash            string `json:"card_uid_hash"               binding:"required"`
+	CapObjectID            string `json:"cap_object_id"               binding:"required"`
+	CoinType               string `json:"coin_type"                   binding:"required"`
+	LinkingProof           string `json:"linking_proof"               binding:"required"`
+	PinVerifier            string `json:"pin_verifier"                binding:"required"`
+	CardPassword           string `json:"card_password"               binding:"required"`
+	CurrentTokenCT         string `json:"current_token_ct"            binding:"required"`
+	TxDigest               string `json:"tx_digest"                   binding:"required"`
+	DailyLimitSubunit      uint64 `json:"daily_limit_subunit"         binding:"required"`
+	PerTapLimitSubunit     uint64 `json:"per_tap_limit_subunit"       binding:"required"`
+	StepUpThresholdSubunit uint64 `json:"step_up_threshold_subunit"   binding:"required"`
 }
 
 // LinkComplete is the PWA's final call after writing K to the card,
@@ -168,9 +168,9 @@ func (ctrl *Controller) LinkComplete(ctx *gin.Context) {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
 			"Submitted coin_type does not match the on-chain object",
 			map[string]any{
-				"code":  "coin_type_mismatch",
-				"want":  verifyResult.CoinType,
-				"got":   req.CoinType,
+				"code": "coin_type_mismatch",
+				"want": verifyResult.CoinType,
+				"got":  req.CoinType,
 			})
 		return
 	}
@@ -220,16 +220,16 @@ func (ctrl *Controller) LinkComplete(ctx *gin.Context) {
 // -----------------------------------------------------------------------------
 
 type cardSummaryResponse struct {
-	ID                       string `json:"id"`
-	Status                   string `json:"status"`
-	CapObjectID              string `json:"cap_object_id,omitempty"`
-	CoinType                 string `json:"coin_type,omitempty"`
-	DailyLimitSubunit        uint64 `json:"daily_limit_subunit"`
-	PerTapLimitSubunit       uint64 `json:"per_tap_limit_subunit"`
-	StepUpThresholdSubunit   uint64 `json:"step_up_threshold_subunit"`
-	SpentTodaySubunit        uint64 `json:"spent_today_subunit"`
-	NeedsResync              bool   `json:"needs_resync"`
-	PinAttemptsRemaining     int    `json:"pin_attempts_remaining"`
+	ID                     string `json:"id"`
+	Status                 string `json:"status"`
+	CapObjectID            string `json:"cap_object_id,omitempty"`
+	CoinType               string `json:"coin_type,omitempty"`
+	DailyLimitSubunit      uint64 `json:"daily_limit_subunit"`
+	PerTapLimitSubunit     uint64 `json:"per_tap_limit_subunit"`
+	StepUpThresholdSubunit uint64 `json:"step_up_threshold_subunit"`
+	SpentTodaySubunit      uint64 `json:"spent_today_subunit"`
+	NeedsResync            bool   `json:"needs_resync"`
+	PinAttemptsRemaining   int    `json:"pin_attempts_remaining"`
 }
 
 // Me returns the cardholder's single card summary. Used by the PWA
@@ -272,12 +272,12 @@ type topUpRequest struct {
 }
 
 type ptbSkeletonResponse struct {
-	PackageID    string         `json:"package_id"`
-	Module       string         `json:"module"`
-	Function     string         `json:"function"`
-	TypeArgs     []string       `json:"type_args"`
-	Args         []any          `json:"args"`
-	Note         string         `json:"note"`
+	PackageID string   `json:"package_id"`
+	Module    string   `json:"module"`
+	Function  string   `json:"function"`
+	TypeArgs  []string `json:"type_args"`
+	Args      []any    `json:"args"`
+	Note      string   `json:"note"`
 }
 
 // TopUp returns the PTB skeleton the PWA signs via zkLogin to add
@@ -515,9 +515,9 @@ func (ctrl *Controller) AdminRecovery(ctx *gin.Context) {
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Recovery code issued",
 		map[string]any{
-			"acknowledged":  true,
-			"note":          "Code emailed to cardholder. Have them read it over the support call.",
-			"debug_code":    code, // visible regardless so dev/staging can read it from the response
+			"acknowledged": true,
+			"note":         "Code emailed to cardholder. Have them read it over the support call.",
+			"debug_code":   code, // visible regardless so dev/staging can read it from the response
 		})
 }
 
@@ -528,7 +528,7 @@ var emailServiceInstance *svc.EmailService
 
 func emailService() *svc.EmailService {
 	if emailServiceInstance == nil {
-		emailServiceInstance = svc.NewEmailService(svc.SENDGRID_MAIL_PROVIDER)
+		emailServiceInstance = svc.NewEmailService(svc.DefaultMailProvider())
 	}
 	return emailServiceInstance
 }

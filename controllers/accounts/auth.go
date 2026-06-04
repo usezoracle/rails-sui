@@ -14,8 +14,8 @@ import (
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/ent/verificationtoken"
 	svc "github.com/usezoracle/rails-sui/services"
-	db "github.com/usezoracle/rails-sui/storage"
 	authSvc "github.com/usezoracle/rails-sui/services/auth"
+	db "github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/crypto"
@@ -34,10 +34,9 @@ type AuthController struct {
 func NewAuthController() *AuthController {
 	return &AuthController{
 		apiKeyService: svc.NewAPIKeyService(),
-		emailService:  svc.NewEmailService(svc.SENDGRID_MAIL_PROVIDER),
+		emailService:  svc.NewEmailService(svc.DefaultMailProvider()),
 	}
 }
-
 
 func (ctrl *AuthController) Register(ctx *gin.Context) {
 	var payload types.RegisterPayload

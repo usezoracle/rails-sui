@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	mailgunv3 "github.com/mailgun/mailgun-go/v3"
@@ -28,7 +29,21 @@ type MailProvider string
 const (
 	MAILGUN_MAIL_PROVIDER  MailProvider = "MAILGUN"
 	SENDGRID_MAIL_PROVIDER MailProvider = "SENDGRID"
+	RESEND_MAIL_PROVIDER   MailProvider = "RESEND"
 )
+
+// DefaultMailProvider resolves the configured EMAIL_PROVIDER into a MailProvider,
+// defaulting to SendGrid for backward compatibility.
+func DefaultMailProvider() MailProvider {
+	switch strings.ToLower(notificationConf.EmailProvider) {
+	case "resend":
+		return RESEND_MAIL_PROVIDER
+	case "mailgun":
+		return MAILGUN_MAIL_PROVIDER
+	default:
+		return SENDGRID_MAIL_PROVIDER
+	}
+}
 
 // EmailService provides functionality to sending emails via a mailer provider
 type EmailService struct {
@@ -57,6 +72,8 @@ func (m *EmailService) SendEmail(ctx context.Context, payload types.SendEmailPay
 		return sendEmailViaMailgun(ctx, payload)
 	case SENDGRID_MAIL_PROVIDER:
 		return sendEmailViaSendGrid(ctx, payload)
+	case RESEND_MAIL_PROVIDER:
+		return sendEmailViaResend(ctx, payload)
 	default:
 		return types.SendEmailResponse{}, fmt.Errorf("unsupported mail provider")
 	}
@@ -64,12 +81,20 @@ func (m *EmailService) SendEmail(ctx context.Context, payload types.SendEmailPay
 
 // SendVerificationEmail performs the actions for sending a verification token to the user email.
 func (m *EmailService) SendVerificationEmail(ctx context.Context, token, email, firstName string) (types.SendEmailResponse, error) {
+	if m.MailProvider == RESEND_MAIL_PROVIDER {
+		return sendEmailViaResend(ctx, types.SendEmailPayload{
+			FromAddress: _DefaultFromAddress,
+			ToAddress:   email,
+			Subject:     "Verify your email",
+			HTMLBody:    verificationEmailHTML(firstName, token),
+		})
+	}
 	payload := types.SendEmailPayload{
 		FromAddress: _DefaultFromAddress,
 		ToAddress:   email,
 		DynamicData: map[string]interface{}{
 			"first_name": firstName,
-			"token":       token,
+			"token":      token,
 		},
 	}
 	return SendTemplateEmail(payload, "d-f26d853bbb884c0c856f0bbda894032c")
@@ -78,13 +103,20 @@ func (m *EmailService) SendVerificationEmail(ctx context.Context, token, email, 
 
 // SendPasswordResetEmail performs the actions for sending a password reset token to the user email.
 func (m *EmailService) SendPasswordResetEmail(ctx context.Context, token, email, firstName string) (types.SendEmailResponse, error) {
-
+	if m.MailProvider == RESEND_MAIL_PROVIDER {
+		return sendEmailViaResend(ctx, types.SendEmailPayload{
+			FromAddress: _DefaultFromAddress,
+			ToAddress:   email,
+			Subject:     "Reset your password",
+			HTMLBody:    passwordResetEmailHTML(firstName, token),
+		})
+	}
 	payload := types.SendEmailPayload{
 		FromAddress: _DefaultFromAddress,
 		ToAddress:   email,
 		DynamicData: map[string]interface{}{
 			"first_name": firstName,
-			"token":       token,
+			"token":      token,
 		},
 	}
 	return SendTemplateEmail(payload, "d-8b689801cd9947748775ccd1c4cc932e")
@@ -100,6 +132,14 @@ func (m *EmailService) SendPasswordResetEmail(ctx context.Context, token, email,
 // caller logs the code so dev environments without SendGrid can still
 // exercise the flow.
 func (m *EmailService) SendCardRecoveryCode(ctx context.Context, email, code string) (types.SendEmailResponse, error) {
+	if m.MailProvider == RESEND_MAIL_PROVIDER {
+		return sendEmailViaResend(ctx, types.SendEmailPayload{
+			FromAddress: _DefaultFromAddress,
+			ToAddress:   email,
+			Subject:     "Your card recovery code",
+			HTMLBody:    codeEmailHTML("Card recovery code", "Use this code to recover your card", code),
+		})
+	}
 	templateID := notificationConf.CardRecoveryTemplate
 	if templateID == "" {
 		return types.SendEmailResponse{Response: "skipped — CARD_RECOVERY_SENDGRID_TEMPLATE not set"}, nil
