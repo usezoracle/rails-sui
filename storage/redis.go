@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/usezoracle/rails-sui/config"
+	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
 var (
@@ -32,7 +34,17 @@ func redisOptions(conf config.RedisConfiguration) (*redis.Options, error) {
 	}, nil
 }
 
-// InitializeRedis initializes the Redis client
+// redisPingAttempts and redisPingDelay bound the startup ping retry. Managed
+// private networking (e.g. Railway's *.railway.internal) can take a few seconds
+// to resolve when the container starts, so we must not Fatal on the first miss.
+const (
+	redisPingAttempts = 10
+	redisPingDelay    = 2 * time.Second
+)
+
+// InitializeRedis initializes the Redis client, retrying the initial ping so a
+// transient startup DNS/connect failure (private networking warming up) doesn't
+// crash the boot.
 func InitializeRedis() error {
 	opts, err := redisOptions(config.RedisConfig())
 	if err != nil {
@@ -40,10 +52,16 @@ func InitializeRedis() error {
 	}
 	RedisClient = redis.NewClient(opts)
 
-	// Ping Redis to check the connection
-	if _, err := RedisClient.Ping(context.Background()).Result(); err != nil {
-		return err
+	var lastErr error
+	for attempt := 1; attempt <= redisPingAttempts; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_, lastErr = RedisClient.Ping(ctx).Result()
+		cancel()
+		if lastErr == nil {
+			return nil
+		}
+		logger.Infof("Redis ping attempt %d/%d failed: %v — retrying in %s", attempt, redisPingAttempts, lastErr, redisPingDelay)
+		time.Sleep(redisPingDelay)
 	}
-
-	return nil
+	return fmt.Errorf("redis unreachable after %d attempts: %w", redisPingAttempts, lastErr)
 }
