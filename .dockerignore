@@ -3,7 +3,6 @@
 .vscode
 .idea
 *.md
-docs
 .env
 *.env
 main
