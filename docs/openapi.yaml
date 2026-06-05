@@ -55,6 +55,16 @@ tags:
     description: Tapp PWA surface for the cardholder; JWT-authenticated.
   - name: Cards — Admin
     description: Admin operations gated by `X-Admin-Token`.
+  - name: Admin — Route A
+    description: Route A operator console for inspecting and overriding orders.
+  - name: Admin — Transactions
+    description: Detailed lifecycle and chronological timelines of transactions.
+  - name: Admin — Funding
+    description: Operator funding dashboard and beneficiary transfers.
+  - name: Admin — Config
+    description: Operational config management for currencies, tokens, networks, and providers.
+  - name: Admin — Refunds
+    description: Operator refund management.
   - name: Provider
   - name: Settings
 
@@ -1378,6 +1388,526 @@ paths:
       responses:
         "200":
           description: Code issued (and emailed if SENDGRID is configured).
+
+  /v1/admin/route-a/orders/{id}/events:
+    get:
+      tags: [Admin — Route A]
+      summary: Get Route A order audit events timeline
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+          description: Route A Order ID
+      responses:
+        "200":
+          description: Timeline retrieve successful.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        required: [order_id, mode, bridge_status, created_at, updated_at, events]
+                        properties:
+                          order_id: { type: integer }
+                          payment_order_id: { type: string }
+                          mode: { type: string }
+                          bridge_status: { type: string }
+                          bridge_tx_sui: { type: string }
+                          bridge_tx_dest: { type: string }
+                          lifi_tool: { type: string }
+                          gateway_order_id: { type: string }
+                          settlement_status: { type: string }
+                          failure_reason: { type: string }
+                          created_at: { type: string }
+                          updated_at: { type: string }
+                          events:
+                            type: array
+                            items:
+                              type: object
+                              required: [id, step, status, actor, at]
+                              properties:
+                                id: { type: integer }
+                                step: { type: string }
+                                status: { type: string }
+                                actor: { type: string }
+                                at: { type: string }
+                                duration_ms: { type: integer }
+                                payload: { type: object }
+                                error_msg: { type: string }
+                                correlation_id: { type: string }
+
+  /v1/admin/route-a/orders/{id}/force-state:
+    post:
+      tags: [Admin — Route A]
+      summary: Manually force/override the bridge status of a Route A order
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+          description: Route A Order ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state, justification]
+              properties:
+                state:
+                  type: string
+                  enum: [pending, awaiting_funds, bridging, bridge_uncertain, bridged, dispatching, settled, failed, refunded]
+                justification: { type: string }
+      responses:
+        "200":
+          description: State updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          order_id: { type: integer }
+                          previous: { type: string }
+                          current: { type: string }
+                          justification: { type: string }
+
+  /v1/admin/transactions:
+    get:
+      tags: [Admin — Transactions]
+      summary: List all payment orders
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [initiated, pending, expired, cancelled, settled, refunded] }
+      responses:
+        "200":
+          description: List of transactions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          total: { type: integer }
+                          count: { type: integer }
+                          transactions:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                order_id: { type: string }
+                                status: { type: string }
+                                route: { type: string }
+                                amount: { type: string }
+                                rate: { type: string }
+                                token: { type: string }
+                                gateway_id: { type: string }
+                                created_at: { type: string }
+
+  /v1/admin/transactions/{id}:
+    get:
+      tags: [Admin — Transactions]
+      summary: Get complete unified chronological timeline of all steps for a payment order
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        "200":
+          description: Transaction timeline detail.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          order_id: { type: string }
+                          status: { type: string }
+                          route: { type: string }
+                          amount: { type: string }
+                          amount_paid: { type: string }
+                          rate: { type: string }
+                          token: { type: string }
+                          gateway_id: { type: string }
+                          tx_hash: { type: string }
+                          recipient:
+                            type: object
+                            properties:
+                              institution: { type: string }
+                              account_identifier: { type: string }
+                              account_name: { type: string }
+                          created_at: { type: string }
+                          updated_at: { type: string }
+                          step_count: { type: integer }
+                          steps:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                source: { type: string }
+                                step: { type: string }
+                                status: { type: string }
+                                actor: { type: string }
+                                at: { type: string }
+                                network: { type: string }
+                                tx_hash: { type: string }
+                                error: { type: string }
+                                detail: { type: object }
+
+  /v1/admin/funding/balances:
+    get:
+      tags: [Admin — Funding]
+      summary: View funding balances of wallets and accounts
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Funding balances retrieval successful.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          base_aggregator: { type: object }
+                          sui_aggregator: { type: object }
+                          safehaven: { type: object }
+
+  /v1/admin/funding/transfer:
+    post:
+      tags: [Admin — Funding]
+      summary: Transfer funds from a Safe Haven account to a beneficiary NGN bank account
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [beneficiary_bank_code, beneficiary_account, amount, reference]
+              properties:
+                debit_account: { type: string }
+                beneficiary_bank_code: { type: string }
+                beneficiary_account: { type: string }
+                amount: { type: string }
+                narration: { type: string }
+                reference: { type: string }
+                confirm: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Transfer executed or dry-run response.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          debit_account: { type: string }
+                          beneficiary_account: { type: string }
+                          beneficiary_name: { type: string }
+                          beneficiary_bank: { type: string }
+                          amount: { type: string }
+                          reference: { type: string }
+                          status: { type: string }
+                          session_id: { type: string }
+
+  /v1/admin/config/currencies:
+    get:
+      tags: [Admin — Config]
+      summary: List fiat currencies config
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Currency configurations retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            code: { type: string }
+                            name: { type: string }
+                            symbol: { type: string }
+                            market_rate: { type: string }
+                            is_enabled: { type: boolean }
+
+  /v1/admin/config/currencies/{id}:
+    patch:
+      tags: [Admin — Config]
+      summary: Update a fiat currency's market rate or status
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                market_rate: { type: string }
+                is_enabled: { type: boolean }
+      responses:
+        "200":
+          description: Currency updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          market_rate: { type: string }
+                          is_enabled: { type: boolean }
+
+  /v1/admin/config/tokens:
+    get:
+      tags: [Admin — Config]
+      summary: List supported tokens
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Supported tokens retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            symbol: { type: string }
+                            contract_address: { type: string }
+                            decimals: { type: integer }
+                            is_enabled: { type: boolean }
+
+  /v1/admin/config/tokens/{id}:
+    patch:
+      tags: [Admin — Config]
+      summary: Toggle a token's status
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_enabled]
+              properties:
+                is_enabled: { type: boolean }
+      responses:
+        "200":
+          description: Token updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          is_enabled: { type: boolean }
+
+  /v1/admin/config/networks:
+    get:
+      tags: [Admin — Config]
+      summary: List configured networks
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Configured networks retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            identifier: { type: string }
+                            rpc_endpoint: { type: string }
+                            is_testnet: { type: boolean }
+                            fee: { type: string }
+
+  /v1/admin/config/providers:
+    get:
+      tags: [Admin — Config]
+      summary: List provider/LP configurations
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Provider profiles retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            trading_name: { type: string }
+                            is_active: { type: boolean }
+                            is_available: { type: boolean }
+                            is_kyb_verified: { type: boolean }
+                            safehaven_account_number: { type: string }
+
+  /v1/admin/config/providers/{id}:
+    patch:
+      tags: [Admin — Config]
+      summary: Update a provider's activation/KYB status or Safe Haven account mapping
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_active: { type: boolean }
+                is_kyb_verified: { type: boolean }
+                safehaven_account_number: { type: string }
+      responses:
+        "200":
+          description: Provider updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          is_active: { type: boolean }
+                          is_kyb_verified: { type: boolean }
+                          safehaven_account_number: { type: string }
+
+  /v1/admin/config/params:
+    get:
+      tags: [Admin — Config]
+      summary: Get env-backed static params (read-only)
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Static params retrieved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          base_sender_fee_bps: { type: integer }
+                          percent_deviation_from_external_rate: { type: string }
+                          percent_deviation_from_market_rate: { type: string }
+                          order_fulfillment_validity: { type: string }
+                          receive_address_validity: { type: string }
+                          order_request_validity: { type: string }
+                          refund_cancellation_count: { type: integer }
+                          base_chain_id: { type: integer }
+
+  /v1/admin/orders/{id}/refund:
+    post:
+      tags: [Admin — Refunds]
+      summary: Mark a payment order as refunded (reconciliation state update)
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [justification]
+              properties:
+                justification: { type: string }
+                confirm: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Order marked refunded or dry-run details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          order_id: { type: string }
+                          previous: { type: string }
+                          current: { type: string }
+                          justification: { type: string }
 
   # ----- Provider -----
   /v1/provider/orders:

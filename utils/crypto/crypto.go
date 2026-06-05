@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/usezoracle/rails-sui/config"
 	"golang.org/x/crypto/bcrypt"
@@ -114,6 +115,7 @@ func DecryptJSON(ciphertext []byte) (interface{}, error) {
 
 // PublicKeyEncryptPlain encrypts plaintext using RSA 2048 encryption algorithm
 func PublicKeyEncryptPlain(plaintext []byte, publicKeyPEM string) ([]byte, error) {
+	publicKeyPEM = strings.ReplaceAll(publicKeyPEM, `\n`, "\n")
 	block, _ := pem.Decode([]byte(publicKeyPEM))
 	if block == nil {
 		return nil, fmt.Errorf("failed to parse PEM block")
@@ -161,6 +163,7 @@ func PublicKeyEncryptJSON(data interface{}, publicKeyPEM string) ([]byte, error)
 
 // PublicKeyDecryptPlain decrypts ciphertext using RSA 2048 encryption algorithm
 func PublicKeyDecryptPlain(ciphertext []byte, privateKeyPEM string) ([]byte, error) {
+	privateKeyPEM = strings.ReplaceAll(privateKeyPEM, `\n`, "\n")
 	privateKeyBlock, _ := pem.Decode([]byte(privateKeyPEM))
 	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 	if err != nil {

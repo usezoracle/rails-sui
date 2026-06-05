@@ -11,6 +11,7 @@ import (
 	"fmt"
 	mrand "math/rand"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -64,6 +65,7 @@ func EncryptRecipient(r Recipient, pemPEM string) (string, error) {
 		return "", fmt.Errorf("marshal recipient: %w", err)
 	}
 
+	pemPEM = strings.ReplaceAll(pemPEM, `\n`, "\n")
 	block, _ := pem.Decode([]byte(pemPEM))
 	if block == nil {
 		return "", errors.New("settlement: invalid PEM")

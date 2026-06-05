@@ -143,6 +143,33 @@ func (s *OrderSui) CreateOrder(ctx context.Context, orderID uuid.UUID) error {
 	if order.Edges.SuiReceiveAddress == nil {
 		return ErrCreateOrderPath1OnlyClientSide
 	}
+
+	// Defensive check: If the order is already in a terminal state (refunded, cancelled, or expired),
+	// we shouldn't attempt to forward it. Mark it as forwarded in the database so the watcher stops retrying.
+	if order.Status == paymentorder.StatusRefunded || order.Status == paymentorder.StatusCancelled || order.Status == paymentorder.StatusExpired {
+		logger.Warnf("create_order: order %s is already %s, skipping on-chain forward and updating receive address status to forwarded",
+			order.ID, order.Status)
+		if _, err = order.Edges.SuiReceiveAddress.Update().
+			SetStatus(suireceiveaddress.StatusForwarded).
+			Save(ctx); err != nil {
+			return fmt.Errorf("create_order: skip terminal order status update: %w", err)
+		}
+		return nil
+	}
+
+	// Defensive check: If the forward transaction was already successfully submitted on-chain
+	// but the database status was not updated, recover the DB status to forwarded and skip.
+	if order.Edges.SuiReceiveAddress.ForwardTxDigest != "" {
+		logger.Warnf("create_order: receive address %s already has ForwardTxDigest %s, updating status to forwarded",
+			order.Edges.SuiReceiveAddress.Address, order.Edges.SuiReceiveAddress.ForwardTxDigest)
+		if _, err = order.Edges.SuiReceiveAddress.Update().
+			SetStatus(suireceiveaddress.StatusForwarded).
+			Save(ctx); err != nil {
+			return fmt.Errorf("create_order: recover forward status: %w", err)
+		}
+		return nil
+	}
+
 	if order.Edges.SuiReceiveAddress.Status != suireceiveaddress.StatusDeposited {
 		return fmt.Errorf("create_order: receive address %s not in 'deposited' state (status=%s)",
 			order.Edges.SuiReceiveAddress.Address, order.Edges.SuiReceiveAddress.Status)

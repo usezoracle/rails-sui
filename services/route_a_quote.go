@@ -166,18 +166,24 @@ func QuoteSuiTokenToNgn(
 	}
 	usdcEquivalent := decimal.NewFromBigInt(usdcSubunit, -int32(conf.BaseUSDCDecimals))
 
-	paycrest, err := settlementClient.FetchRate(ctx, "base", "USDC", usdcEquivalent, "NGN")
+	// Factor in the platform sender fee (BaseSenderFeeBPS) charged during settlement on Base.
+	// This ensures the merchant receives exactly the expected fiat amount.
+	feeBpsDec := decimal.NewFromInt(conf.BaseSenderFeeBPS)
+	feeFactor := decimal.NewFromInt(1).Sub(feeBpsDec.Div(decimal.NewFromInt(10000)))
+	usdcNet := usdcEquivalent.Mul(feeFactor)
+
+	paycrest, err := settlementClient.FetchRate(ctx, "base", "USDC", usdcNet, "NGN")
 	if err != nil {
 		return nil, fmt.Errorf("paycrest usdc/ngn rate: %w", err)
 	}
 
-	// NGN per Token = (USDC per Token) × (NGN per USDC).
-	usdcPerToken := usdcEquivalent.Div(bridgedAmount)
+	// NGN per Token = (USDC Net per Token) × (NGN per USDC).
+	usdcPerToken := usdcNet.Div(bridgedAmount)
 	composite := usdcPerToken.Mul(paycrest.Rate)
 
 	return &SuiCompositeRate{
 		Rate:                 composite,
-		UsdcEquivalent:       usdcEquivalent,
+		UsdcEquivalent:       usdcEquivalent, // Keep original bridged amount for transparency
 		UsdcToNgnRate:        paycrest.Rate,
 		BridgedSuiAmount:     bridgedAmount, // Holds the actual bridged token amount (net of gas reservation if SUI)
 		ProviderIDs:          paycrest.ProviderIDs,
