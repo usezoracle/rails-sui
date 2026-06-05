@@ -787,26 +787,6 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		return fmt.Errorf("route-a order %d has zero/nil bridged_amount", order.ID)
 	}
 	bridged := decimalToSubunit(*order.BridgedAmount, d.conf.BaseUSDCDecimals)
-	senderFee := new(big.Int).Quo(
-		new(big.Int).Mul(bridged, big.NewInt(d.conf.BaseSenderFeeBPS)),
-		big.NewInt(10_000),
-	)
-	amount := new(big.Int).Sub(bridged, senderFee) // amount + senderFee == bridged
-	senderFeeDec := decimal.NewFromBigInt(senderFee, -int32(d.conf.BaseUSDCDecimals))
-
-	// Rate: uint96 fixed-point (NGN per USDC × 100). The settlement
-	// Gateway on Base only knows about USDC, so we always submit
-	// NGN/USDC regardless of the source token.
-	//
-	// USDC source: PaymentOrder.Rate is already NGN/USDC — use as-is.
-	// Native SUI source: PaymentOrder.Rate is NGN/SUI (the composite
-	// the user signed). Recompute NGN/USDC from what LiFi actually
-	// delivered so the total NGN payout matches the user's quote.
-	usdcRate := po.Rate
-	if po.Edges.Token != nil && IsNativeSui(po.Edges.Token.ContractAddress) {
-		totalNGN := po.Amount.Mul(po.Rate)
-		usdcRate = totalNGN.Div(*order.BridgedAmount)
-	}
 
 	// Fetch fresh rate quote from Paycrest to ensure we don't submit an expired/stale rate
 	// that LPs will reject.
@@ -814,10 +794,32 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 	if err != nil {
 		return fmt.Errorf("fetch live Paycrest rate: %w", err)
 	}
-	logger.Infof("📈 route-a: fetched fresh Paycrest rate for order %d: NGN/USDC=%s (original NGN/USDC was %s)", order.ID, liveQuote.Rate.String(), usdcRate.String())
-	usdcRate = liveQuote.Rate
 
-	rateScaled := usdcRate.Mul(decimal.NewFromInt(100)).Truncate(0)
+	// The merchant expects to receive exactly the quoted fiat amount: po.Amount * po.Rate
+	targetNGN := po.Amount.Mul(po.Rate)
+
+	// Calculate the USDC amount needed to pay the targetNGN at the fresh live rate.
+	amountDec := targetNGN.Div(liveQuote.Rate)
+	amount := decimalToSubunit(amountDec, d.conf.BaseUSDCDecimals)
+
+	// Sender fee (our platform profit) is 0.5% (BaseSenderFeeBPS) of the payout amount.
+	senderFee := new(big.Int).Quo(
+		new(big.Int).Mul(amount, big.NewInt(d.conf.BaseSenderFeeBPS)),
+		big.NewInt(10_000),
+	)
+	total := new(big.Int).Add(amount, senderFee)
+	senderFeeDec := decimal.NewFromBigInt(senderFee, -int32(d.conf.BaseUSDCDecimals))
+
+	// Ensure the bridged amount is sufficient to cover the payout + sender fee.
+	// If the rate has moved against us or there was high slippage, total may exceed bridged.
+	if total.Cmp(bridged) > 0 {
+		return fmt.Errorf("insufficient bridged USDC: have %s, need %s (live rate %s)", bridged.String(), total.String(), liveQuote.Rate.String())
+	}
+
+	logger.Infof("📈 route-a: fetched fresh Paycrest rate for order %d: NGN/USDC=%s (original NGN/USDC was %s). Payout adjusted: amount=%s USDC, senderFee=%s USDC, bridged=%s USDC",
+		order.ID, liveQuote.Rate.String(), po.Rate.String(), amountDec.String(), senderFeeDec.String(), order.BridgedAmount.String())
+
+	rateScaled := liveQuote.Rate.Mul(decimal.NewFromInt(100)).Truncate(0)
 	rate, _ := new(big.Int).SetString(rateScaled.String(), 10)
 
 	// Build + encrypt the recipient blob.
@@ -841,7 +843,6 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 
 	aggregatorAddr := ethcommon.HexToAddress(d.conf.BaseAggregatorAddress)
 	// Approve amount + senderFee in one go.
-	total := new(big.Int).Add(amount, senderFee)
 	timer.With("amount_subunit", amount.String()).
 		With("sender_fee_subunit", senderFee.String()).
 		With("rate_scaled", rate.String())
