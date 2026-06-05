@@ -244,4 +244,8 @@ func cardsRoutes(route *gin.Engine) {
 
 	refundCtrl := adminCtrl.NewRefundController()
 	adminConsole.POST("orders/:id/refund", refundCtrl.RefundOrder)
+
+	userCtrl := adminCtrl.NewUsersController()
+	adminConsole.GET("users", userCtrl.GetUsers)
+	adminConsole.PATCH("users/:id/early-access", userCtrl.UpdateEarlyAccess)
 }
