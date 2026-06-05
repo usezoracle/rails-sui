@@ -29,12 +29,10 @@ info:
   license:
     name: UNLICENSED
 servers:
+  - url: https://rails-sui-production.up.railway.app
+    description: Production
   - url: http://localhost:8000
     description: Local dev
-  - url: https://reggie-undefinable-cash.ngrok-free.dev
-    description: ngrok tunnel
-  - url: https://api.zoracle.com
-    description: Production
 
 # ---------------------------------------------------------------------------
 # Tags drive Swagger UI's grouping. Order here = order in the rendered UI.
