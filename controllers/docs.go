@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/usezoracle/rails-sui/docs"
 )
 
 // swaggerUIHTML is a tiny Swagger UI shell that loads the official
@@ -61,24 +63,16 @@ func (ctrl *Controller) ServeSwaggerUI(c *gin.Context) {
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerUIHTML))
 }
 
-// ServeOpenAPISpec handles GET /openapi.yaml. We read the file at
-// request time (not via go:embed) so spec edits hot-reload without a
-// rebuild during dev — production payload is small (~30 KB) so the
-// read cost is negligible.
+// ServeOpenAPISpec handles GET /openapi.yaml. In dev it reads docs/openapi.yaml
+// from disk so spec edits hot-reload without a rebuild. The production image
+// ships only the binary (no repo tree), so on a disk miss it falls back to the
+// copy embedded via go:embed (see docs/embed.go).
 func (ctrl *Controller) ServeOpenAPISpec(c *gin.Context) {
-	// CWD-relative path. The server is launched from the repo root in
-	// every supported config (Makefile `make run` + production
-	// Dockerfile both `WORKDIR /app` at the repo root).
-	path := filepath.Join("docs", "openapi.yaml")
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"status":  "error",
-			"message": "openapi.yaml not found at " + path,
-		})
+	if b, err := os.ReadFile(filepath.Join("docs", "openapi.yaml")); err == nil {
+		c.Data(http.StatusOK, "application/yaml; charset=utf-8", b)
 		return
 	}
-	// application/yaml is the IANA-registered media type; some tools
-	// prefer text/yaml. Either works for Swagger UI's url loader.
-	c.Data(http.StatusOK, "application/yaml; charset=utf-8", bytes)
+	// application/yaml is the IANA-registered media type; some tools prefer
+	// text/yaml. Either works for Swagger UI's url loader.
+	c.Data(http.StatusOK, "application/yaml; charset=utf-8", docs.OpenAPISpec)
 }
