@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
+	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
@@ -46,6 +47,19 @@ type meResponse struct {
 	// otherwise mirrors the IVR.status enum (pending|success|failed).
 	// Clients use this to gate the onboarding guard.
 	KycStatus string `json:"kyc_status"`
+
+	// BankAccount is the merchant's saved payout account, or null when
+	// none is set. Saved a round trip vs GET /v1/sender/me/bank-account.
+	BankAccount *meBankAccount `json:"bank_account"`
+}
+
+// meBankAccount is the merchant payout account shape in the /me response.
+type meBankAccount struct {
+	Currency      string `json:"currency"`
+	BankCode      string `json:"bank_code"`
+	AccountNumber string `json:"account_number"`
+	AccountName   string `json:"account_name"`
+	Verified      bool   `json:"verified"`
 }
 
 // updateMePayload — PATCH /v1/me body. Only the fields actually present
@@ -166,6 +180,23 @@ func (ctrl *AuthController) Me(ctx *gin.Context) {
 		kycStatus = ivr.Status.String()
 	}
 
+	// Merchant payout account, when the user is a sender and has saved one.
+	var bankAccount *meBankAccount
+	if hasSender {
+		if ba, err := db.Client.MerchantBankAccount.
+			Query().
+			Where(merchantbankaccount.HasSenderProfileWith(senderprofile.HasUserWith(userEnt.IDEQ(userID)))).
+			Only(ctx); err == nil && ba != nil {
+			bankAccount = &meBankAccount{
+				Currency:      ba.Currency,
+				BankCode:      ba.BankCode,
+				AccountNumber: ba.AccountNumber,
+				AccountName:   ba.AccountName,
+				Verified:      ba.VerifiedAt != nil,
+			}
+		}
+	}
+
 	resp := meResponse{
 		ID:                 user.ID,
 		Email:              user.Email,
@@ -179,6 +210,7 @@ func (ctrl *AuthController) Me(ctx *gin.Context) {
 		HasProviderProfile: hasProvider,
 		HasTappCard:        hasCard,
 		KycStatus:          kycStatus,
+		BankAccount:        bankAccount,
 	}
 
 	logger.Infof("/me: user_id=%s scopes=%v", userID, resp.Scopes)
