@@ -82,7 +82,9 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		SetPassword(payload.Password).
 		SetScope(scope)
 
-	if serverConf.Environment != "production" {
+	// Auto-verify ONLY in true local dev. Every deployed environment requires
+	// the user to verify their email before the account is usable.
+	if serverConf.Environment == "local" {
 		userCreate = userCreate.
 			SetIsEmailVerified(true)
 	}
@@ -117,7 +119,8 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		logger.Errorf("error: %v", vtErr)
 	}
 
-	if serverConf.Environment == "production" && vtErr == nil {
+	// Send the verification email in every deployed environment (not just prod).
+	if serverConf.Environment != "local" && vtErr == nil {
 		if _, err := ctrl.emailService.SendVerificationEmail(ctx, rawToken, user.Email, user.FirstName); err != nil {
 			logger.Errorf("error: %v", err)
 		}
@@ -215,8 +218,11 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
+	// Auto-login (return tokens) ONLY in local dev. In every deployed
+	// environment the user must verify their email, then log in — register
+	// never returns usable credentials for an unverified account.
 	var accessToken, refreshToken string
-	if serverConf.Environment != "production" {
+	if serverConf.Environment == "local" {
 		var err error
 		accessToken, err = token.GenerateAccessJWT(user.ID.String(), user.Scope)
 		if err != nil {
@@ -296,9 +302,11 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// Verify email BEFORE issuing any credentials in production — don't
-	// burn a token row + access JWT just to reject the response.
-	if serverConf.Environment == "production" && !user.IsEmailVerified {
+	// Email verification is COMPULSORY in every deployed environment — block
+	// login until verified. Local dev auto-verifies at registration, so this
+	// never blocks there. Fail-closed: a misconfigured ENVIRONMENT still
+	// enforces verification rather than silently disabling it.
+	if serverConf.Environment != "local" && !user.IsEmailVerified {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
 			"Email is not verified, please verify your email", nil,
 		)
