@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
@@ -18,7 +19,6 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerordertoken"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
-	"github.com/shopspring/decimal"
 )
 
 // RPCClient is an interface for interacting with the blockchain.
@@ -600,8 +600,10 @@ type ErrorData struct {
 	Message string `json:"message"`
 }
 
-// Payload for reset password request
+// Payload for reset password request. Email scopes the OTP to one user — a
+// 6-digit reset code is not globally unique, so the lookup must filter by owner.
 type ResetPasswordPayload struct {
+	Email      string `json:"email" binding:"required,email"`
 	Password   string `json:"password" binding:"required,min=8,max=128"`
 	ResetToken string `json:"resetToken" binding:"required"`
 }
@@ -682,4 +684,3 @@ type SmileIDWebhookPayload struct {
 	Timestamp string `json:"timestamp"`
 	// Add other fields as needed
 }
-

@@ -602,7 +602,10 @@ paths:
   /v1/auth/confirm-account:
     post:
       tags: [Auth]
-      summary: Confirm email via the token sent on register
+      summary: Confirm email via the 6-digit code sent on register
+      description: >
+        `token` is the 6-digit OTP from the verification email. Capped at 5 wrong
+        attempts per email (then request a new code).
       parameters:
         - $ref: '#/components/parameters/ClientTypeWebHeader'
       security: []
@@ -612,16 +615,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [token]
+              required: [token, email]
               properties:
-                token: { type: string }
+                token: { type: string, description: 6-digit OTP, example: "481920" }
+                email: { type: string, format: email }
       responses:
         "200": { description: Email confirmed. }
+        "400": { description: Invalid verification code. }
+        "429": { description: Too many incorrect attempts — request a new code. }
 
   /v1/auth/resend-token:
     post:
       tags: [Auth]
-      summary: Resend the email-verification token
+      summary: Resend a verification or password-reset code
       parameters:
         - $ref: '#/components/parameters/ClientTypeWebHeader'
       security: []
@@ -631,15 +637,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email]
+              required: [email, scope]
               properties:
                 email: { type: string, format: email }
+                scope: { type: string, enum: [emailVerification, resetPassword] }
       responses: { "200": { description: Sent. } }
 
   /v1/auth/reset-password-token:
     post:
       tags: [Auth]
-      summary: Email a password-reset token
+      summary: Email a 6-digit password-reset code
       parameters:
         - $ref: '#/components/parameters/ClientTypeWebHeader'
       security: []
@@ -657,7 +664,10 @@ paths:
   /v1/auth/reset-password:
     patch:
       tags: [Auth]
-      summary: Reset password via the emailed token
+      summary: Reset password via the emailed 6-digit code
+      description: >
+        `resetToken` is the 6-digit OTP. `email` scopes the code to the user (a
+        6-digit code is not globally unique). Capped at 5 wrong attempts.
       parameters:
         - $ref: '#/components/parameters/ClientTypeWebHeader'
       security: []
@@ -667,11 +677,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [token, password]
+              required: [email, resetToken, password]
               properties:
-                token: { type: string }
-                password: { type: string }
-      responses: { "200": { description: Reset. } }
+                email: { type: string, format: email }
+                resetToken: { type: string, description: 6-digit OTP, example: "738104" }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200": { description: Reset. }
+        "400": { description: Invalid password reset code. }
+        "429": { description: Too many incorrect attempts — request a new code. }
 
   /v1/auth/change-password:
     patch:
