@@ -71,6 +71,10 @@ tags:
     description: Consolidated treasury view — wallet balances and value summary.
   - name: Admin — Audit
     description: Append-only admin audit trail.
+  - name: Admin — Webhooks
+    description: Merchant-webhook retry queue — inspect and force delivery.
+  - name: Admin — Deposit Addresses
+    description: Sui receive-address inspection and expiry override.
   - name: Provider
   - name: Settings
 
@@ -140,6 +144,29 @@ components:
         is_email_verified: { type: boolean }
         has_early_access: { type: boolean }
         created_at: { type: string }
+
+    AdminCard:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [issued, claimed, live, revoked, locked] }
+        owner: { type: string }
+        pin_attempts_remaining: { type: integer }
+        token_mismatch_count: { type: integer }
+        locked_until: { type: string }
+        needs_resync: { type: boolean }
+        created_at: { type: string }
+
+    AdminDepositAddress:
+      type: object
+      properties:
+        address: { type: string }
+        status: { type: string, enum: [unused, deposited, forwarded, settled, expired] }
+        coin_type: { type: string }
+        expected_amount: { type: integer, format: int64 }
+        valid_until: { type: string }
+        deposit_tx_digest: { type: string }
+        forward_tx_digest: { type: string }
 
     DecimalString:
       type: string
@@ -1407,6 +1434,83 @@ paths:
         "200":
           description: Code issued (and emailed if SENDGRID is configured).
 
+  /v1/admin/cards/{id}:
+    get:
+      tags: [Cards — Admin]
+      summary: Inspect a Tapp card's operational state
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        "200":
+          description: Card state.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AdminCard' }
+        "404": { description: Card not found. }
+
+  /v1/admin/cards/{id}/unlock:
+    post:
+      tags: [Cards — Admin]
+      summary: Recover a locked card — clear lock, reset PIN attempts + mismatch, restore to live
+      description: >
+        Refused if the card is revoked (revocation is intentional and on-chain).
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        "200":
+          description: Card unlocked.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AdminCard' }
+        "409": { description: Card is revoked — cannot unlock. }
+
+  /v1/admin/cards/{id}/status:
+    post:
+      tags: [Cards — Admin]
+      summary: Force a card status — revoke (lost/stolen) or lock (compromised)
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [revoked, locked] }
+                reason: { type: string }
+      responses:
+        "200":
+          description: Card status updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AdminCard' }
+
   /v1/admin/route-a/orders/{id}/events:
     get:
       tags: [Admin — Route A]
@@ -2183,6 +2287,118 @@ paths:
                                 target: { type: string }
                                 detail: { type: object }
                                 created_at: { type: string }
+
+  # ----- Admin — Webhooks -----
+  /v1/admin/webhooks:
+    get:
+      tags: [Admin — Webhooks]
+      summary: List merchant-webhook retry attempts
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [failed, success, expired] }
+        - in: query
+          name: pageSize
+          schema: { type: integer, default: 10, maximum: 500 }
+      responses:
+        "200":
+          description: Webhook attempts.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          count: { type: integer }
+                          attempts:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id: { type: integer }
+                                webhook_url: { type: string }
+                                status: { type: string }
+                                attempt_number: { type: integer }
+                                next_retry_time: { type: string }
+
+  /v1/admin/webhooks/{id}/retry:
+    post:
+      tags: [Admin — Webhooks]
+      summary: Force immediate delivery of a webhook attempt
+      description: >
+        On a 2xx the attempt is marked success; otherwise it is left failed with
+        next_retry_time pulled forward so the cron re-attempts soon.
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Delivered. }
+        "404": { description: Attempt not found. }
+        "502": { description: Delivery failed — re-queued. }
+
+  # ----- Admin — Deposit Addresses -----
+  /v1/admin/deposit-addresses/{address}:
+    get:
+      tags: [Admin — Deposit Addresses]
+      summary: Inspect a Sui receive address
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Address state.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AdminDepositAddress' }
+        "404": { description: Address not found. }
+
+  /v1/admin/deposit-addresses/{address}/extend:
+    post:
+      tags: [Admin — Deposit Addresses]
+      summary: Override a receive address's expiry (DB-only; no funds move)
+      description: >
+        Pushes valid_until to now + extend_minutes (default 60). With
+        reactivate=true an expired address is flipped back to unused so the
+        watcher re-indexes it. Does NOT forward or sweep funds.
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                extend_minutes: { type: integer, default: 60 }
+                reactivate: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Address updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data: { $ref: '#/components/schemas/AdminDepositAddress' }
+        "409": { description: Reactivate only valid from the expired state. }
 
   # ----- Provider -----
   /v1/provider/orders:

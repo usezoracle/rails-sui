@@ -23,6 +23,13 @@ func buildAdminRouter() *gin.Engine {
 	r.POST("/v1/admin/route-a/orders/:id/force-state", noop)
 	r.POST("/v1/admin/cards/:id/recovery", noop)
 
+	// card-ops routes share the /v1/admin/cards/:id prefix — register them on
+	// the same engine so a path conflict would panic this build.
+	cardOps := NewCardOpsController()
+	r.GET("/v1/admin/cards/:id", cardOps.GetCard)
+	r.POST("/v1/admin/cards/:id/unlock", cardOps.Unlock)
+	r.POST("/v1/admin/cards/:id/status", cardOps.SetStatus)
+
 	// the console under test
 	g := r.Group("/v1/admin/")
 	tx := NewTransactionsController()
@@ -42,6 +49,13 @@ func buildAdminRouter() *gin.Engine {
 	g.GET("config/params", cfg.GetParams)
 	refund := NewRefundController()
 	g.POST("orders/:id/refund", refund.RefundOrder)
+
+	webhook := NewWebhooksController()
+	g.GET("webhooks", webhook.GetWebhookAttempts)
+	g.POST("webhooks/:id/retry", webhook.RetryWebhook)
+	dep := NewDepositAddressController()
+	g.GET("deposit-addresses/:address", dep.GetAddress)
+	g.POST("deposit-addresses/:address/extend", dep.ExtendAddress)
 	return r
 }
 
@@ -100,5 +114,27 @@ func TestFundingTransfer_AmountCap(t *testing.T) {
 func TestRefund_BadUUID(t *testing.T) {
 	w := do(buildAdminRouter(), http.MethodPost, "/v1/admin/orders/not-a-uuid/refund",
 		[]byte(`{"justification":"test","confirm":false}`))
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestCardOps_BadUUID: card-ops handlers parse the id before any DB access.
+func TestCardOps_BadUUID(t *testing.T) {
+	r := buildAdminRouter()
+	for _, p := range []struct {
+		method, path string
+		body         []byte
+	}{
+		{http.MethodGet, "/v1/admin/cards/not-a-uuid", nil},
+		{http.MethodPost, "/v1/admin/cards/not-a-uuid/unlock", nil},
+		{http.MethodPost, "/v1/admin/cards/not-a-uuid/status", []byte(`{"status":"revoked"}`)},
+	} {
+		w := do(r, p.method, p.path, p.body)
+		assert.Equal(t, http.StatusBadRequest, w.Code, "%s %s", p.method, p.path)
+	}
+}
+
+// TestWebhookRetry_BadID: the attempt id is an int; non-numeric → 400 pre-DB.
+func TestWebhookRetry_BadID(t *testing.T) {
+	w := do(buildAdminRouter(), http.MethodPost, "/v1/admin/webhooks/not-an-int/retry", nil)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
