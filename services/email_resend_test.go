@@ -26,18 +26,19 @@ func TestDefaultMailProvider(t *testing.T) {
 }
 
 func TestResendEmailHTML(t *testing.T) {
-	h := verificationEmailHTML("Ada", "tok123", "ada@example.com")
+	h := verificationEmailHTML("Ada", "481920", "ada@example.com")
 	assert.Contains(t, h, "Ada", "renders the name")
-	assert.Contains(t, h, "Verify email", "has a CTA button")
-	assert.Contains(t, h, "/verify-email?token=tok123", "links to the frontend verify page with the token")
+	assert.Contains(t, h, "Verify your email", "has the verification title")
+	assert.Contains(t, h, "481920", "renders the 6-digit code")
+	assert.NotContains(t, h, "/verify-email?token=", "no longer a link")
 	assert.True(t, strings.HasPrefix(h, "<!doctype html>"), "is HTML")
 
-	r := passwordResetEmailHTML("Bee", "rst456", "bee@example.com")
+	r := passwordResetEmailHTML("Bee", "738104", "bee@example.com")
 	assert.Contains(t, r, "Reset your password")
-	assert.Contains(t, r, "/reset-password?token=rst456")
+	assert.Contains(t, r, "738104", "renders the reset code")
 
 	// HTML-escaping guards against injection via name.
-	x := verificationEmailHTML("<script>", "000", "x@example.com")
+	x := verificationEmailHTML("<script>", "000000", "x@example.com")
 	assert.NotContains(t, x, "<script>")
 	assert.Contains(t, x, "&lt;script&gt;")
 }

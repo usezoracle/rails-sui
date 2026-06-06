@@ -821,6 +821,7 @@ func TestAuth(t *testing.T) {
 			assert.NoError(t, err)
 
 			resetPasswordPayload := map[string]string{
+				"email":      userInstance.Email,
 				"password":   "1111000090",
 				"resetToken": resetToken.Token,
 			}

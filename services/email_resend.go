@@ -4,13 +4,10 @@ import (
 	"context"
 	"fmt"
 	"html"
-	"net/url"
-	"strings"
 	"time"
 
 	fastshot "github.com/opus-domini/fast-shot"
 
-	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
@@ -58,48 +55,25 @@ func sendEmailViaResend(ctx context.Context, content types.SendEmailPayload) (ty
 
 // --- inline HTML (Resend has no server-side templates) -----------------------
 
-// frontendURL builds a link to the web app's <path> carrying the (opaque) token
-// and email as query params. The frontend page reads them and POSTs to the
-// matching API endpoint (e.g. /v1/auth/confirm-account).
-func frontendURL(path, token, email string) string {
-	base := strings.TrimRight(config.ServerConfig().CheckoutBaseURL, "/")
-	return fmt.Sprintf("%s%s?token=%s&email=%s", base, path, url.QueryEscape(token), url.QueryEscape(email))
-}
-
-// verificationEmailHTML — a CTA-button email. The token is opaque (not a
-// typeable code), so the user clicks a link rather than copying a code.
-func verificationEmailHTML(firstName, token, email string) string {
-	return buttonEmailHTML(
+// verificationEmailHTML renders the 6-digit verification OTP as a typeable code.
+// The `code` arg is the OTP; `email` is unused (kept for signature symmetry with
+// the email service's call site).
+func verificationEmailHTML(firstName, code, email string) string {
+	_ = email
+	return codeEmailHTML(
 		"Verify your email",
-		fmt.Sprintf("Hi %s, confirm your email address to finish setting up your account.", html.EscapeString(firstName)),
-		frontendURL("/verify-email", token, email),
-		"Verify email",
+		fmt.Sprintf("Hi %s, enter this code in the app to verify your email address. It expires shortly.", firstName),
+		code,
 	)
 }
 
-func passwordResetEmailHTML(firstName, token, email string) string {
-	return buttonEmailHTML(
+func passwordResetEmailHTML(firstName, code, email string) string {
+	_ = email
+	return codeEmailHTML(
 		"Reset your password",
-		fmt.Sprintf("Hi %s, click the button below to set a new password. If you didn't request this, you can ignore this email.", html.EscapeString(firstName)),
-		frontendURL("/reset-password", token, email),
-		"Reset password",
+		fmt.Sprintf("Hi %s, enter this code in the app to set a new password. If you didn't request this, you can ignore this email.", firstName),
+		code,
 	)
-}
-
-// buttonEmailHTML renders a clean, client-safe email with a prominent CTA button
-// plus a paste-able link fallback.
-func buttonEmailHTML(title, intro, ctaURL, ctaLabel string) string {
-	safeURL := html.EscapeString(ctaURL)
-	return fmt.Sprintf(`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f6;margin:0;padding:24px">
-<div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
-<h2 style="margin:0 0 12px;color:#111">%s</h2>
-<p style="color:#444;font-size:14px;line-height:1.6">%s</p>
-<div style="text-align:center;margin:28px 0">
-<a href="%s" style="display:inline-block;background:#2775CA;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 28px;border-radius:8px">%s</a>
-</div>
-<p style="color:#888;font-size:12px;line-height:1.5">Or paste this link into your browser:<br><a href="%s" style="color:#2775CA;word-break:break-all">%s</a></p>
-<p style="color:#999;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
-</div></body></html>`, html.EscapeString(title), intro, safeURL, html.EscapeString(ctaLabel), safeURL, safeURL)
 }
 
 // codeEmailHTML renders a short, typeable code (e.g. the card-recovery code that

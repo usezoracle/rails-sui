@@ -98,10 +98,10 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	// Issue verification token. We store SHA-256(raw) in the DB and email
-	// the raw token to the user. On confirm, we hash the submitted token
-	// and compare.
-	rawToken, err := token.GenerateOpaqueToken()
+	// Issue verification OTP. We store SHA-256(code) in the DB and email
+	// the 6-digit code to the user. On confirm, we hash the submitted code
+	// and compare (with a per-email attempt cap — see otp_guard.go).
+	rawToken, err := token.GenerateOTP()
 	if err != nil {
 		logger.Errorf("error: %v", err)
 		_ = tx.Rollback()
@@ -121,6 +121,8 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 
 	// Send the verification email in every deployed environment (not just prod).
 	if serverConf.Environment != "local" && vtErr == nil {
+		// Fresh code → clear any stale attempt counter for this email.
+		clearOTPAttempts(ctx, string(verificationtoken.ScopeEmailVerification), user.Email)
 		if _, err := ctrl.emailService.SendVerificationEmail(ctx, rawToken, user.Email, user.FirstName); err != nil {
 			logger.Errorf("error: %v", err)
 		}
@@ -415,7 +417,16 @@ func (ctrl *AuthController) ConfirmEmail(ctx *gin.Context) {
 		return
 	}
 
-	// Hash the submitted token and compare against the at-rest hash.
+	scope := string(verificationtoken.ScopeEmailVerification)
+
+	// Brute-force guard: a 6-digit code is only safe behind an attempt cap.
+	if otpAttemptsExceeded(ctx, scope, payload.Email) {
+		u.APIResponse(ctx, http.StatusTooManyRequests, "error",
+			"Too many incorrect attempts — request a new code", nil)
+		return
+	}
+
+	// Hash the submitted code and compare against the at-rest hash.
 	// `verificationtoken.token` column holds SHA-256(raw), not raw.
 	verificationToken, vtErr := db.Client.VerificationToken.
 		Query().
@@ -426,7 +437,8 @@ func (ctrl *AuthController) ConfirmEmail(ctx *gin.Context) {
 		WithOwner().
 		Only(ctx)
 	if vtErr != nil {
-		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid verification token", vtErr.Error())
+		recordOTPFailure(ctx, scope, payload.Email, authConf.EmailVerificationLifespan)
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid verification code", nil)
 		return
 	}
 
@@ -455,6 +467,7 @@ func (ctrl *AuthController) ConfirmEmail(ctx *gin.Context) {
 	if err != nil {
 		logger.Errorf("ConfirmEmailError.VerificationToken.Delete: %v", err)
 	}
+	clearOTPAttempts(ctx, scope, payload.Email)
 
 	// Return a success response
 	u.APIResponse(ctx, http.StatusOK, "success", "User email verified successfully", nil)
@@ -477,8 +490,8 @@ func (ctrl *AuthController) ResendVerificationToken(ctx *gin.Context) {
 		return
 	}
 
-	// Generate VerificationToken — store hash, email raw.
-	rawToken, err := token.GenerateOpaqueToken()
+	// Generate a fresh OTP — store hash, email the code.
+	rawToken, err := token.GenerateOTP()
 	if err != nil {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate verification token", err.Error())
 		return
@@ -502,8 +515,18 @@ func (ctrl *AuthController) ResendVerificationToken(ctx *gin.Context) {
 		return
 	}
 
-	if _, err := ctrl.emailService.SendVerificationEmail(ctx, rawToken, user.Email, user.FirstName); err != nil {
-		u.APIResponse(ctx, http.StatusBadRequest, "error", "Failed to send verification email", err.Error())
+	// Fresh code → reset the attempt counter for this (scope,email).
+	clearOTPAttempts(ctx, payload.Scope, user.Email)
+
+	// Send the email that matches the scope — reset codes get the reset copy.
+	var sendErr error
+	if verificationtoken.Scope(payload.Scope) == verificationtoken.ScopeResetPassword {
+		_, sendErr = ctrl.emailService.SendPasswordResetEmail(ctx, rawToken, user.Email, user.FirstName)
+	} else {
+		_, sendErr = ctrl.emailService.SendVerificationEmail(ctx, rawToken, user.Email, user.FirstName)
+	}
+	if sendErr != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Failed to send verification email", sendErr.Error())
 		return
 	}
 
@@ -521,17 +544,31 @@ func (ctrl *AuthController) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	// Verify reset token
+	scope := string(verificationtoken.ScopeResetPassword)
+
+	// Brute-force guard: a 6-digit reset code grants account access, so the
+	// attempt cap is the primary defense.
+	if otpAttemptsExceeded(ctx, scope, payload.Email) {
+		u.APIResponse(ctx, http.StatusTooManyRequests, "error",
+			"Too many incorrect attempts — request a new code", nil)
+		return
+	}
+
+	// Verify reset code — scoped to the owning email. A 6-digit OTP is not
+	// globally unique, so without the email filter two users could share a code
+	// (matching the wrong row, or erroring on .Only with multiple matches).
 	resetTokenRow, err := db.Client.VerificationToken.
 		Query().
 		Where(
 			verificationtoken.TokenEQ(token.HashToken(payload.ResetToken)),
 			verificationtoken.ScopeEQ(verificationtoken.ScopeResetPassword),
+			verificationtoken.HasOwnerWith(userEnt.EmailEQ(payload.Email)),
 		).
 		WithOwner().
 		Only(ctx)
 	if err != nil || resetTokenRow == nil || resetTokenRow.Edges.Owner == nil {
-		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid password reset token", nil)
+		recordOTPFailure(ctx, scope, payload.Email, authConf.PasswordResetLifespan)
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "Invalid password reset code", nil)
 		return
 	}
 
@@ -560,6 +597,7 @@ func (ctrl *AuthController) ResetPassword(ctx *gin.Context) {
 	if verificationErr != nil {
 		logger.Errorf("ResetPasswordError.VerificationToken.Delete: %v", verificationErr)
 	}
+	clearOTPAttempts(ctx, scope, payload.Email)
 
 	// Industry-standard hygiene: revoke EVERY active refresh-token
 	// family for this user. If the original account was compromised,
@@ -592,8 +630,8 @@ func (ctrl *AuthController) ResetPasswordToken(ctx *gin.Context) {
 		return
 	}
 
-	// Generate password reset token — store hash, email raw.
-	rawResetToken, err := token.GenerateOpaqueToken()
+	// Generate a 6-digit reset OTP — store hash, email the code.
+	rawResetToken, err := token.GenerateOTP()
 	if err != nil {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate reset password token", nil)
 		return
@@ -608,6 +646,9 @@ func (ctrl *AuthController) ResetPasswordToken(ctx *gin.Context) {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate reset password token", nil)
 		return
 	}
+
+	// Fresh code → reset the attempt counter for this email.
+	clearOTPAttempts(ctx, string(verificationtoken.ScopeResetPassword), user.Email)
 
 	if _, err := ctrl.emailService.SendPasswordResetEmail(ctx, rawResetToken, user.Email, user.FirstName); err != nil {
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to send reset password token", nil)

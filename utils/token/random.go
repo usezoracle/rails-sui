@@ -5,7 +5,24 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
+	"math/big"
 )
+
+// GenerateOTP returns a uniformly-random 6-digit numeric one-time code as a
+// zero-padded string ("000123".."999999"). Used for email-verification and
+// password-reset codes the user types into the app.
+//
+// A 6-digit code has only 10^6 possibilities, so it is NOT safe on its own —
+// callers MUST pair it with a per-(email,scope) attempt cap, single use, and a
+// short expiry. crypto/rand.Int gives an unbiased value (no modulo skew).
+func GenerateOTP() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
 
 // GenerateOpaqueToken returns a cryptographically random, URL-safe
 // opaque token suitable for email-verification, password-reset, and
