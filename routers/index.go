@@ -208,6 +208,10 @@ func cardsRoutes(route *gin.Engine) {
 	adminCards := route.Group("/v1/admin/cards/")
 	adminCards.Use(cards.AdminTokenMiddleware)
 	adminCards.POST(":id/recovery", cardsCtrl.AdminRecovery)
+	cardOpsCtrl := adminCtrl.NewCardOpsController()
+	adminCards.GET(":id", cardOpsCtrl.GetCard)
+	adminCards.POST(":id/unlock", cardOpsCtrl.Unlock)
+	adminCards.POST(":id/status", cardOpsCtrl.SetStatus)
 
 	// Admin: Route A operator console. Phase 1 ships read-only event
 	// timeline. Phase 6 will add retry/refund/force-state writers.
@@ -260,4 +264,12 @@ func cardsRoutes(route *gin.Engine) {
 
 	auditCtrl := adminCtrl.NewAuditController()
 	adminConsole.GET("audit-logs", auditCtrl.GetAuditLogs)
+
+	webhookCtrl := adminCtrl.NewWebhooksController()
+	adminConsole.GET("webhooks", webhookCtrl.GetWebhookAttempts)
+	adminConsole.POST("webhooks/:id/retry", webhookCtrl.RetryWebhook)
+
+	depAddrCtrl := adminCtrl.NewDepositAddressController()
+	adminConsole.GET("deposit-addresses/:address", depAddrCtrl.GetAddress)
+	adminConsole.POST("deposit-addresses/:address/extend", depAddrCtrl.ExtendAddress)
 }
