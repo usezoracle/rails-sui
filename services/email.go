@@ -86,7 +86,7 @@ func (m *EmailService) SendVerificationEmail(ctx context.Context, token, email, 
 			FromAddress: _DefaultFromAddress,
 			ToAddress:   email,
 			Subject:     "Verify your email",
-			HTMLBody:    verificationEmailHTML(firstName, token),
+			HTMLBody:    verificationEmailHTML(firstName, token, email),
 		})
 	}
 	payload := types.SendEmailPayload{
@@ -108,7 +108,7 @@ func (m *EmailService) SendPasswordResetEmail(ctx context.Context, token, email,
 			FromAddress: _DefaultFromAddress,
 			ToAddress:   email,
 			Subject:     "Reset your password",
-			HTMLBody:    passwordResetEmailHTML(firstName, token),
+			HTMLBody:    passwordResetEmailHTML(firstName, token, email),
 		})
 	}
 	payload := types.SendEmailPayload{
