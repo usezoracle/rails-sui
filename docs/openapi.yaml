@@ -63,6 +63,14 @@ tags:
     description: Operational config management for currencies, tokens, networks, and providers.
   - name: Admin — Refunds
     description: Operator refund management.
+  - name: Admin — Users
+    description: User administration — list, inspect, update, revoke sessions.
+  - name: Admin — Stats
+    description: Platform overview counts and volumes.
+  - name: Admin — Treasury
+    description: Consolidated treasury view — wallet balances and value summary.
+  - name: Admin — Audit
+    description: Append-only admin audit trail.
   - name: Provider
   - name: Settings
 
@@ -120,6 +128,18 @@ components:
       type: string
       format: uuid
       example: 0e0e76d4-44ee-4d4a-8e51-2e1f6e6d8a7c
+
+    AdminUser:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        scope: { type: string }
+        is_email_verified: { type: boolean }
+        has_early_access: { type: boolean }
+        created_at: { type: string }
 
     DecimalString:
       type: string
@@ -1906,6 +1926,263 @@ paths:
                           previous: { type: string }
                           current: { type: string }
                           justification: { type: string }
+
+  # ----- Admin — Users -----
+  /v1/admin/users:
+    get:
+      tags: [Admin — Users]
+      summary: List users (paginated, filterable)
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: scope
+          schema: { type: string, enum: [sender, provider, cardholder] }
+        - in: query
+          name: search
+          description: Case-insensitive match on email or first/last name.
+          schema: { type: string }
+        - in: query
+          name: verified
+          schema: { type: boolean }
+        - in: query
+          name: early_access
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Paginated user list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          total: { type: integer }
+                          page: { type: integer }
+                          count: { type: integer }
+                          users:
+                            type: array
+                            items: { $ref: '#/components/schemas/AdminUser' }
+
+  /v1/admin/users/{id}:
+    get:
+      tags: [Admin — Users]
+      summary: Get a single user with profiles, KYC status, and order count
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        "200":
+          description: User detail.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string }
+                          email: { type: string }
+                          first_name: { type: string }
+                          last_name: { type: string }
+                          scope: { type: string }
+                          is_email_verified: { type: boolean }
+                          has_early_access: { type: boolean }
+                          created_at: { type: string }
+                          has_sender: { type: boolean }
+                          has_provider: { type: boolean }
+                          tapp_cards: { type: integer }
+                          kyc_status: { type: string }
+                          order_count: { type: integer }
+        "404": { description: User not found. }
+    patch:
+      tags: [Admin — Users]
+      summary: Update a user's scope, email-verified flag, or early access
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        description: Only provided fields are changed.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scope: { type: string }
+                is_email_verified: { type: boolean }
+                has_early_access: { type: boolean }
+      responses:
+        "200": { description: User updated. }
+        "404": { description: User not found. }
+
+  /v1/admin/users/{id}/revoke-sessions:
+    post:
+      tags: [Admin — Users]
+      summary: Revoke all active refresh tokens (force re-auth / soft suspend)
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        "200":
+          description: Sessions revoked.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          revoked: { type: integer }
+
+  /v1/admin/users/{id}/early-access:
+    patch:
+      tags: [Admin — Users]
+      summary: Set a user's early-access flag
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [has_early_access]
+              properties:
+                has_early_access: { type: boolean }
+      responses:
+        "200": { description: Early access updated. }
+        "404": { description: User not found. }
+
+  # ----- Admin — Stats -----
+  /v1/admin/stats:
+    get:
+      tags: [Admin — Stats]
+      summary: Platform overview — counts and volumes
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Headline platform stats.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          users: { type: integer }
+                          senders: { type: integer }
+                          providers: { type: integer }
+                          active_providers: { type: integer }
+                          kyb_verified: { type: integer }
+                          orders_total: { type: integer }
+                          orders_by_status:
+                            type: object
+                            additionalProperties: { type: integer }
+                          settled_volume: { type: string }
+                          lock_orders_total: { type: integer }
+                          lock_orders_settled: { type: integer }
+
+  # ----- Admin — Treasury -----
+  /v1/admin/treasury/overview:
+    get:
+      tags: [Admin — Treasury]
+      summary: Consolidated treasury — wallet balances + DB value summary
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Treasury overview.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          wallets:
+                            type: object
+                            properties:
+                              base_aggregator: { type: object }
+                              sui_aggregator: { type: object }
+                              safehaven: { type: object }
+                          summary:
+                            type: object
+                            properties:
+                              settled_volume: { type: string }
+                              refunded_total: { type: string }
+                              in_flight_value: { type: string }
+
+  # ----- Admin — Audit -----
+  /v1/admin/audit-logs:
+    get:
+      tags: [Admin — Audit]
+      summary: List admin audit-trail entries (newest first)
+      security: [{ adminToken: [] }]
+      parameters:
+        - in: query
+          name: action
+          description: Exact dotted action, e.g. funding.transfer.
+          schema: { type: string }
+        - in: query
+          name: target
+          description: Exact target id.
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 100, maximum: 500 }
+      responses:
+        "200":
+          description: Audit log entries.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          count: { type: integer }
+                          logs:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id: { type: string }
+                                actor: { type: string }
+                                action: { type: string }
+                                target: { type: string }
+                                detail: { type: object }
+                                created_at: { type: string }
 
   # ----- Provider -----
   /v1/provider/orders:
