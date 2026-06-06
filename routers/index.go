@@ -247,5 +247,17 @@ func cardsRoutes(route *gin.Engine) {
 
 	userCtrl := adminCtrl.NewUsersController()
 	adminConsole.GET("users", userCtrl.GetUsers)
+	adminConsole.GET("users/:id", userCtrl.GetUser)
+	adminConsole.PATCH("users/:id", userCtrl.UpdateUser)
 	adminConsole.PATCH("users/:id/early-access", userCtrl.UpdateEarlyAccess)
+	adminConsole.POST("users/:id/revoke-sessions", userCtrl.RevokeSessions)
+
+	statsCtrl := adminCtrl.NewStatsController()
+	adminConsole.GET("stats", statsCtrl.GetStats)
+
+	treasuryCtrl := adminCtrl.NewTreasuryController()
+	adminConsole.GET("treasury/overview", treasuryCtrl.GetOverview)
+
+	auditCtrl := adminCtrl.NewAuditController()
+	adminConsole.GET("audit-logs", auditCtrl.GetAuditLogs)
 }

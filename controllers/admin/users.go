@@ -2,11 +2,13 @@ package admin
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/usezoracle/rails-sui/ent"
+	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -18,16 +20,51 @@ type UsersController struct{}
 // NewUsersController constructs the controller.
 func NewUsersController() *UsersController { return &UsersController{} }
 
-// GetUsers lists all users.
+// GetUsers lists users, newest first, paginated. Optional filters:
+// ?scope=sender|provider|cardholder, ?search= (email or name, case-insensitive),
+// ?verified=true|false, ?early_access=true|false. Page via ?page=&pageSize=.
 //
 //	GET /v1/admin/users
 func (c *UsersController) GetUsers(ctx *gin.Context) {
-	rows, err := storage.Client.User.Query().All(ctx)
+	page, offset, limit := u.Paginate(ctx)
+
+	q := storage.Client.User.Query()
+	if s := strings.TrimSpace(ctx.Query("scope")); s != "" {
+		q = q.Where(userEnt.ScopeEQ(s))
+	}
+	if s := strings.TrimSpace(ctx.Query("search")); s != "" {
+		q = q.Where(userEnt.Or(
+			userEnt.EmailContainsFold(s),
+			userEnt.FirstNameContainsFold(s),
+			userEnt.LastNameContainsFold(s),
+		))
+	}
+	switch ctx.Query("verified") {
+	case "true":
+		q = q.Where(userEnt.IsEmailVerifiedEQ(true))
+	case "false":
+		q = q.Where(userEnt.IsEmailVerifiedEQ(false))
+	}
+	switch ctx.Query("early_access") {
+	case "true":
+		q = q.Where(userEnt.HasEarlyAccessEQ(true))
+	case "false":
+		q = q.Where(userEnt.HasEarlyAccessEQ(false))
+	}
+
+	total, err := q.Clone().Count(ctx)
 	if err != nil {
-		logger.Errorf("admin GetUsers: %v", err)
+		logger.Errorf("admin GetUsers: count: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to count users", nil)
+		return
+	}
+	rows, err := q.Order(ent.Desc(userEnt.FieldCreatedAt)).Offset(offset).Limit(limit).All(ctx)
+	if err != nil {
+		logger.Errorf("admin GetUsers: query: %v", err)
 		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to load users", nil)
 		return
 	}
+
 	out := make([]gin.H, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, gin.H{
@@ -38,9 +75,16 @@ func (c *UsersController) GetUsers(ctx *gin.Context) {
 			"scope":             r.Scope,
 			"is_email_verified": r.IsEmailVerified,
 			"has_early_access":  r.HasEarlyAccess,
+			"created_at":        r.CreatedAt.Format(tsLayout),
 		})
 	}
-	u.APIResponse(ctx, http.StatusOK, "success", "ok", out)
+
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
+		"total": total,
+		"page":  page,
+		"count": len(out),
+		"users": out,
+	})
 }
 
 type earlyAccessPatch struct {
