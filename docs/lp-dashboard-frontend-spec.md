@@ -84,8 +84,25 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 |---|---|---|---|
 | POST | `/v1/auth/register` | `{ firstName, lastName, email, password, currency, scopes: ["provider"] }` | `RegisterResponse` |
 | POST | `/v1/auth/login` | `{ email, password }` | `LoginResponse` |
+| POST | `/v1/auth/google` | `{ id_token, scope: "provider", currency? }` | `GoogleAuthResponse` |
 | POST | `/v1/auth/refresh` | `{ refreshToken }` | tokens |
 | POST | `/v1/auth/logout` | `{ refreshToken }` | — |
+
+**LPs can sign in with email/password OR Google** — offer both on the sign-in screen.
+
+```ts
+// POST /v1/auth/google  (Google Sign-In via @react-oauth/google → credential = id_token)
+// Always send scope:"provider". On a NEW account, currency is required (e.g. "NGN")
+// — collect it on the sign-up screen; returning LPs can omit it.
+interface GoogleAuthResponse {
+  access_token: string;     // note: snake_case (differs from LoginResponse camelCase)
+  refresh_token: string;
+  email: string;
+  scope: string;            // contains "provider"
+  is_new_user: boolean;     // true → route to onboarding
+}
+```
+Google-verified email skips the email-OTP step. Requires `GOOGLE_OAUTH_CLIENT_ID` set on the backend (same Google OAuth client as the web app).
 
 ```ts
 interface LoginResponse { accessToken: string; refreshToken: string; scopes: string[]; }
