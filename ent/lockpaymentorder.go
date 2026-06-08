@@ -53,6 +53,14 @@ type LockPaymentOrder struct {
 	CancellationCount int `json:"cancellation_count,omitempty"`
 	// CancellationReasons holds the value of the "cancellation_reasons" field.
 	CancellationReasons []string `json:"cancellation_reasons,omitempty"`
+	// FiatPayoutReference holds the value of the "fiat_payout_reference" field.
+	FiatPayoutReference string `json:"fiat_payout_reference,omitempty"`
+	// FiatPayoutSessionID holds the value of the "fiat_payout_session_id" field.
+	FiatPayoutSessionID string `json:"fiat_payout_session_id,omitempty"`
+	// FiatPayoutStatus holds the value of the "fiat_payout_status" field.
+	FiatPayoutStatus lockpaymentorder.FiatPayoutStatus `json:"fiat_payout_status,omitempty"`
+	// FiatPayoutError holds the value of the "fiat_payout_error" field.
+	FiatPayoutError string `json:"fiat_payout_error,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the LockPaymentOrderQuery when eager-loading is set.
 	Edges                                LockPaymentOrderEdges `json:"edges"`
@@ -141,7 +149,7 @@ func (*LockPaymentOrder) scanValues(columns []string) ([]any, error) {
 			values[i] = new(decimal.Decimal)
 		case lockpaymentorder.FieldBlockNumber, lockpaymentorder.FieldCancellationCount:
 			values[i] = new(sql.NullInt64)
-		case lockpaymentorder.FieldGatewayID, lockpaymentorder.FieldTxHash, lockpaymentorder.FieldStatus, lockpaymentorder.FieldInstitution, lockpaymentorder.FieldAccountIdentifier, lockpaymentorder.FieldAccountName, lockpaymentorder.FieldMemo:
+		case lockpaymentorder.FieldGatewayID, lockpaymentorder.FieldTxHash, lockpaymentorder.FieldStatus, lockpaymentorder.FieldInstitution, lockpaymentorder.FieldAccountIdentifier, lockpaymentorder.FieldAccountName, lockpaymentorder.FieldMemo, lockpaymentorder.FieldFiatPayoutReference, lockpaymentorder.FieldFiatPayoutSessionID, lockpaymentorder.FieldFiatPayoutStatus, lockpaymentorder.FieldFiatPayoutError:
 			values[i] = new(sql.NullString)
 		case lockpaymentorder.FieldCreatedAt, lockpaymentorder.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -265,6 +273,30 @@ func (lpo *LockPaymentOrder) assignValues(columns []string, values []any) error 
 				if err := json.Unmarshal(*value, &lpo.CancellationReasons); err != nil {
 					return fmt.Errorf("unmarshal field cancellation_reasons: %w", err)
 				}
+			}
+		case lockpaymentorder.FieldFiatPayoutReference:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field fiat_payout_reference", values[i])
+			} else if value.Valid {
+				lpo.FiatPayoutReference = value.String
+			}
+		case lockpaymentorder.FieldFiatPayoutSessionID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field fiat_payout_session_id", values[i])
+			} else if value.Valid {
+				lpo.FiatPayoutSessionID = value.String
+			}
+		case lockpaymentorder.FieldFiatPayoutStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field fiat_payout_status", values[i])
+			} else if value.Valid {
+				lpo.FiatPayoutStatus = lockpaymentorder.FiatPayoutStatus(value.String)
+			}
+		case lockpaymentorder.FieldFiatPayoutError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field fiat_payout_error", values[i])
+			} else if value.Valid {
+				lpo.FiatPayoutError = value.String
 			}
 		case lockpaymentorder.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -392,6 +424,18 @@ func (lpo *LockPaymentOrder) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cancellation_reasons=")
 	builder.WriteString(fmt.Sprintf("%v", lpo.CancellationReasons))
+	builder.WriteString(", ")
+	builder.WriteString("fiat_payout_reference=")
+	builder.WriteString(lpo.FiatPayoutReference)
+	builder.WriteString(", ")
+	builder.WriteString("fiat_payout_session_id=")
+	builder.WriteString(lpo.FiatPayoutSessionID)
+	builder.WriteString(", ")
+	builder.WriteString("fiat_payout_status=")
+	builder.WriteString(fmt.Sprintf("%v", lpo.FiatPayoutStatus))
+	builder.WriteString(", ")
+	builder.WriteString("fiat_payout_error=")
+	builder.WriteString(lpo.FiatPayoutError)
 	builder.WriteByte(')')
 	return builder.String()
 }

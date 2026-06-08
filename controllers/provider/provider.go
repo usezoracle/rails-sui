@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	fastshot "github.com/opus-domini/fast-shot"
+	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
@@ -16,12 +17,12 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/token"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
+	"github.com/usezoracle/rails-sui/services/baas"
 	orderService "github.com/usezoracle/rails-sui/services/order"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
-	"github.com/shopspring/decimal"
 
 	"github.com/gin-gonic/gin"
 )
@@ -119,6 +120,8 @@ func (ctrl *ProviderController) GetLockPaymentOrders(ctx *gin.Context) {
 			AccountName:       order.AccountName,
 			TxHash:            order.TxHash,
 			Status:            order.Status,
+			FiatPayoutStatus:  string(order.FiatPayoutStatus),
+			FiatPayoutError:   order.FiatPayoutError,
 			Memo:              order.Memo,
 			Network:           order.Edges.Token.Edges.Network.Identifier,
 			UpdatedAt:         order.UpdatedAt,
@@ -727,11 +730,125 @@ func (ctrl *ProviderController) Stats(ctx *gin.Context) {
 		return
 	}
 
+	// Per-status breakdown across all of the provider's orders.
+	statusBreakdown := map[string]int{}
+	for _, st := range []lockpaymentorder.Status{
+		lockpaymentorder.StatusPending, lockpaymentorder.StatusProcessing,
+		lockpaymentorder.StatusFulfilled, lockpaymentorder.StatusValidated,
+		lockpaymentorder.StatusSettled, lockpaymentorder.StatusCancelled,
+		lockpaymentorder.StatusRefunded,
+	} {
+		c, err := storage.Client.LockPaymentOrder.Query().
+			Where(
+				lockpaymentorder.HasProviderWith(providerprofile.IDEQ(provider.ID)),
+				lockpaymentorder.StatusEQ(st),
+			).Count(ctx)
+		if err != nil {
+			logger.Errorf("error: %v", err)
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to fetch provider stats", nil)
+			return
+		}
+		statusBreakdown[string(st)] = c
+	}
+
+	// Fiat payout breakdown across settled orders — surfaces payouts needing attention.
+	payoutBreakdown := map[string]int{}
+	for _, ps := range []lockpaymentorder.FiatPayoutStatus{
+		lockpaymentorder.FiatPayoutStatusNone, lockpaymentorder.FiatPayoutStatusPending,
+		lockpaymentorder.FiatPayoutStatusSuccess, lockpaymentorder.FiatPayoutStatusFailed,
+	} {
+		c, err := storage.Client.LockPaymentOrder.Query().
+			Where(
+				lockpaymentorder.HasProviderWith(providerprofile.IDEQ(provider.ID)),
+				lockpaymentorder.FiatPayoutStatusEQ(ps),
+			).Count(ctx)
+		if err != nil {
+			logger.Errorf("error: %v", err)
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to fetch provider stats", nil)
+			return
+		}
+		payoutBreakdown[string(ps)] = c
+	}
+
 	u.APIResponse(ctx, http.StatusOK, "success", "Provider stats fetched successfully", &types.ProviderStatsResponse{
-		TotalOrders:       count,
-		TotalFiatVolume:   totalFiatVolume,
-		TotalCryptoVolume: v[0].Sum,
+		TotalOrders:         count,
+		TotalFiatVolume:     totalFiatVolume,
+		TotalCryptoVolume:   v[0].Sum,
+		StatusBreakdown:     statusBreakdown,
+		FiatPayoutBreakdown: payoutBreakdown,
 	})
+}
+
+// GetBalance returns the LP's delegated Naira float (from the BaaS rail) and
+// USDC settlement positions — the operational heart of the LP dashboard. The
+// Naira side degrades gracefully: if the rail is unconfigured or the account
+// id isn't set yet, it returns available=false with a reason rather than failing.
+func (ctrl *ProviderController) GetBalance(ctx *gin.Context) {
+	providerCtx, ok := ctx.Get("provider")
+	if !ok {
+		u.APIResponse(ctx, http.StatusUnauthorized, "error", "Invalid API key or token", nil)
+		return
+	}
+	providerID := providerCtx.(*ent.ProviderProfile).ID
+
+	// Reload with order tokens (settlement wallets) — the context profile may
+	// not have edges loaded.
+	provider, err := storage.Client.ProviderProfile.
+		Query().
+		Where(providerprofile.IDEQ(providerID)).
+		WithOrderTokens().
+		Only(ctx)
+	if err != nil {
+		logger.Errorf("error: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to fetch balance", nil)
+		return
+	}
+
+	resp := types.ProviderBalanceResponse{}
+
+	// Naira float from the BaaS rail.
+	resp.Naira.AccountNumber = provider.SafehavenAccountNumber
+	switch {
+	case baas.Default() == nil:
+		resp.Naira.Reason = "baas rail not configured"
+	case provider.SafehavenAccountID == "":
+		resp.Naira.Reason = "deposit account not provisioned"
+	default:
+		if acct, err := baas.Default().GetAccount(ctx, provider.SafehavenAccountID); err == nil {
+			resp.Naira.Available = true
+			resp.Naira.AccountNumber = acct.AccountNumber
+			resp.Naira.AccountName = acct.AccountName
+			resp.Naira.Balance = acct.Balance
+			resp.Naira.LedgerBalance = acct.LedgerBalance
+			resp.Naira.Status = acct.Status
+		} else {
+			logger.Errorf("GetBalance %s: rail account: %v", provider.ID, err)
+			resp.Naira.Reason = "rail account read failed"
+		}
+	}
+
+	// USDC settlement positions: total settled + configured wallets.
+	var settled []struct{ Sum decimal.Decimal }
+	if err := storage.Client.LockPaymentOrder.Query().
+		Where(
+			lockpaymentorder.HasProviderWith(providerprofile.IDEQ(provider.ID)),
+			lockpaymentorder.StatusEQ(lockpaymentorder.StatusSettled),
+		).
+		Aggregate(ent.Sum(lockpaymentorder.FieldAmount)).
+		Scan(ctx, &settled); err == nil && len(settled) > 0 {
+		resp.USDC.TotalSettled = settled[0].Sum
+	}
+	for _, t := range provider.Edges.OrderTokens {
+		for _, a := range t.Addresses {
+			resp.USDC.Wallets = append(resp.USDC.Wallets, types.SettlementWallet{
+				Token:   t.Symbol,
+				Network: a.Network,
+				Address: a.Address,
+			})
+		}
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Balance fetched successfully", resp)
 }
 
 // NodeInfo controller fetches the provision node info

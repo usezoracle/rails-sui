@@ -5350,6 +5350,10 @@ type LockPaymentOrderMutation struct {
 	addcancellation_count      *int
 	cancellation_reasons       *[]string
 	appendcancellation_reasons []string
+	fiat_payout_reference      *string
+	fiat_payout_session_id     *string
+	fiat_payout_status         *lockpaymentorder.FiatPayoutStatus
+	fiat_payout_error          *string
 	clearedFields              map[string]struct{}
 	token                      *int
 	clearedtoken               bool
@@ -6153,6 +6157,189 @@ func (m *LockPaymentOrderMutation) ResetCancellationReasons() {
 	m.appendcancellation_reasons = nil
 }
 
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (m *LockPaymentOrderMutation) SetFiatPayoutReference(s string) {
+	m.fiat_payout_reference = &s
+}
+
+// FiatPayoutReference returns the value of the "fiat_payout_reference" field in the mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutReference() (r string, exists bool) {
+	v := m.fiat_payout_reference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiatPayoutReference returns the old "fiat_payout_reference" field's value of the LockPaymentOrder entity.
+// If the LockPaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LockPaymentOrderMutation) OldFiatPayoutReference(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiatPayoutReference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiatPayoutReference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiatPayoutReference: %w", err)
+	}
+	return oldValue.FiatPayoutReference, nil
+}
+
+// ClearFiatPayoutReference clears the value of the "fiat_payout_reference" field.
+func (m *LockPaymentOrderMutation) ClearFiatPayoutReference() {
+	m.fiat_payout_reference = nil
+	m.clearedFields[lockpaymentorder.FieldFiatPayoutReference] = struct{}{}
+}
+
+// FiatPayoutReferenceCleared returns if the "fiat_payout_reference" field was cleared in this mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutReferenceCleared() bool {
+	_, ok := m.clearedFields[lockpaymentorder.FieldFiatPayoutReference]
+	return ok
+}
+
+// ResetFiatPayoutReference resets all changes to the "fiat_payout_reference" field.
+func (m *LockPaymentOrderMutation) ResetFiatPayoutReference() {
+	m.fiat_payout_reference = nil
+	delete(m.clearedFields, lockpaymentorder.FieldFiatPayoutReference)
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (m *LockPaymentOrderMutation) SetFiatPayoutSessionID(s string) {
+	m.fiat_payout_session_id = &s
+}
+
+// FiatPayoutSessionID returns the value of the "fiat_payout_session_id" field in the mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutSessionID() (r string, exists bool) {
+	v := m.fiat_payout_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiatPayoutSessionID returns the old "fiat_payout_session_id" field's value of the LockPaymentOrder entity.
+// If the LockPaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LockPaymentOrderMutation) OldFiatPayoutSessionID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiatPayoutSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiatPayoutSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiatPayoutSessionID: %w", err)
+	}
+	return oldValue.FiatPayoutSessionID, nil
+}
+
+// ClearFiatPayoutSessionID clears the value of the "fiat_payout_session_id" field.
+func (m *LockPaymentOrderMutation) ClearFiatPayoutSessionID() {
+	m.fiat_payout_session_id = nil
+	m.clearedFields[lockpaymentorder.FieldFiatPayoutSessionID] = struct{}{}
+}
+
+// FiatPayoutSessionIDCleared returns if the "fiat_payout_session_id" field was cleared in this mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutSessionIDCleared() bool {
+	_, ok := m.clearedFields[lockpaymentorder.FieldFiatPayoutSessionID]
+	return ok
+}
+
+// ResetFiatPayoutSessionID resets all changes to the "fiat_payout_session_id" field.
+func (m *LockPaymentOrderMutation) ResetFiatPayoutSessionID() {
+	m.fiat_payout_session_id = nil
+	delete(m.clearedFields, lockpaymentorder.FieldFiatPayoutSessionID)
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (m *LockPaymentOrderMutation) SetFiatPayoutStatus(lps lockpaymentorder.FiatPayoutStatus) {
+	m.fiat_payout_status = &lps
+}
+
+// FiatPayoutStatus returns the value of the "fiat_payout_status" field in the mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutStatus() (r lockpaymentorder.FiatPayoutStatus, exists bool) {
+	v := m.fiat_payout_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiatPayoutStatus returns the old "fiat_payout_status" field's value of the LockPaymentOrder entity.
+// If the LockPaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LockPaymentOrderMutation) OldFiatPayoutStatus(ctx context.Context) (v lockpaymentorder.FiatPayoutStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiatPayoutStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiatPayoutStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiatPayoutStatus: %w", err)
+	}
+	return oldValue.FiatPayoutStatus, nil
+}
+
+// ResetFiatPayoutStatus resets all changes to the "fiat_payout_status" field.
+func (m *LockPaymentOrderMutation) ResetFiatPayoutStatus() {
+	m.fiat_payout_status = nil
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (m *LockPaymentOrderMutation) SetFiatPayoutError(s string) {
+	m.fiat_payout_error = &s
+}
+
+// FiatPayoutError returns the value of the "fiat_payout_error" field in the mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutError() (r string, exists bool) {
+	v := m.fiat_payout_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFiatPayoutError returns the old "fiat_payout_error" field's value of the LockPaymentOrder entity.
+// If the LockPaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LockPaymentOrderMutation) OldFiatPayoutError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFiatPayoutError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFiatPayoutError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFiatPayoutError: %w", err)
+	}
+	return oldValue.FiatPayoutError, nil
+}
+
+// ClearFiatPayoutError clears the value of the "fiat_payout_error" field.
+func (m *LockPaymentOrderMutation) ClearFiatPayoutError() {
+	m.fiat_payout_error = nil
+	m.clearedFields[lockpaymentorder.FieldFiatPayoutError] = struct{}{}
+}
+
+// FiatPayoutErrorCleared returns if the "fiat_payout_error" field was cleared in this mutation.
+func (m *LockPaymentOrderMutation) FiatPayoutErrorCleared() bool {
+	_, ok := m.clearedFields[lockpaymentorder.FieldFiatPayoutError]
+	return ok
+}
+
+// ResetFiatPayoutError resets all changes to the "fiat_payout_error" field.
+func (m *LockPaymentOrderMutation) ResetFiatPayoutError() {
+	m.fiat_payout_error = nil
+	delete(m.clearedFields, lockpaymentorder.FieldFiatPayoutError)
+}
+
 // SetTokenID sets the "token" edge to the Token entity by id.
 func (m *LockPaymentOrderMutation) SetTokenID(id int) {
 	m.token = &id
@@ -6412,7 +6599,7 @@ func (m *LockPaymentOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *LockPaymentOrderMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 19)
 	if m.created_at != nil {
 		fields = append(fields, lockpaymentorder.FieldCreatedAt)
 	}
@@ -6458,6 +6645,18 @@ func (m *LockPaymentOrderMutation) Fields() []string {
 	if m.cancellation_reasons != nil {
 		fields = append(fields, lockpaymentorder.FieldCancellationReasons)
 	}
+	if m.fiat_payout_reference != nil {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutReference)
+	}
+	if m.fiat_payout_session_id != nil {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutSessionID)
+	}
+	if m.fiat_payout_status != nil {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutStatus)
+	}
+	if m.fiat_payout_error != nil {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutError)
+	}
 	return fields
 }
 
@@ -6496,6 +6695,14 @@ func (m *LockPaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.CancellationCount()
 	case lockpaymentorder.FieldCancellationReasons:
 		return m.CancellationReasons()
+	case lockpaymentorder.FieldFiatPayoutReference:
+		return m.FiatPayoutReference()
+	case lockpaymentorder.FieldFiatPayoutSessionID:
+		return m.FiatPayoutSessionID()
+	case lockpaymentorder.FieldFiatPayoutStatus:
+		return m.FiatPayoutStatus()
+	case lockpaymentorder.FieldFiatPayoutError:
+		return m.FiatPayoutError()
 	}
 	return nil, false
 }
@@ -6535,6 +6742,14 @@ func (m *LockPaymentOrderMutation) OldField(ctx context.Context, name string) (e
 		return m.OldCancellationCount(ctx)
 	case lockpaymentorder.FieldCancellationReasons:
 		return m.OldCancellationReasons(ctx)
+	case lockpaymentorder.FieldFiatPayoutReference:
+		return m.OldFiatPayoutReference(ctx)
+	case lockpaymentorder.FieldFiatPayoutSessionID:
+		return m.OldFiatPayoutSessionID(ctx)
+	case lockpaymentorder.FieldFiatPayoutStatus:
+		return m.OldFiatPayoutStatus(ctx)
+	case lockpaymentorder.FieldFiatPayoutError:
+		return m.OldFiatPayoutError(ctx)
 	}
 	return nil, fmt.Errorf("unknown LockPaymentOrder field %s", name)
 }
@@ -6649,6 +6864,34 @@ func (m *LockPaymentOrderMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetCancellationReasons(v)
 		return nil
+	case lockpaymentorder.FieldFiatPayoutReference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiatPayoutReference(v)
+		return nil
+	case lockpaymentorder.FieldFiatPayoutSessionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiatPayoutSessionID(v)
+		return nil
+	case lockpaymentorder.FieldFiatPayoutStatus:
+		v, ok := value.(lockpaymentorder.FiatPayoutStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiatPayoutStatus(v)
+		return nil
+	case lockpaymentorder.FieldFiatPayoutError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFiatPayoutError(v)
+		return nil
 	}
 	return fmt.Errorf("unknown LockPaymentOrder field %s", name)
 }
@@ -6748,6 +6991,15 @@ func (m *LockPaymentOrderMutation) ClearedFields() []string {
 	if m.FieldCleared(lockpaymentorder.FieldMemo) {
 		fields = append(fields, lockpaymentorder.FieldMemo)
 	}
+	if m.FieldCleared(lockpaymentorder.FieldFiatPayoutReference) {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutReference)
+	}
+	if m.FieldCleared(lockpaymentorder.FieldFiatPayoutSessionID) {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutSessionID)
+	}
+	if m.FieldCleared(lockpaymentorder.FieldFiatPayoutError) {
+		fields = append(fields, lockpaymentorder.FieldFiatPayoutError)
+	}
 	return fields
 }
 
@@ -6767,6 +7019,15 @@ func (m *LockPaymentOrderMutation) ClearField(name string) error {
 		return nil
 	case lockpaymentorder.FieldMemo:
 		m.ClearMemo()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutReference:
+		m.ClearFiatPayoutReference()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutSessionID:
+		m.ClearFiatPayoutSessionID()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutError:
+		m.ClearFiatPayoutError()
 		return nil
 	}
 	return fmt.Errorf("unknown LockPaymentOrder nullable field %s", name)
@@ -6820,6 +7081,18 @@ func (m *LockPaymentOrderMutation) ResetField(name string) error {
 		return nil
 	case lockpaymentorder.FieldCancellationReasons:
 		m.ResetCancellationReasons()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutReference:
+		m.ResetFiatPayoutReference()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutSessionID:
+		m.ResetFiatPayoutSessionID()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutStatus:
+		m.ResetFiatPayoutStatus()
+		return nil
+	case lockpaymentorder.FieldFiatPayoutError:
+		m.ResetFiatPayoutError()
 		return nil
 	}
 	return fmt.Errorf("unknown LockPaymentOrder field %s", name)

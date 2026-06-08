@@ -410,6 +410,8 @@ type LockPaymentOrderResponse struct {
 	Memo              string                  `json:"memo"`
 	Network           string                  `json:"network"`
 	Status            lockpaymentorder.Status `json:"status"`
+	FiatPayoutStatus  string                  `json:"fiatPayoutStatus"`
+	FiatPayoutError   string                  `json:"fiatPayoutError,omitempty"`
 	UpdatedAt         time.Time               `json:"updatedAt"`
 	CreatedAt         time.Time               `json:"createdAt"`
 	Transactions      []TransactionLog        `json:"transactionLogs"`
@@ -647,6 +649,46 @@ type ProviderStatsResponse struct {
 	TotalOrders       int             `json:"totalOrders"`
 	TotalFiatVolume   decimal.Decimal `json:"totalFiatVolume"`
 	TotalCryptoVolume decimal.Decimal `json:"totalCryptoVolume"`
+	// StatusBreakdown counts the provider's orders by lifecycle status (pending,
+	// processing, fulfilled, validated, settled, cancelled, refunded).
+	StatusBreakdown map[string]int `json:"statusBreakdown"`
+	// FiatPayoutBreakdown counts settled orders by fiat payout status (none,
+	// pending, success, failed) — surfaces payouts that need attention.
+	FiatPayoutBreakdown map[string]int `json:"fiatPayoutBreakdown"`
+}
+
+// ProviderBalanceResponse is the response for the provider balance endpoint — the
+// two sides of the LP's liquidity: the delegated Naira float (debited on every
+// auto-pay) and the USDC settlement positions.
+type ProviderBalanceResponse struct {
+	Naira NairaFloat            `json:"naira"`
+	USDC  ProviderUSDCPositions `json:"usdc"`
+}
+
+// NairaFloat is the LP's delegated BaaS sub-account state. Available is the
+// spendable balance; a depleted float fails auto-pays.
+type NairaFloat struct {
+	Available     bool            `json:"available"` // false when the rail/account isn't readable yet
+	AccountNumber string          `json:"accountNumber"`
+	AccountName   string          `json:"accountName"`
+	Balance       decimal.Decimal `json:"balance"`
+	LedgerBalance decimal.Decimal `json:"ledgerBalance"`
+	Status        string          `json:"status"`
+	Reason        string          `json:"reason,omitempty"` // why unavailable, when applicable
+}
+
+// ProviderUSDCPositions is the settlement side: total settled to date plus the
+// configured settlement wallets per network.
+type ProviderUSDCPositions struct {
+	TotalSettled decimal.Decimal    `json:"totalSettled"`
+	Wallets      []SettlementWallet `json:"wallets"`
+}
+
+// SettlementWallet is one configured settlement address for a token/network.
+type SettlementWallet struct {
+	Token   string `json:"token"`
+	Network string `json:"network"`
+	Address string `json:"address"`
 }
 
 // VerifyAccountRequest is the request for account verification of an institution

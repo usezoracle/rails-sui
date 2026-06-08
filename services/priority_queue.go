@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	fastshot "github.com/opus-domini/fast-shot"
 	"github.com/shopspring/decimal"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/usezoracle/rails-sui/ent/providerordertoken"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/provisionbucket"
+	"github.com/usezoracle/rails-sui/services/baas"
+	orderpkg "github.com/usezoracle/rails-sui/services/order"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
 	"github.com/usezoracle/rails-sui/utils"
@@ -63,7 +66,11 @@ func (s *PriorityQueueService) GetProvisionBuckets(ctx context.Context) ([]*ent.
 			// ppq.WithProviderRating(func(prq *ent.ProviderRatingQuery) {
 			// 	prq.Select(providerrating.FieldTrustScore)
 			// })
-			ppq.Select(providerprofile.FieldID)
+			ppq.Select(
+				providerprofile.FieldID,
+				providerprofile.FieldHostIdentifier,
+				providerprofile.FieldSafehavenAccountID,
+			)
 
 			// Filter only providers that are always available
 			ppq.Where(
@@ -139,6 +146,26 @@ func (s *PriorityQueueService) CreatePriorityQueueForBucket(ctx context.Context,
 	}
 
 	for _, provider := range providers {
+		// Float pre-filter (platform-operated LPs only): don't enqueue an LP
+		// whose delegated sub-account can't cover even the smallest order in this
+		// bucket (bucket.MinAmount is fiat/NGN). Keeps dry LPs out of the queue so
+		// they aren't matched then immediately reassigned. Node-operated LPs (own
+		// host identifier) and the unconfigured-rail case are unaffected; per-order
+		// coverage is still re-checked at execution time. Best-effort: on a balance
+		// read error we enqueue anyway and let execution handle it.
+		if rail := baas.Default(); rail != nil && provider.HostIdentifier == "" {
+			if provider.SafehavenAccountID == "" {
+				logger.Infof("priority queue: skip LP %s for bucket %s — no delegated sub-account", provider.ID, redisKey)
+				continue
+			}
+			if acct, err := rail.GetAccount(ctx, provider.SafehavenAccountID); err != nil {
+				logger.Warnf("priority queue: LP %s balance read failed, enqueuing anyway: %v", provider.ID, err)
+			} else if acct.Balance.LessThan(bucket.MinAmount) {
+				logger.Infof("priority queue: skip LP %s — float %s < bucket min %s", provider.ID, acct.Balance, bucket.MinAmount)
+				continue
+			}
+		}
+
 		tokens, err := storage.Client.ProviderOrderToken.
 			Query().
 			Where(
@@ -388,6 +415,24 @@ func (s *PriorityQueueService) notifyProvider(ctx context.Context, orderRequestD
 		Only(ctx)
 	if err != nil {
 		return err
+	}
+
+	// Platform-operated execution. The only structural difference from Paycrest:
+	// when the LP runs no node (no host identifier), the platform operates the
+	// LP's delegated BaaS sub-account directly — pay the recipient's Naira, then
+	// settle — instead of POSTing an order request to a node for the node to pay.
+	// Fiat-first, float-aware, idempotent: see order.ExecuteOrderService.
+	if provider.HostIdentifier == "" {
+		orderID, ok := orderRequestData["orderId"].(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("notifyProvider: missing orderId for platform execution of provider %s", providerID)
+		}
+		go func() {
+			if err := orderpkg.NewExecuteOrderService().Execute(context.Background(), orderID, providerID); err != nil {
+				logger.Errorf("platform execute %s (provider %s): %v", orderID, providerID, err)
+			}
+		}()
+		return nil
 	}
 
 	// Compute HMAC

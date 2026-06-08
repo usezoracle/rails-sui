@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/usezoracle/rails-sui/config"
-	"github.com/usezoracle/rails-sui/services/baas/safehaven"
+	"github.com/usezoracle/rails-sui/services/baas"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
@@ -50,9 +50,9 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 		return
 	}
 
-	client := safehaven.Default()
+	client := baas.Default()
 	if client == nil {
-		u.APIResponse(ctx, http.StatusServiceUnavailable, "error", "safe haven not configured", nil)
+		u.APIResponse(ctx, http.StatusServiceUnavailable, "error", "baas rail not configured", nil)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 		"beneficiary_name":    enq.AccountName,
 		"beneficiary_bank":    body.BeneficiaryBankCode,
 		"amount":              amount.String(),
-		"reference":           safehaven.PaymentReference("admin", body.Reference),
+		"reference":           baas.PaymentReference("admin", body.Reference),
 	}
 
 	if !body.Confirm {
@@ -87,14 +87,14 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 		return
 	}
 
-	res, err := client.Transfer(ctx, safehaven.TransferRequest{
-		NameEnquiryReference: enq.SessionID,
+	res, err := client.Transfer(ctx, baas.TransferRequest{
+		NameEnquiryReference: enq.Reference,
 		DebitAccountNumber:   debit,
 		BeneficiaryBankCode:  body.BeneficiaryBankCode,
 		BeneficiaryAccount:   body.BeneficiaryAccount,
 		Amount:               amount,
 		Narration:            body.Narration,
-		PaymentReference:     safehaven.PaymentReference("admin", body.Reference),
+		PaymentReference:     baas.PaymentReference("admin", body.Reference),
 		SaveBeneficiary:      false,
 	})
 	if err != nil {
@@ -104,8 +104,8 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 		return
 	}
 
-	plan["status"] = res.Status
-	plan["session_id"] = res.SessionID
+	plan["status"] = res.RawStatus
+	plan["session_id"] = res.Reference
 	writeAudit(ctx, "funding.transfer", body.BeneficiaryAccount, plan)
 	u.APIResponse(ctx, http.StatusOK, "success", "transfer submitted", plan)
 }

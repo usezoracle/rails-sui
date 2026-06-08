@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/routers"
+	"github.com/usezoracle/rails-sui/services/baas"
 	"github.com/usezoracle/rails-sui/services/baas/safehaven"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/tasks"
@@ -33,21 +36,13 @@ func main() {
 		logger.Fatalf("Redis initialization: %s", err)
 	}
 
-	// Initialize the Safe Haven (BaaS) fiat rail. Absent credentials are
-	// non-fatal (Route A `mode=lp` and other flows don't need it); present but
-	// invalid credentials fail fast so misconfiguration surfaces at boot.
-	shConf := config.SafehavenConfig()
-	switch shClient, err := safehaven.NewClientFromCredentials(
-		shConf.ClientID, shConf.PrivateKeyPEM, shConf.BaseURL, shConf.Audience, shConf.Issuer,
-	); {
-	case errors.Is(err, safehaven.ErrNotConfigured):
-		logger.Infof("Safe Haven BaaS rail not configured; fiat payout routes disabled")
-	case err != nil:
-		logger.Fatalf("Safe Haven init: %s", err)
-	default:
-		safehaven.SetDefault(shClient)
-		logger.Infof("Safe Haven BaaS rail ready")
-	}
+	// Initialize the BaaS (NGN fiat) rail behind the provider-agnostic baas
+	// adapter, selected by BAAS_PROVIDER (default "safehaven"). Absent
+	// credentials are non-fatal (Route A `mode=lp` and other flows don't need
+	// it); present but invalid credentials fail fast so misconfiguration
+	// surfaces at boot. To switch providers, add a case here — no consumer
+	// changes (they all depend on baas.Default()).
+	initBaaSRail()
 
 	// Subscribe to Redis keyspace events
 	tasks.SubscribeToRedisKeyspaceEvents()
@@ -62,4 +57,28 @@ func main() {
 	logger.Infof("Server Running at :%v", appServer)
 
 	logger.Fatalf("%v", router.Run(appServer))
+}
+
+// initBaaSRail builds the configured BaaS provider and registers it as the
+// process-wide baas.Default(). The composition root is the only place that
+// knows a concrete vendor; everything else depends on the baas interface.
+func initBaaSRail() {
+	viper.SetDefault("BAAS_PROVIDER", "safehaven")
+	switch provider := viper.GetString("BAAS_PROVIDER"); provider {
+	case "safehaven":
+		shConf := config.SafehavenConfig()
+		switch shClient, err := safehaven.NewClientFromCredentials(
+			shConf.ClientID, shConf.PrivateKeyPEM, shConf.BaseURL, shConf.Audience, shConf.Issuer,
+		); {
+		case errors.Is(err, safehaven.ErrNotConfigured):
+			logger.Infof("BaaS rail (safehaven) not configured; fiat payout routes disabled")
+		case err != nil:
+			logger.Fatalf("BaaS rail (safehaven) init: %s", err)
+		default:
+			baas.SetDefault(safehaven.NewAdapter(shClient, shConf.WebhookSecret))
+			logger.Infof("BaaS rail ready (provider=safehaven)")
+		}
+	default:
+		logger.Fatalf("BaaS rail: unknown BAAS_PROVIDER %q", provider)
+	}
 }
