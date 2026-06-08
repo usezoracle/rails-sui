@@ -548,9 +548,10 @@ func fetchPaycrestRate(currency string) (decimal.Decimal, error) {
 	return decimal.NewFromString(raw)
 }
 
-// fetchQuidaxRate reads the USDT/<fiat> buy ticker from Quidax.
+// fetchQuidaxRate reads the USDT/<fiat> buy ticker from Quidax. Note the API
+// lives on app.quidax.io — the old www.quidax.com host now blackholes requests.
 func fetchQuidaxRate(currency string) (decimal.Decimal, error) {
-	res, err := fastshot.NewClient("https://www.quidax.com").
+	res, err := fastshot.NewClient("https://app.quidax.io").
 		Config().SetTimeout(rateSourceTimeout).
 		Build().GET(fmt.Sprintf("/api/v1/markets/tickers/usdt%s", strings.ToLower(currency))).
 		Retry().Set(2, 3*time.Second).
