@@ -86,7 +86,7 @@ func TestGetParams(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "base_sender_fee_bps")
 }
 
-// TestFundingTransfer_Gates: bad amount → 400; valid body but Safe Haven not
+// TestFundingTransfer_Gates: bad amount → 400; valid body but the BaaS provider not
 // configured → 503 (the gate runs before any money moves).
 func TestFundingTransfer_Gates(t *testing.T) {
 	r := buildAdminRouter()
@@ -95,7 +95,7 @@ func TestFundingTransfer_Gates(t *testing.T) {
 		[]byte(`{"beneficiary_bank_code":"090286","beneficiary_account":"1","amount":"-5","reference":"x"}`))
 	assert.Equal(t, http.StatusBadRequest, bad.Code)
 
-	// Safe Haven is unconfigured in the test binary (Default() == nil).
+	// the BaaS provider is unconfigured in the test binary (Default() == nil).
 	unconfigured := do(r, http.MethodPost, "/v1/admin/funding/transfer",
 		[]byte(`{"beneficiary_bank_code":"090286","beneficiary_account":"1234567890","amount":"100","reference":"x"}`))
 	assert.Equal(t, http.StatusServiceUnavailable, unconfigured.Code)

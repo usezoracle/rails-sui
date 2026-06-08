@@ -1,4 +1,4 @@
-package safehaven
+package mfb
 
 import (
 	"errors"
@@ -6,10 +6,10 @@ import (
 	"sync"
 )
 
-// ErrNotConfigured indicates Safe Haven credentials are absent. Callers should
+// ErrNotConfigured indicates the BaaS provider credentials are absent. Callers should
 // treat the fiat rail as unavailable (and fail the specific route) rather than
 // crash the whole process — Route A `mode=lp` and other flows don't need it.
-var ErrNotConfigured = errors.New("safehaven: not configured (set SAFEHAVEN_CLIENT_ID + SAFEHAVEN_PRIVATE_KEY)")
+var ErrNotConfigured = errors.New("mfb: not configured (set SAFEHAVEN_CLIENT_ID + SAFEHAVEN_PRIVATE_KEY)")
 
 // NewClientFromCredentials builds a Client from raw credentials. Returns
 // ErrNotConfigured when clientID or privateKeyPEM is empty; any other error
@@ -57,7 +57,7 @@ func Default() *Client {
 
 // PaymentReference builds a deterministic, idempotent transfer reference from a
 // route prefix and an order id, so a retried payout reuses the same reference
-// and Safe Haven rejects the duplicate instead of double-paying.
+// and the BaaS provider rejects the duplicate instead of double-paying.
 //
 //	PaymentReference("routeA", orderID) -> "routeA-<orderID>"
 func PaymentReference(prefix, orderID string) string {

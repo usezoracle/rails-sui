@@ -135,7 +135,7 @@ func main() {
 
 	// Native SUI — enables Route A `POST /v1/orders/route-a` with
 	// `"token": "SUI"`. The rate path composes LiFi (SUI→USDC) ×
-	// Paycrest (USDC→NGN) since there's no direct SUI/NGN venue;
+	// the aggregator (USDC→NGN) since there's no direct SUI/NGN venue;
 	// dispatcher bridges to Base USDC via LiFi as usual.
 	//
 	// Move-side prerequisite (one-off, run once per Gateway deploy
@@ -189,7 +189,7 @@ func main() {
 	fmt.Println("fiat currencies and provision buckets...")
 	currencies := []types.SupportedCurrencies{
 		// MarketRate seeded as 0 — never a fixed/seeded value. ComputeMarketRate
-		// (at boot + every 30m) sets the live rate from Paycrest/Binance/Quidax.
+		// (at boot + every 30m) sets the live rate from the aggregator/Binance/Quidax.
 		{Code: "NGN", Decimals: 2, Name: "Nigerian Naira", ShortName: "Naira", Symbol: "₦", MarketRate: decimal.Zero},
 		// {Code: "KES", Decimals: 2, Name: "Kenyan Shilling", ShortName: "Swahili", Symbol: "KSh", MarketRate: decimal.NewFromFloat(151.45)},
 	}

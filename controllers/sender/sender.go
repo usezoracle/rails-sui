@@ -479,11 +479,11 @@ func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
 	// Route A always bridges to Base + only NGN institutions are wired.
 	// Derive both from destination chain + recipient.institution in v1.5.
 	//
-	// USDC source: direct Paycrest NGN/USDC quote (LiFi USDC→USDC is
+	// USDC source: direct the aggregator NGN/USDC quote (LiFi USDC→USDC is
 	// effectively passthrough, ~0 slippage).
 	//
-	// Native SUI source: Paycrest has no SUI/NGN venue, so we compose
-	// the rate from (LiFi SUI→USDC) × (Paycrest USDC→NGN). See
+	// Native SUI source: the aggregator has no SUI/NGN venue, so we compose
+	// the rate from (LiFi SUI→USDC) × (the aggregator USDC→NGN). See
 	// services/route_a_quote.go.
 	settlementTTL := time.Duration(orderConf.SettlementPubkeyTTLSeconds) * time.Second
 	settlementClient := settlement.New(orderConf.SettlementAPIURL, settlementTTL)

@@ -1,4 +1,4 @@
-package safehaven
+package mfb
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/usezoracle/rails-sui/services/baas"
 )
 
-// Adapter makes the Safe Haven Client satisfy baas.Provider, translating Safe
+// Adapter makes the the BaaS provider Client satisfy baas.Provider, translating Safe
 // Haven's vendor types onto the provider-neutral domain and normalising its
 // status vocabulary. This is the only file that knows both worlds; everything
 // downstream depends on baas alone.
@@ -20,7 +20,7 @@ type Adapter struct {
 	webhookSecret string
 }
 
-// NewAdapter wraps a Safe Haven Client as a baas.Provider. webhookSecret is the
+// NewAdapter wraps a the BaaS provider Client as a baas.Provider. webhookSecret is the
 // HMAC secret for inbound callbacks ("" disables verification).
 func NewAdapter(client *Client, webhookSecret string) *Adapter {
 	return &Adapter{client: client, webhookSecret: webhookSecret}
@@ -156,7 +156,7 @@ func (a *Adapter) VerifyWebhook(body []byte, signature string) bool {
 	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(signature)))
 }
 
-// ParseWebhook decodes Safe Haven's transfer/credit callback into a neutral
+// ParseWebhook decodes the BaaS provider's transfer/credit callback into a neutral
 // event. Unknown keys are ignored so added fields stay non-breaking.
 func (a *Adapter) ParseWebhook(body []byte) (*baas.WebhookEvent, error) {
 	var p struct {
@@ -181,7 +181,7 @@ func (a *Adapter) ParseWebhook(body []byte) (*baas.WebhookEvent, error) {
 	}, nil
 }
 
-// toAccount maps a Safe Haven account onto the neutral type.
+// toAccount maps a the BaaS provider account onto the neutral type.
 func toAccount(ac Account) baas.Account {
 	return baas.Account{
 		ID:            ac.ID,
@@ -195,7 +195,7 @@ func toAccount(ac Account) baas.Account {
 	}
 }
 
-// toTransfer maps a Safe Haven transfer onto the neutral type, normalising status.
+// toTransfer maps a the BaaS provider transfer onto the neutral type, normalising status.
 func toTransfer(tr *Transfer) *baas.Transfer {
 	return &baas.Transfer{
 		Reference:        tr.SessionID,
@@ -209,7 +209,7 @@ func toTransfer(tr *Transfer) *baas.Transfer {
 	}
 }
 
-// normalizeStatus maps Safe Haven's status vocabulary onto baas.TransferStatus.
+// normalizeStatus maps the BaaS provider's status vocabulary onto baas.TransferStatus.
 // Unknown/empty values are treated as pending so a transfer is never assumed
 // terminal without evidence.
 func normalizeStatus(s string) baas.TransferStatus {

@@ -12,7 +12,7 @@ import (
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
-// transferRequest funds a beneficiary from a Safe Haven account (main float by
+// transferRequest funds a beneficiary from a the BaaS provider account (main float by
 // default, or an LP sub-account via DebitAccount). MONEY MOVEMENT.
 type transferRequest struct {
 	DebitAccount        string `json:"debit_account"` // default: SAFEHAVEN_DEBIT_ACCOUNT_NUMBER
@@ -24,7 +24,7 @@ type transferRequest struct {
 	Confirm             bool   `json:"confirm"`                      // false → dry-run (no money moves)
 }
 
-// Transfer moves NGN out of a Safe Haven account to a beneficiary. SAFE BY
+// Transfer moves NGN out of a the BaaS provider account to a beneficiary. SAFE BY
 // DEFAULT: with confirm=false it only name-enquiries and returns the plan; with
 // confirm=true it executes the transfer (idempotent on the supplied reference)
 // and audits it.
@@ -42,7 +42,7 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 		return
 	}
 
-	shConf := config.SafehavenConfig()
+	shConf := config.BaaSConfig()
 	// Guard against fat-finger / stolen-token catastrophe.
 	if shConf.MaxTransferNGN.IsPositive() && amount.GreaterThan(shConf.MaxTransferNGN) {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
@@ -66,7 +66,7 @@ func (c *FundingController) Transfer(ctx *gin.Context) {
 	}
 
 	// Always resolve the beneficiary name first (read-only) — also the
-	// idempotency-safe gate Safe Haven requires before a transfer.
+	// idempotency-safe gate the BaaS provider requires before a transfer.
 	enq, err := client.NameEnquiry(ctx, body.BeneficiaryBankCode, body.BeneficiaryAccount)
 	if err != nil {
 		u.APIResponse(ctx, http.StatusBadGateway, "error", "name enquiry failed: "+err.Error(), nil)

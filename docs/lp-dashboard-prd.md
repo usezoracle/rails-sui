@@ -10,12 +10,12 @@ Design mandate: **strictly follow the `tapp` design style and philosophy** (see 
 
 ## 1. Context & use case
 
-On the decentralized route, a liquidity provider (LP) is the counterparty that fronts fiat liquidity. **The route is fully automated: the system auto-matches orders and auto-pays Naira *from the LP's delegated, pre-funded Safe Haven sub-account*. The LP runs no paying infrastructure and never pays by hand. There is no human-in-the-loop order queue.**
+On the decentralized route, a liquidity provider (LP) is the counterparty that fronts fiat liquidity. **The route is fully automated: the system auto-matches orders and auto-pays Naira *from the LP's delegated, pre-funded the BaaS provider sub-account*. The LP runs no paying infrastructure and never pays by hand. There is no human-in-the-loop order queue.**
 
-1. The LP is provisioned a **dedicated Safe Haven sub-account** and **funds it with Naira** ("float"). They delegate it to the platform; the rails backend holds org-level Safe Haven OAuth credentials and is authorized to debit that sub-account. (`docs/safehaven-integration.md`; one sub-account per LP)
+1. The LP is provisioned a **dedicated the BaaS provider sub-account** and **funds it with Naira** ("float"). They delegate it to the platform; the rails backend holds org-level the BaaS provider OAuth credentials and is authorized to debit that sub-account. (`docs/mfb-integration.md`; one sub-account per LP)
 2. The LP configures what the auto-matcher should send them: settlement wallet(s), per-token rate, order-size range, availability, visibility.
 3. A merchant/sender creates an on-chain order. The **matching engine auto-assigns** it to an eligible LP from the Redis provision buckets (eligibility + rate + FIFO) — the LP does not browse or pick orders. (`services/priority_queue.go`)
-4. The backend **auto-pays** the recipient's NGN bank account by **debiting the LP's delegated sub-account** via Safe Haven `name-enquiry → transfer → status` (`services/baas/safehaven/client.go:90`). No LP node is required for the payout. (A legacy `POST {host_identifier}/new_order` HMAC notification path exists but is secondary to this debit.)
+4. The backend **auto-pays** the recipient's NGN bank account by **debiting the LP's delegated sub-account** via the BaaS provider `name-enquiry → transfer → status` (`services/baas/mfb/client.go:90`). No LP node is required for the payout. (A legacy `POST {host_identifier}/new_order` HMAC notification path exists but is secondary to this debit.)
 5. On payout confirmation, the aggregator **settles the LP in USDC** on Sui (escrow release). The LP earns the rate spread between the NGN debited and the USDC received.
 
 **This makes the dashboard a float-management + configuration + monitoring console, NOT a manual order-working queue and NOT a node-ops tool.** The platform does the matching and the paying *from the LP's money*; the LP's job — and the dashboard's center of gravity — is to **keep the delegated sub-account funded** (a dry account = failed transfers = the "Insufficient funds" cancel reason = lost volume), tune the rate/range/availability that steer the matcher, and watch auto-pays and settlements reconcile. The dashboard's jobs: (a) **fund & monitor the Naira float** (the dominant operational concern); (b) **configure** rates, ranges, wallets, availability, visibility; (c) **monitor** auto-pays and watch USDC settlements land in real time; (d) **reconcile** NGN debited vs USDC received and surface failed/insufficient-float payouts; (e) complete KYB/onboarding + manage credentials. The `accept/decline/fulfil/cancel` endpoints are primarily the **machine API**; in the dashboard they appear only as **manual override/exception controls**, not the core loop.
@@ -52,10 +52,10 @@ Audit of `/Users/mac/rails` (Go + Gin + ent + Redis + Sui). Verdict per subsyste
 | # | Gap | Impact on dashboard | Evidence | Priority |
 |---|---|---|---|---|
 | G1 | **No order-assignment push.** Orders land in Redis; LP must poll `GET /orders`. No webhook/SSE. | Dashboard must poll on an interval; "new order" is not real-time. Acceptable for MVP, but a poll cadence + a backend SSE/webhook is the right fix. | `services/priority_queue.go` (Redis `order_request_{id}`, no callback) | High |
-| G2 | **Safe Haven sub-account provisioning is out-of-band, not self-serve.** `CreateSubAccount` + `InitiateIdentity`/`ValidateIdentity` (BVN/NIN + OTP) are implemented but not auto-invoked; 11 LP sub-accounts already exist, provisioned manually. | Provisioning *is* happening, just not in-app. Onboarding shows the issued account as admin-gated status; self-serve provisioning is a fast-follow. | `services/baas/safehaven/client.go` (`CreateSubAccount`); `docs/safehaven-integration.md` §1 | High |
-| G2b | **Auto-pay `Transfer` built but NOT auto-invoked.** The debit-LP-sub-account payout primitive exists and is live-tested for reads, but the hook that fires `Transfer` after on-chain settle is not wired. | The "auto-pay from delegated account" loop is **not live end-to-end yet** — this must ship for the route (and dashboard) to mean anything. The dashboard should reflect real payout state, not assume it. | `services/baas/safehaven/client.go:90` (`Transfer` "implemented, not auto-invoked"); `docs/safehaven-integration.md` §2 (settle-trigger decision) | **Blocker** |
-| G3 | **Safe Haven settlement/transfer webhook + reconcile poll stubbed.** Inbound payout confirmation handler is a TODO; no `TransferStatus` reconcile cron. | Reconciliation (NGN debited vs USDC received) and payout-failure surfacing will have gaps until wired. | `controllers/safehaven_webhook.go:37` (`TODO(route-a/b/c)`); `docs/safehaven-integration.md` §2 (reconcile poll) | High |
-| G2c | **No LP-facing float-balance read.** Safe Haven `ListAccounts`/`GetAccount` exist server-side; no endpoint exposes the LP's own sub-account balance to the dashboard. | Balances & Float (§5.5) — the dashboard's most important page — needs a `GET /v1/provider/balance` (or similar). Highest-value small addition. | `services/baas/safehaven/client.go` (`GetAccount`) | High |
+| G2 | **the BaaS provider sub-account provisioning is out-of-band, not self-serve.** `CreateSubAccount` + `InitiateIdentity`/`ValidateIdentity` (BVN/NIN + OTP) are implemented but not auto-invoked; 11 LP sub-accounts already exist, provisioned manually. | Provisioning *is* happening, just not in-app. Onboarding shows the issued account as admin-gated status; self-serve provisioning is a fast-follow. | `services/baas/mfb/client.go` (`CreateSubAccount`); `docs/mfb-integration.md` §1 | High |
+| G2b | **Auto-pay `Transfer` built but NOT auto-invoked.** The debit-LP-sub-account payout primitive exists and is live-tested for reads, but the hook that fires `Transfer` after on-chain settle is not wired. | The "auto-pay from delegated account" loop is **not live end-to-end yet** — this must ship for the route (and dashboard) to mean anything. The dashboard should reflect real payout state, not assume it. | `services/baas/mfb/client.go:90` (`Transfer` "implemented, not auto-invoked"); `docs/mfb-integration.md` §2 (settle-trigger decision) | **Blocker** |
+| G3 | **the BaaS provider settlement/transfer webhook + reconcile poll stubbed.** Inbound payout confirmation handler is a TODO; no `TransferStatus` reconcile cron. | Reconciliation (NGN debited vs USDC received) and payout-failure surfacing will have gaps until wired. | `controllers/mfb_webhook.go:37` (`TODO(route-a/b/c)`); `docs/mfb-integration.md` §2 (reconcile poll) | High |
+| G2c | **No LP-facing float-balance read.** the BaaS provider `ListAccounts`/`GetAccount` exist server-side; no endpoint exposes the LP's own sub-account balance to the dashboard. | Balances & Float (§5.5) — the dashboard's most important page — needs a `GET /v1/provider/balance` (or similar). Highest-value small addition. | `services/baas/mfb/client.go` (`GetAccount`) | High |
 | G4 | **No automated KYB verification.** Fields stored; admin flips `is_kyb_verified` manually. | Onboarding = "submit docs → wait for admin." Dashboard needs a clear pending/under-review/verified status surface, not an instant flow. | `controllers/accounts/profile.go:283-315` | High |
 | G5 | **Rate/range per-token edit is registration-time only.** Explicit TODO to move rate+range management "to dashboard." | Settings → Rates page is a *new contract*: confirm `PATCH /settings/provider` accepts post-hoc token rate edits (it does today via `tokens[]`), but UX must make this first-class. | `controllers/accounts/profile.go:449` (`TODO: ... handled per token in dashboard`) | Medium |
 | G6 | **Stats are coarse.** Only totals; no status breakdown, no time series, no fee/commission, no payout-velocity. | Overview charts must either be computed client-side from the orders list or wait on a richer `/stats` (e.g. `?groupBy=status&from=&to=`). MVP: derive from orders; flag for a stats v2. | `controllers/provider/provider.go:678` | Medium |
@@ -66,15 +66,15 @@ Audit of `/Users/mac/rails` (Go + Gin + ent + Redis + Sui). Verdict per subsyste
 
 ### 2.3 Verdict
 
-**The LP system is ~60% production-ready and sufficient for an MVP dashboard.** The transactional spine (auth, profile, order accept/decline/fulfil/cancel, settlement, rates, stats) is live. The gaps are concentrated in **real-time push (G1), self-serve onboarding/Safe Haven (G2–G4), and analytics depth (G6–G7)** — none of which block a first dashboard, but G1–G4 should be on the same milestone so the LP experience isn't "poll-and-wait with an admin in the loop."
+**The LP system is ~60% production-ready and sufficient for an MVP dashboard.** The transactional spine (auth, profile, order accept/decline/fulfil/cancel, settlement, rates, stats) is live. The gaps are concentrated in **real-time push (G1), self-serve onboarding/the BaaS provider (G2–G4), and analytics depth (G6–G7)** — none of which block a first dashboard, but G1–G4 should be on the same milestone so the LP experience isn't "poll-and-wait with an admin in the loop."
 
-**Recommended build order:** (1) ship the MVP dashboard against existing endpoints with polling; (2) in parallel, wire Safe Haven provisioning + settlement webhook (G2/G3) and an SSE order stream (G1); (3) stats v2 + transactions endpoint (G6/G7).
+**Recommended build order:** (1) ship the MVP dashboard against existing endpoints with polling; (2) in parallel, wire the BaaS provider provisioning + settlement webhook (G2/G3) and an SSE order stream (G1); (3) stats v2 + transactions endpoint (G6/G7).
 
 ---
 
 ## 3. Design mandate — the tapp contract (STRICT)
 
-> **Every line below is binding.** The dashboard must look and move like it was cut from the same sheet as the `tapp` PWA (which itself mirrors `paycrest/zap`). Sources of truth: `tapp/app/globals.css`, `tapp/lib/motion.ts`, `tapp/docs/motion-guidelines.md`, `tapp/docs/ui-rework-spec.md`. When a token or rule below conflicts with a designer's instinct, the token wins.
+> **Every line below is binding.** The dashboard must look and move like it was cut from the same sheet as the `tapp` PWA (which itself mirrors `aggregator/zap`). Sources of truth: `tapp/app/globals.css`, `tapp/lib/motion.ts`, `tapp/docs/motion-guidelines.md`, `tapp/docs/ui-rework-spec.md`. When a token or rule below conflicts with a designer's instinct, the token wins.
 
 ### 3.0 The one sanctioned extension
 
@@ -170,7 +170,7 @@ LIQUIDITY
   ◆ Availability      /availability online/offline, visibility, provision buckets
 
 ACCOUNT
-  ◆ Onboarding/KYB    /onboarding  KYB status, Safe Haven account, docs  (badge when action needed)
+  ◆ Onboarding/KYB    /onboarding  KYB status, the BaaS provider account, docs  (badge when action needed)
   ◆ Settings          /settings    profile, API key/HMAC, security, node health
 ```
 
@@ -217,7 +217,7 @@ Every page: `<Screen>` content wrapper, `grid gap-6 py-10` rhythm, header block 
   - List of orders in `validated` / `settled` / `refunded`, each with: USDC amount, tx_hash chip (`font-mono`, links to Sui explorer), settlement status chip, timestamp.
   - **In-flight settlements** surfaced first with a pending chip; resolve to success chip + settle pulse on the destination row when the digest lands (continuity: indicator settles here).
   - Refunds (G9) derived from `refunded` status, shown with a neutral/amber chip and the original cancellation reason.
-- **Data:** `GET /provider/orders?status=validated|settled|refunded`; settlement aggregator status via existing polling (`services/settlement/client.go`). G3 caveat: until the Safe Haven webhook is wired, validated→settled may lag — show an honest "awaiting confirmation" pending state, never a fake success.
+- **Data:** `GET /provider/orders?status=validated|settled|refunded`; settlement aggregator status via existing polling (`services/settlement/client.go`). G3 caveat: until the the BaaS provider webhook is wired, validated→settled may lag — show an honest "awaiting confirmation" pending state, never a fake success.
 - **States:** skeleton; empty; explorer-link hover `opacity-70`.
 
 ### 5.4 Activity (`/activity`)
@@ -231,11 +231,11 @@ Every page: `<Screen>` content wrapper, `grid gap-6 py-10` rhythm, header block 
 
 - **Purpose:** keep the delegated Naira sub-account funded and reconcile the two sides of the LP's liquidity. This is the page the LP lives on: a dry float means every matched order's transfer fails. Float health is the dashboard's single most important signal.
 - **Content:**
-  - **Naira float card** (`rounded-3xl`, hero treatment) — the **available balance of the delegated Safe Haven sub-account**, `.tabular-nums`, count-up on mount; ledger vs available balance; account number (copyable `font-mono` chip) + account name. A **float-health status chip** (icon-only color): green (healthy), amber (low — below a configurable threshold relative to recent payout velocity), red (depleted/transfers will fail). **Funding instructions** — bank details to top up the sub-account (the LP funds it by bank transfer; the platform does not pull funds). If not yet provisioned, info banner → Onboarding.
+  - **Naira float card** (`rounded-3xl`, hero treatment) — the **available balance of the delegated the BaaS provider sub-account**, `.tabular-nums`, count-up on mount; ledger vs available balance; account number (copyable `font-mono` chip) + account name. A **float-health status chip** (icon-only color): green (healthy), amber (low — below a configurable threshold relative to recent payout velocity), red (depleted/transfers will fail). **Funding instructions** — bank details to top up the sub-account (the LP funds it by bank transfer; the platform does not pull funds). If not yet provisioned, info banner → Onboarding.
   - **Float runway** — an estimate of how long current balance lasts at recent payout velocity (derived from settled-order volume); the practical "do I need to top up?" answer. Honest/indicative labeling (depends on G6).
   - **USDC settlement positions** — per settlement address from `ProviderOrderToken.addresses` (`[{address, network}]`): network label, address chip (`font-mono`), settled-to-date. Count-up on mount.
   - **Reconciliation strip** — NGN debited vs USDC received over the period, with the realized rate spread (the LP's earnings). Split panels use dashed vertical rules; amounts `.tabular-nums`, stable format.
-- **Data:** `GET /settings/provider` (safehaven account fields + tokens[].addresses); Safe Haven account balance via the BaaS client (`ListAccounts`/`GetAccount`) — **needs a read endpoint exposed to the LP** (today only admin/server-side); settlement totals from stats/orders. Until the balance read is exposed, show ledger from the last known value with a "as of" timestamp.
+- **Data:** `GET /settings/provider` (mfb account fields + tokens[].addresses); the BaaS provider account balance via the BaaS client (`ListAccounts`/`GetAccount`) — **needs a read endpoint exposed to the LP** (today only admin/server-side); settlement totals from stats/orders. Until the balance read is exposed, show ledger from the last known value with a "as of" timestamp.
 - **States:** **low/depleted-float alert is the priority state** — a persistent amber/red banner here and globally (top strip) when the float can't cover expected payouts; un-provisioned account → banner; skeleton balances.
 
 ### 5.6 Rates & Tokens (`/rates`)
@@ -266,9 +266,9 @@ Every page: `<Screen>` content wrapper, `grid gap-6 py-10` rhythm, header block 
 - **Content (stepper — plain page nav for v1, per motion-guidelines §17):**
   1. **Business profile** — trading name, business name, address, mobile, DOB.
   2. **Identity & business docs** — identity_document_type, identity_document, business_document upload.
-  3. **Naira deposit account** — Safe Haven provisioning. **Until G2 is wired this is admin-gated**: show status (Not started / Submitted / **Under review** / Account issued) with an honest info banner ("Your deposit account is being provisioned. This currently completes within X.") and render the issued account number when present. Do **not** fake a self-serve flow that the backend can't fulfil.
+  3. **Naira deposit account** — the BaaS provider provisioning. **Until G2 is wired this is admin-gated**: show status (Not started / Submitted / **Under review** / Account issued) with an honest info banner ("Your deposit account is being provisioned. This currently completes within X.") and render the issued account number when present. Do **not** fake a self-serve flow that the backend can't fulfil.
   - **KYB status chip** at top: `is_kyb_verified` false → "Under review" (amber icon chip); true → "Verified" (green icon chip).
-- **Data:** `PATCH /settings/provider` (KYB fields); `is_kyb_verified` + safehaven fields read-only from `GET /settings/provider` (flipped by admin, G4/G2).
+- **Data:** `PATCH /settings/provider` (KYB fields); `is_kyb_verified` + mfb fields read-only from `GET /settings/provider` (flipped by admin, G4/G2).
 - **States:** each step skeleton/saved; verified state collapses the page to a summary; pending state is explicit and non-celebratory.
 
 ### 5.9 Settings (`/settings`)
@@ -292,7 +292,7 @@ Every page: `<Screen>` content wrapper, `grid gap-6 py-10` rhythm, header block 
 - **Empty / loading / error — the tapp way:** first-render data = **skeletons** sized to final content (never spinners). In-flight actions = the `.loader` primitive. Loading↔loaded swaps = `<CrossFade>`. Errors = blue `<InputError>` inline; page-level failures = amber info banner with retry, never a dead screen.
 - **Money formatting:** one formatter, `.tabular-nums`, stable decimals per token; NGN and USDC never reformat between states; count-up only on first arrival.
 - **Accessibility/motion:** every page honors `prefers-reduced-motion` via `useMotionPrefs` (keep haptics + color, drop travel/scale). 60fps budget — `transform`/`opacity` only.
-- **Icons & assets:** `react-icons` (`pi`/`fi`/`tb`) exclusively. **No `lucide-react`, no gradients, no shadows, no paycrest-branded silhouettes** (tapp D14/D15) — ship Sui + USDC marks only.
+- **Icons & assets:** `react-icons` (`pi`/`fi`/`tb`) exclusively. **No `lucide-react`, no gradients, no shadows, no aggregator-branded silhouettes** (tapp D14/D15) — ship Sui + USDC marks only.
 - **Component reuse:** lift the tapp primitives — `<Button>`, `<PressableScale>`, `<CountUp>`, `<CrossFade>`, `<AnimatedPage>`, status chip, info banner, TransactionPreview detail row, `SelectField`/`TabButton`/`InputError`/`PinInput` — rather than re-authoring. The dashboard is a *consumer* of the tapp design system, not a fork of it.
 
 ---
@@ -303,7 +303,7 @@ Every page: `<Screen>` content wrapper, `grid gap-6 py-10` rhythm, header block 
 
 **In (build now against live endpoints):** Sidebar shell · Overview · Orders (monitoring + manual override) · Settlements · Rates & Tokens · Availability · **Balances & Float** (the heart) · Onboarding (status surface) · Settings. Polling for freshness.
 
-**Fast-follow (depends on backend gaps):** SSE order push (G1) · self-serve Safe Haven sub-account provisioning (G2) · settlement/transfer webhook + reconcile poll (G3) · Activity on `/transactions` (G7) · stats v2 charts incl. float runway (G6).
+**Fast-follow (depends on backend gaps):** SSE order push (G1) · self-serve the BaaS provider sub-account provisioning (G2) · settlement/transfer webhook + reconcile poll (G3) · Activity on `/transactions` (G7) · stats v2 charts incl. float runway (G6).
 
 **Out of MVP:** Disputes/chargebacks (G8) · automated KYB (G4 stays admin-gated) · refund notifications (G9).
 
@@ -320,7 +320,7 @@ Every page: `<Screen>` content wrapper, `grid gap-6 py-10` rhythm, header block 
 ## 9. Open questions / dependencies
 
 1. **Real-time:** ship MVP with polling, or block on SSE (G1)? (Recommended: poll now, SSE fast-follow.)
-2. **Safe Haven self-serve (G2):** can `IdentityInit` (BVN/NIN + OTP) be wired this milestone, or does Onboarding stay admin-gated for v1? Drives whether §5.8 step 3 is interactive or status-only.
+2. **the BaaS provider self-serve (G2):** can `IdentityInit` (BVN/NIN + OTP) be wired this milestone, or does Onboarding stay admin-gated for v1? Drives whether §5.8 step 3 is interactive or status-only.
 3. **Stats depth (G6):** acceptable to derive Overview breakdowns client-side from the orders list for MVP, with a `/stats?groupBy&from&to` to follow?
 4. **Transactions endpoint (G7):** confirm a dedicated `GET /v1/provider/transactions` for the Activity ledger vs. deriving from orders.
 5. **Rate semantics (G10):** confirm whether the indicative-rate label is acceptable until the USD/token ratio TODO lands.

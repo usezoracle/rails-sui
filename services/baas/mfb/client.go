@@ -1,4 +1,4 @@
-package safehaven
+package mfb
 
 import (
 	"bytes"
@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-// Client is the authenticated Safe Haven REST client. It wraps an
+// Client is the authenticated the BaaS provider REST client. It wraps an
 // Authenticator and attaches a fresh bearer token to every request.
 //
 // Implemented so far: GetBanks (read-only, safe to call against live). The
 // money-movement methods — NameEnquiry, Transfer, TransferStatus — are the
 // next step and are deliberately left out until their exact request shapes
-// are confirmed and a live test is authorised. See docs/route-c-safehaven.md.
+// are confirmed and a live test is authorised. See docs/route-c-mfb.md.
 type Client struct {
 	auth       *Authenticator
 	httpClient *http.Client
@@ -61,12 +61,12 @@ func (c *Client) ListAccounts(ctx context.Context, isSubAccount bool) ([]Account
 	}
 	var arr []Account
 	if err := json.Unmarshal(raw, &arr); err != nil {
-		return nil, fmt.Errorf("safehaven: decode accounts: %w (data: %s)", err, string(raw))
+		return nil, fmt.Errorf("mfb: decode accounts: %w (data: %s)", err, string(raw))
 	}
 	return arr, nil
 }
 
-// GetAccount fetches one account (incl. balance) by Safe Haven account id.
+// GetAccount fetches one account (incl. balance) by the BaaS provider account id.
 // Read-only.
 func (c *Client) GetAccount(ctx context.Context, id string) (*Account, error) {
 	var acct Account
@@ -123,7 +123,7 @@ func (c *Client) InitiateIdentity(ctx context.Context, req IdentityInit) (*Ident
 }
 
 // ValidateIdentity completes verification with the OTP. type must match the
-// initiate call (BVN → BVNUSSD per Safe Haven's flow).
+// initiate call (BVN → BVNUSSD per the BaaS provider's flow).
 func (c *Client) ValidateIdentity(ctx context.Context, identityID, idType, otp string) (*IdentityResult, error) {
 	body := map[string]string{"identityId": identityID, "type": idType, "otp": otp}
 	var res IdentityResult
@@ -153,13 +153,13 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload, out a
 	}
 	if out != nil && len(data) > 0 {
 		if err := json.Unmarshal(data, out); err != nil {
-			return fmt.Errorf("safehaven: decode %s %s data: %w (data: %s)", method, path, err, string(data))
+			return fmt.Errorf("mfb: decode %s %s data: %w (data: %s)", method, path, err, string(data))
 		}
 	}
 	return nil
 }
 
-// doRaw performs an authenticated request against the Safe Haven REST API and
+// doRaw performs an authenticated request against the the BaaS provider REST API and
 // returns the envelope's raw data field. It treats a non-2xx HTTP status, or a
 // non-success responseCode, as an error.
 func (c *Client) doRaw(ctx context.Context, method, path string, payload any) (json.RawMessage, error) {
@@ -172,7 +172,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, payload any) (j
 	if payload != nil {
 		raw, err := json.Marshal(payload)
 		if err != nil {
-			return nil, fmt.Errorf("safehaven: marshal request: %w", err)
+			return nil, fmt.Errorf("mfb: marshal request: %w", err)
 		}
 		bodyReader = bytes.NewReader(raw)
 	}
@@ -183,7 +183,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, payload any) (j
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
-	// Safe Haven scopes authenticated REST calls by the ibs_client_id returned
+	// the BaaS provider scopes authenticated REST calls by the ibs_client_id returned
 	// at token exchange; without this header the gateway's guard rejects the
 	// request with 403 "Forbidden resource" even though the bearer is valid.
 	if ibs := c.auth.IBSClientID(); ibs != "" {
@@ -195,7 +195,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, payload any) (j
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("safehaven: %s %s: %w", method, path, err)
+		return nil, fmt.Errorf("mfb: %s %s: %w", method, path, err)
 	}
 	defer resp.Body.Close()
 
@@ -204,16 +204,16 @@ func (c *Client) doRaw(ctx context.Context, method, path string, payload any) (j
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("safehaven: %s %s http %d: %s", method, path, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("mfb: %s %s http %d: %s", method, path, resp.StatusCode, string(body))
 	}
 
 	var env apiResponse
 	if err := json.Unmarshal(body, &env); err != nil {
-		return nil, fmt.Errorf("safehaven: decode %s %s: %w (body: %s)", method, path, err, string(body))
+		return nil, fmt.Errorf("mfb: decode %s %s: %w (body: %s)", method, path, err, string(body))
 	}
-	// Safe Haven signals business-level failure via the envelope, not HTTP.
+	// the BaaS provider signals business-level failure via the envelope, not HTTP.
 	if env.ResponseCode != "" && env.ResponseCode != "00" {
-		return nil, fmt.Errorf("safehaven: %s %s rejected: code=%s msg=%q", method, path, env.ResponseCode, env.Message)
+		return nil, fmt.Errorf("mfb: %s %s rejected: code=%s msg=%q", method, path, env.ResponseCode, env.Message)
 	}
 	return env.Data, nil
 }

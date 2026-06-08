@@ -1,23 +1,23 @@
-// Package safehaven integrates Safe Haven MFB's Banking-as-a-Service API —
+// Package mfb integrates the BaaS provider MFB's Banking-as-a-Service API —
 // the NGN fiat rail behind Route C (our managed liquidity) and Route A's
 // treasury payout mode. The merchant-payout primitive both routes share is
-// Safe Haven's name-enquiry → transfer → status flow.
+// the BaaS provider's name-enquiry → transfer → status flow.
 //
-// This file owns authentication. Safe Haven uses OAuth2 with a signed JWT
+// This file owns authentication. the BaaS provider uses OAuth2 with a signed JWT
 // client assertion (RFC 7523), not a static API key:
 //
 //  1. We hold an RSA private key; the matching public cert is uploaded to the
-//     Safe Haven dashboard for our app.
+//     the BaaS provider dashboard for our app.
 //  2. On each token fetch we mint a short-lived RS256 JWT (the "client
 //     assertion") and POST it to /oauth2/token with grant_type=client_credentials.
-//  3. The response carries access_token (~1h), refresh_token, and Safe Haven's
+//  3. The response carries access_token (~1h), refresh_token, and the BaaS provider's
 //     internal ibs_client_id / ibs_user_id. Subsequent calls send
 //     Authorization: Bearer <access_token>.
 //
 // Authenticator caches the token and refreshes it (refresh_token grant first,
 // falling back to a fresh assertion) just before expiry. It is concurrency
 // safe — Route C settlement and Route A dispatch can both call Token freely.
-package safehaven
+package mfb
 
 import (
 	"context"
@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	// ProdBaseURL and SandboxBaseURL are Safe Haven's API roots. Pick via
+	// ProdBaseURL and SandboxBaseURL are the BaaS provider's API roots. Pick via
 	// Config.BaseURL; the JWT "aud" must match the environment you POST to —
 	// mixing sandbox and prod is the most common auth failure.
 	ProdBaseURL    = "https://api.safehavenmfb.com"
@@ -45,16 +45,16 @@ const (
 	clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
 	// assertionTTL keeps the signed client assertion short-lived to limit
-	// exposure if intercepted (Safe Haven's guidance is ~5 minutes).
+	// exposure if intercepted (the BaaS provider's guidance is ~5 minutes).
 	assertionTTL = 5 * time.Minute
 	// refreshSkew refetches the access token this far ahead of its stated
 	// expiry so an in-flight request never races a server-side expiry.
 	refreshSkew = 60 * time.Second
 )
 
-// Config holds the credentials and environment for a Safe Haven app.
+// Config holds the credentials and environment for a the BaaS provider app.
 type Config struct {
-	// ClientID is the OAuth Client ID from the Safe Haven dashboard. Becomes
+	// ClientID is the OAuth Client ID from the the BaaS provider dashboard. Becomes
 	// the JWT "sub" and the client_id form field.
 	ClientID string
 	// PrivateKeyPEM is the RSA private key (PKCS#1 or PKCS#8 PEM) whose public
@@ -71,7 +71,7 @@ type Config struct {
 	HTTPClient *http.Client
 }
 
-// Authenticator mints and caches Safe Haven access tokens.
+// Authenticator mints and caches the BaaS provider access tokens.
 type Authenticator struct {
 	cfg        Config
 	privateKey *rsa.PrivateKey
@@ -90,16 +90,16 @@ type Authenticator struct {
 // fetches the access token lazily.
 func NewAuthenticator(cfg Config) (*Authenticator, error) {
 	if strings.TrimSpace(cfg.ClientID) == "" {
-		return nil, fmt.Errorf("safehaven: ClientID is required")
+		return nil, fmt.Errorf("mfb: ClientID is required")
 	}
 	if strings.TrimSpace(cfg.PrivateKeyPEM) == "" {
-		return nil, fmt.Errorf("safehaven: PrivateKeyPEM is required")
+		return nil, fmt.Errorf("mfb: PrivateKeyPEM is required")
 	}
 	// Env vars frequently store the PEM with literal "\n"; restore newlines.
 	pem := strings.ReplaceAll(cfg.PrivateKeyPEM, `\n`, "\n")
 	key, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(pem))
 	if err != nil {
-		return nil, fmt.Errorf("safehaven: parse private key: %w", err)
+		return nil, fmt.Errorf("mfb: parse private key: %w", err)
 	}
 
 	if cfg.BaseURL == "" {
@@ -123,7 +123,7 @@ func NewAuthenticator(cfg Config) (*Authenticator, error) {
 // BaseURL returns the configured API root (no trailing slash).
 func (a *Authenticator) BaseURL() string { return a.cfg.BaseURL }
 
-// IBSClientID returns Safe Haven's internal client id from the last token
+// IBSClientID returns the BaaS provider's internal client id from the last token
 // exchange (empty until the first successful Token call). Some endpoints
 // require it in the request body.
 func (a *Authenticator) IBSClientID() string {
@@ -183,7 +183,7 @@ func (a *Authenticator) signAssertion() (string, error) {
 	}
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(a.privateKey)
 	if err != nil {
-		return "", fmt.Errorf("safehaven: sign client assertion: %w", err)
+		return "", fmt.Errorf("mfb: sign client assertion: %w", err)
 	}
 	return signed, nil
 }
@@ -200,7 +200,7 @@ func (a *Authenticator) exchange(ctx context.Context, form url.Values) error {
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("safehaven: token request: %w", err)
+		return fmt.Errorf("mfb: token request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -209,15 +209,15 @@ func (a *Authenticator) exchange(ctx context.Context, form url.Values) error {
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("safehaven: token http %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return fmt.Errorf("mfb: token http %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var tr tokenResponse
 	if err := json.Unmarshal(body, &tr); err != nil {
-		return fmt.Errorf("safehaven: decode token response: %w (body: %s)", err, string(body))
+		return fmt.Errorf("mfb: decode token response: %w (body: %s)", err, string(body))
 	}
 	if tr.AccessToken == "" {
-		return fmt.Errorf("safehaven: token response missing access_token (body: %s)", string(body))
+		return fmt.Errorf("mfb: token response missing access_token (body: %s)", string(body))
 	}
 
 	ttl := tr.ExpiresIn

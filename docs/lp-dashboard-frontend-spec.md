@@ -245,7 +245,7 @@ Each row: route · primary endpoints · key UI · notes. Page intents/states are
 | `/balances` **(heart)** | `GET /provider/balance`, `GET /provider/stats` | Naira float hero, float-health chip, runway, top-up details, USDC wallets, NGN↔USDC reconciliation | If `naira.available===false`, show `naira.reason` + link to Onboarding |
 | `/rates` | `GET /settings/provider`, `GET /provider/rates/:token/:fiat`, `PATCH /settings/provider` | Per-token cards (fixed/floating toggle, min/max `LimitField`, wallets), indicative market-rate card | Save via `tokens[]`; rate-deviation errors render blue |
 | `/availability` | `GET/PATCH /settings/provider` | Online/Offline (`isAvailable`), visibility (`visibilityMode`), eligibility checklist | Eligibility = `isAvailable && isActive && isKybVerified && visibility==="public"` + funded float |
-| `/onboarding` | `GET/PATCH /settings/provider` | KYB stepper, status chips | `isKybVerified` + safehaven account status; admin-gated (PRD §5.8 / backend G2) |
+| `/onboarding` | `GET/PATCH /settings/provider` | KYB stepper, status chips | `isKybVerified` + mfb account status; admin-gated (PRD §5.8 / backend G2) |
 | `/settings` | `GET/PATCH /settings/provider`, `GET /provider/node-info` | Profile, API key reveal, security, node (optional/legacy) | API key reveal = commit action |
 
 **Sidebar IA** (PRD §4): Workspace (Overview, Orders, Settlements, Activity) · Liquidity (**Balances & Float** ← primary, Rates & Tokens, Availability) · Account (Onboarding/KYB, Settings). Active item morphs via `layoutId="sidebar-active"`. Global top strip shows page title + **float-health indicator** + poll-status ("updated Ns ago").
@@ -307,7 +307,7 @@ types/api.ts             // the interfaces in §3 (single source on the FE)
 ## 10. Backend dependencies (track)
 
 - **Live now:** `/provider/orders` (with `fiatPayoutStatus`), `/provider/balance`, `/provider/stats` (with breakdowns), `/provider/rates`, `/settings/provider`, auth. Auto-pay + settlement are backend-driven and reflected in the data.
-- **Pending (PRD/backend-changes):** SSE push (G1) → drop polling; `/provider/transactions` (G7) → first-class Activity ledger; self-serve Safe Haven onboarding (G2) → interactive `/onboarding` step 3; production Atlas migration for the payout columns. Build against the contract in §3; these change *fidelity*, not shape.
+- **Pending (PRD/backend-changes):** SSE push (G1) → drop polling; `/provider/transactions` (G7) → first-class Activity ledger; self-serve the BaaS provider onboarding (G2) → interactive `/onboarding` step 3; production Atlas migration for the payout columns. Build against the contract in §3; these change *fidelity*, not shape.
 
 ---
 

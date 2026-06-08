@@ -10,7 +10,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/routers"
 	"github.com/usezoracle/rails-sui/services/baas"
-	"github.com/usezoracle/rails-sui/services/baas/safehaven"
+	"github.com/usezoracle/rails-sui/services/baas/mfb"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/tasks"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -66,17 +66,17 @@ func initBaaSRail() {
 	viper.SetDefault("BAAS_PROVIDER", "safehaven")
 	switch provider := viper.GetString("BAAS_PROVIDER"); provider {
 	case "safehaven":
-		shConf := config.SafehavenConfig()
-		switch shClient, err := safehaven.NewClientFromCredentials(
+		shConf := config.BaaSConfig()
+		switch shClient, err := mfb.NewClientFromCredentials(
 			shConf.ClientID, shConf.PrivateKeyPEM, shConf.BaseURL, shConf.Audience, shConf.Issuer,
 		); {
-		case errors.Is(err, safehaven.ErrNotConfigured):
-			logger.Infof("BaaS rail (safehaven) not configured; fiat payout routes disabled")
+		case errors.Is(err, mfb.ErrNotConfigured):
+			logger.Infof("BaaS rail (mfb) not configured; fiat payout routes disabled")
 		case err != nil:
-			logger.Fatalf("BaaS rail (safehaven) init: %s", err)
+			logger.Fatalf("BaaS rail (mfb) init: %s", err)
 		default:
-			baas.SetDefault(safehaven.NewAdapter(shClient, shConf.WebhookSecret))
-			logger.Infof("BaaS rail ready (provider=safehaven)")
+			baas.SetDefault(mfb.NewAdapter(shClient, shConf.WebhookSecret))
+			logger.Infof("BaaS rail ready (provider=mfb)")
 		}
 	default:
 		logger.Fatalf("BaaS rail: unknown BAAS_PROVIDER %q", provider)

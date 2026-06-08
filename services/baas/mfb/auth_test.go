@@ -1,4 +1,4 @@
-package safehaven
+package mfb
 
 import (
 	"crypto/rand"

@@ -22,7 +22,7 @@ import (
 const suiNativeCoinType = "0x2::sui::SUI"
 
 // FundingController exposes the operator funding dashboard: balances of every
-// wallet/account the platform funds (Base aggregator, Sui aggregator, Safe Haven
+// wallet/account the platform funds (Base aggregator, Sui aggregator, the BaaS provider
 // float + LP sub-accounts). Each source is read independently and degrades
 // gracefully so one outage doesn't blank the whole view. Read-only.
 type FundingController struct{}
@@ -39,7 +39,7 @@ func (c *FundingController) GetBalances(ctx *gin.Context) {
 	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
 		"base_aggregator": baseAggregatorBalances(ctx, conf),
 		"sui_aggregator":  suiAggregatorBalances(ctx, conf),
-		"safehaven":       safehavenBalances(ctx),
+		"safehaven":       baasBalances(ctx),
 	})
 }
 
@@ -111,8 +111,8 @@ func suiAggregatorBalances(ctx context.Context, conf *config.OrderConfiguration)
 	return out
 }
 
-// safehavenBalances lists the main float + LP sub-accounts (NGN) via the BaaS rail.
-func safehavenBalances(ctx context.Context) gin.H {
+// baasBalances lists the main float + LP sub-accounts (NGN) via the BaaS rail.
+func baasBalances(ctx context.Context) gin.H {
 	client := baas.Default()
 	if client == nil {
 		return gin.H{"available": false, "reason": "baas rail not configured"}

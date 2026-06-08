@@ -1,11 +1,11 @@
 //go:build ignore
 
-// safehaven_sweep_subaccounts.go
+// mfb_sweep_subaccounts.go
 //
-// One self-contained process for Safe Haven sub-account liquidity consolidation.
+// One self-contained process for the BaaS provider sub-account liquidity consolidation.
 // A single run does, in order:
 //
-//  1. Resolve Safe Haven's intra-bank code (auto, or -bankcode override).
+//  1. Resolve the BaaS provider's intra-bank code (auto, or -bankcode override).
 //  2. Inventory: list main account(s) and all sub-accounts with balance + status.
 //  3. Diagnose: name-enquiry the destination so you can see if it is transactable
 //     (Dormant accounts return "Invalid Account" / NIP code 07).
@@ -17,10 +17,10 @@
 //
 // Usage:
 //
-//	go run scripts/safehaven_sweep_subaccounts.go                 # inventory + diagnostics + dry-run plan
-//	go run scripts/safehaven_sweep_subaccounts.go -confirm        # same, then execute the sweep
-//	go run scripts/safehaven_sweep_subaccounts.go -bankcode 090286 -dest 0110890780
-//	go run scripts/safehaven_sweep_subaccounts.go -account 5655858793 -accbank 090286  # ad-hoc name-enquiry test
+//	go run scripts/mfb_sweep_subaccounts.go                 # inventory + diagnostics + dry-run plan
+//	go run scripts/mfb_sweep_subaccounts.go -confirm        # same, then execute the sweep
+//	go run scripts/mfb_sweep_subaccounts.go -bankcode 090286 -dest 0110890780
+//	go run scripts/mfb_sweep_subaccounts.go -account 5655858793 -accbank 090286  # ad-hoc name-enquiry test
 //
 // Idempotency: each transfer uses paymentReference "sweep-<subAccount>-<YYYYMM>",
 // so a re-run within the same month will not double-pay.
@@ -37,7 +37,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/usezoracle/rails-sui/config"
-	"github.com/usezoracle/rails-sui/services/baas/safehaven"
+	"github.com/usezoracle/rails-sui/services/baas/mfb"
 )
 
 func main() {
@@ -45,9 +45,9 @@ func main() {
 		dest             = flag.String("dest", "0110890780", "destination account number (must be company-controlled)")
 		minBal           = flag.String("min", "1", "skip sub-accounts with balance below this (NGN)")
 		confirm          = flag.Bool("confirm", false, "actually execute transfers; without this it is a dry-run")
-		bankCodeOverride = flag.String("bankcode", "", "override Safe Haven's intra-bank code (else auto-resolved by name)")
+		bankCodeOverride = flag.String("bankcode", "", "override the BaaS provider's intra-bank code (else auto-resolved by name)")
 		testAccount      = flag.String("account", "", "optional: ad-hoc name-enquiry test on this account number")
-		testAccountBank  = flag.String("accbank", "", "bank code for -account test (else uses Safe Haven's code)")
+		testAccountBank  = flag.String("accbank", "", "bank code for -account test (else uses the BaaS provider's code)")
 	)
 	flag.Parse()
 
@@ -57,8 +57,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := config.SafehavenConfig()
-	auth, err := safehaven.NewAuthenticator(safehaven.Config{
+	cfg := config.BaaSConfig()
+	auth, err := mfb.NewAuthenticator(mfb.Config{
 		ClientID:      cfg.ClientID,
 		PrivateKeyPEM: cfg.PrivateKeyPEM,
 		BaseURL:       cfg.BaseURL,
@@ -72,16 +72,16 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	client := safehaven.NewClient(auth)
+	client := mfb.NewClient(auth)
 
 	mode := "DRY-RUN (no money will move)"
 	if *confirm {
 		mode = "EXECUTE"
 	}
-	fmt.Printf("=== Safe Haven sub-account sweep — %s ===\n", mode)
+	fmt.Printf("=== the BaaS provider sub-account sweep — %s ===\n", mode)
 	fmt.Printf("Destination: %s\n\n", *dest)
 
-	// --- 1. resolve Safe Haven's intra-bank code -----------------------------
+	// --- 1. resolve the BaaS provider's intra-bank code -----------------------------
 	banks, err := client.GetBanks(ctx)
 	if err != nil {
 		fmt.Println("get banks:", err)
@@ -103,10 +103,10 @@ func main() {
 		}
 	}
 	if shBankCode == "" {
-		fmt.Println("could not resolve Safe Haven bank code; pass -bankcode <code>")
+		fmt.Println("could not resolve the BaaS provider bank code; pass -bankcode <code>")
 		os.Exit(1)
 	}
-	fmt.Printf("[banks] using Safe Haven bankCode=%s\n\n", shBankCode)
+	fmt.Printf("[banks] using the BaaS provider bankCode=%s\n\n", shBankCode)
 
 	// --- 2. inventory (read-only) --------------------------------------------
 	fmt.Println("[inventory] main accounts:")
@@ -154,7 +154,7 @@ func main() {
 	if !destOK {
 		fmt.Printf("[diag] destination %s name-enquiry FAILED: %v\n", *dest, destErr)
 		fmt.Println("       NIP code 07 'Invalid Account' here usually means the account is Dormant/")
-		fmt.Println("       not transactable. Activate it with Safe Haven before sweeping. Transfers skipped.")
+		fmt.Println("       not transactable. Activate it with the BaaS provider before sweeping. Transfers skipped.")
 	} else {
 		fmt.Printf("[diag] destination %s -> %q\n", *dest, destEnq.AccountName)
 		if !strings.Contains(strings.ToUpper(destEnq.AccountName), "BLAZE AFRICA") {
@@ -194,7 +194,7 @@ func main() {
 			fmt.Printf("[FAIL] %-12s name-enquiry: %v\n", a.AccountNumber, err)
 			continue
 		}
-		res, err := client.Transfer(ctx, safehaven.TransferRequest{
+		res, err := client.Transfer(ctx, mfb.TransferRequest{
 			NameEnquiryReference: enq.SessionID,
 			DebitAccountNumber:   a.AccountNumber,
 			BeneficiaryBankCode:  shBankCode,

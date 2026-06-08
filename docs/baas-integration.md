@@ -1,9 +1,9 @@
-# Safe Haven (BaaS) Integration — Infra Map & Build Plan
+# the BaaS provider (BaaS) Integration — Infra Map & Build Plan
 
-Safe Haven MFB is our **NGN fiat rail**. It is *not* a liquidity/FX layer — it moves
+the BaaS provider MFB is our **NGN fiat rail**. It is *not* a liquidity/FX layer — it moves
 Naira in and out of the Nigerian banking system. We use it in two places:
 
-| Route | Safe Haven role | Debit account |
+| Route | the BaaS provider role | Debit account |
 |-------|-----------------|---------------|
 | **Route B** (decentralized LP) | One **sub-account per LP**; the LP funds it; merchant payout debits *that* LP's sub-account | the LP's sub-account |
 | **Route C** (managed liquidity) | We pay merchants directly from our **main account float** | `SAFEHAVEN_DEBIT_ACCOUNT_NUMBER` |
@@ -12,7 +12,7 @@ The merchant-payout primitive is identical for both — `name-enquiry → transf
 status`. The **only** difference is which account number is debited. That single
 fact is what keeps this integration simple.
 
-> Route A `mode=lp` stays on Paycrest's EVM Gateway and does **not** touch Safe
+> Route A `mode=lp` stays on the aggregator's EVM Gateway and does **not** touch Safe
 > Haven. Route A `mode=treasury` is the same payout primitive as Route C (pay from
 > our float after bridging), so it reuses the exact same `Transfer` call.
 
@@ -20,7 +20,7 @@ fact is what keeps this integration simple.
 
 ## 1. What is built (done, live-verified)
 
-`services/baas/safehaven/` — self-contained client, no money moved without an
+`services/baas/mfb/` — self-contained client, no money moved without an
 explicit call:
 
 - **`auth.go`** — OAuth2 RS256 client-assertion → token cache + refresh. ✅ live.
@@ -32,7 +32,7 @@ explicit call:
     `InitiateIdentity`, `ValidateIdentity`, `CreateSubAccount`.
 - **`types.go`** — `Account`, `NameEnquiry`, `TransferRequest`, `Transfer`,
   identity + sub-account types. `Account` shape verified against live JSON.
-- **`config/safehaven.go`** + `.env` — credentials + `SAFEHAVEN_DEBIT_ACCOUNT_NUMBER`.
+- **`config/mfb.go`** + `.env` — credentials + `SAFEHAVEN_DEBIT_ACCOUNT_NUMBER`.
 
 ### Live account facts (as observed)
 - 3 main accounts under **BLAZE AFRICA LTD**; primary float = `0110890780`
@@ -55,14 +55,14 @@ explicit call:
 | Route A treasury payout | `services/route_a_dispatcher.go` `dispatchTreasury` stub (≈L897); switch in `advanceBridged` (≈L720) | implement stub with `Transfer` from float |
 | Webhooks | `routers/index.go` (`kyc/webhook`); `controllers/index.go` `KYCWebhook` w/ signature verify | add `POST /v1/safehaven/webhook` + signature verify |
 | Pollers | `tasks/tasks.go` `StartCronJobs`; Route A `Tick` every 1m | add `TransferStatus` reconcile poll |
-| Service wiring | `main.go`; `NewRouteADispatcher` (`route_a_dispatcher.go` ≈L143) | construct one `safehaven.Client`, inject |
+| Service wiring | `main.go`; `NewRouteADispatcher` (`route_a_dispatcher.go` ≈L143) | construct one `mfb.Client`, inject |
 
 ---
 
 ## 3. What to do / not do
 
 ### DO (next, low-risk)
-1. **Wire construction** — build one `safehaven.Client` at startup, inject into the
+1. **Wire construction** — build one `mfb.Client` at startup, inject into the
    dispatcher and a new payout service. (Mechanical, no money.)
 2. **Add `safehaven_account_number` to `ProviderProfile`** (ent field + codegen +
    migration) so Route B knows which sub-account to debit.
@@ -82,8 +82,8 @@ explicit call:
   fee and open a *real* bank account against a *real* BVN/NIN. Gate behind explicit
   LP-onboarding intent with consent. (11 sub-accounts already exist — likely don't
   re-create.)
-- **Do not rip out Paycrest.** Route A `mode=lp` and the existing Route B matching
-  keep working; Safe Haven is added *alongside* as our direct rail, not a rewrite.
+- **Do not rip out the aggregator.** Route A `mode=lp` and the existing Route B matching
+  keep working; the BaaS provider is added *alongside* as our direct rail, not a rewrite.
 - **Do not run live transfers from a `Dormant` account** without confirming it can
   debit.
 - **Do not** speculatively change the settlement engine — add hooks, keep diffs
@@ -112,5 +112,5 @@ choice configurable for **Route C**. This decision gates DO-item #1's activation
 - [ ] Confirm exact request/response field names for `Transfer`/`name-enquiry`/`tqs`
       against a sandbox or a tiny authorized live test (structs are best-effort from
       docs).
-- [ ] Get Safe Haven's webhook signature scheme + secret/public key.
+- [ ] Get the BaaS provider's webhook signature scheme + secret/public key.
 - [ ] Decide settle timing (§4).
