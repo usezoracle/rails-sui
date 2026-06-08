@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
@@ -16,7 +17,6 @@ import (
 	"github.com/usezoracle/rails-sui/utils/crypto"
 	"github.com/usezoracle/rails-sui/utils/logger"
 	"github.com/usezoracle/rails-sui/utils/token"
-	"github.com/shopspring/decimal"
 )
 
 func main() {
@@ -188,7 +188,9 @@ func main() {
 	// Seed Fiat Currencies and Provision Buckets
 	fmt.Println("fiat currencies and provision buckets...")
 	currencies := []types.SupportedCurrencies{
-		{Code: "NGN", Decimals: 2, Name: "Nigerian Naira", ShortName: "Naira", Symbol: "₦", MarketRate: decimal.NewFromFloat(1050.00)},
+		// MarketRate seeded as 0 — never a fixed/seeded value. ComputeMarketRate
+		// (at boot + every 30m) sets the live rate from Paycrest/Binance/Quidax.
+		{Code: "NGN", Decimals: 2, Name: "Nigerian Naira", ShortName: "Naira", Symbol: "₦", MarketRate: decimal.Zero},
 		// {Code: "KES", Decimals: 2, Name: "Kenyan Shilling", ShortName: "Swahili", Symbol: "KSh", MarketRate: decimal.NewFromFloat(151.45)},
 	}
 	sampleBuckets := make([]*ent.ProvisionBucketCreate, 0, 6)
@@ -344,8 +346,8 @@ func seedSender(ctx context.Context, client *ent.Client, serial string) (string,
 			Create().
 			SetSender(sender).
 			SetToken(t).
-			SetFeePercent(decimal.NewFromFloat(0.01)). // 1% fee
-			SetFeeAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"). // Example fee address
+			SetFeePercent(decimal.NewFromFloat(0.01)).                      // 1% fee
+			SetFeeAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8").    // Example fee address
 			SetRefundAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"). // Example refund address
 			Save(ctx)
 		if err != nil {

@@ -19,7 +19,6 @@ import (
 	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
-	"github.com/usezoracle/rails-sui/ent/providerordertoken"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
@@ -475,92 +474,164 @@ func SubscribeToRedisKeyspaceEvents() {
 	go ReassignStaleOrderRequest(ctx, orderRequestChan)
 }
 
-// fetchExternalRate fetches the external rate for a fiat currency
+// supportedRateCurrencies is the set of fiats we compute a live market rate for.
+var supportedRateCurrencies = map[string]bool{
+	"KES": true, "NGN": true, "GHS": true, "TZS": true, "UGX": true, "XOF": true,
+}
+
+const rateSourceTimeout = 15 * time.Second
+
+// fetchExternalRate returns the live USDT/<fiat> market price aggregated across
+// several independent sources — Paycrest's rates API, Binance P2P, and (for NGN)
+// Quidax. It takes the MEDIAN of whatever sources respond, so a source being
+// down, geo-restricted (Binance P2P is region-gated), or returning an outlier
+// never breaks the rate. It errors only when EVERY source fails. There is no
+// seeded/fixed fallback — the rate is always live or nothing.
 func fetchExternalRate(currency string) (decimal.Decimal, error) {
 	currency = strings.ToUpper(currency)
-	supportedCurrencies := []string{"KES", "NGN", "GHS", "TZS", "UGX", "XOF"}
-	isSupported := false
-	for _, supported := range supportedCurrencies {
-		if currency == supported {
-			isSupported = true
-			break
-		}
-	}
-	if !isSupported {
-		return decimal.Zero, fmt.Errorf("ComputeMarketRate: currency not supported")
+	if !supportedRateCurrencies[currency] {
+		return decimal.Zero, fmt.Errorf("fetchExternalRate: currency %s not supported", currency)
 	}
 
-	// Fetch rates from third-party APIs
-	var price decimal.Decimal
+	var rates []decimal.Decimal
+
+	// Source 1 — Paycrest aggregator rates API (region-agnostic; itself a
+	// multi-source median, so the most reliable single source).
+	if r, err := fetchPaycrestRate(currency); err != nil {
+		logger.Warnf("fetchExternalRate: paycrest %s: %v", currency, err)
+	} else if r.IsPositive() {
+		rates = append(rates, r)
+	}
+
+	// Source 2 — Binance P2P SELL-ad median (available where Binance P2P is not
+	// geo-restricted; empty data there is a soft miss, not a failure).
+	if r, err := fetchBinanceP2PRate(currency); err != nil {
+		logger.Warnf("fetchExternalRate: binance %s: %v", currency, err)
+	} else if r.IsPositive() {
+		rates = append(rates, r)
+	}
+
+	// Source 3 — Quidax USDT/<fiat> ticker (NGN market).
 	if currency == "NGN" {
-		res, err := fastshot.NewClient("https://www.quidax.com").
-			Config().SetTimeout(30*time.Second).
-			Build().GET(fmt.Sprintf("/api/v1/markets/tickers/usdt%s", strings.ToLower(currency))).
-			Retry().Set(3, 5*time.Second).
-			Send()
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("ComputeMarketRate: %w", err)
+		if r, err := fetchQuidaxRate(currency); err != nil {
+			logger.Warnf("fetchExternalRate: quidax %s: %v", currency, err)
+		} else if r.IsPositive() {
+			rates = append(rates, r)
 		}
+	}
 
-		data, err := utils.ParseJSONResponse(res.RawResponse)
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("ComputeMarketRate: %w %v", err, data)
+	if len(rates) == 0 {
+		return decimal.Zero, fmt.Errorf("fetchExternalRate: all sources failed for %s", currency)
+	}
+	return utils.Median(rates), nil
+}
+
+// fetchPaycrestRate reads USDT/<fiat> from Paycrest's public rates API, e.g.
+// GET https://api.paycrest.io/v1/rates/USDT/1/NGN -> {"data":"1380"}.
+func fetchPaycrestRate(currency string) (decimal.Decimal, error) {
+	res, err := fastshot.NewClient("https://api.paycrest.io").
+		Config().SetTimeout(rateSourceTimeout).
+		Build().GET(fmt.Sprintf("/v1/rates/USDT/1/%s", currency)).
+		Retry().Set(2, 3*time.Second).
+		Send()
+	if err != nil {
+		return decimal.Zero, err
+	}
+	data, err := utils.ParseJSONResponse(res.RawResponse)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	raw, ok := data["data"].(string)
+	if !ok {
+		return decimal.Zero, fmt.Errorf("paycrest: unexpected response shape: %v", data["data"])
+	}
+	return decimal.NewFromString(raw)
+}
+
+// fetchQuidaxRate reads the USDT/<fiat> buy ticker from Quidax.
+func fetchQuidaxRate(currency string) (decimal.Decimal, error) {
+	res, err := fastshot.NewClient("https://www.quidax.com").
+		Config().SetTimeout(rateSourceTimeout).
+		Build().GET(fmt.Sprintf("/api/v1/markets/tickers/usdt%s", strings.ToLower(currency))).
+		Retry().Set(2, 3*time.Second).
+		Send()
+	if err != nil {
+		return decimal.Zero, err
+	}
+	data, err := utils.ParseJSONResponse(res.RawResponse)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	d, ok := data["data"].(map[string]interface{})
+	if !ok {
+		return decimal.Zero, fmt.Errorf("quidax: unexpected response shape")
+	}
+	ticker, ok := d["ticker"].(map[string]interface{})
+	if !ok {
+		return decimal.Zero, fmt.Errorf("quidax: missing ticker")
+	}
+	buy, ok := ticker["buy"].(string)
+	if !ok {
+		return decimal.Zero, fmt.Errorf("quidax: missing buy price")
+	}
+	return decimal.NewFromString(buy)
+}
+
+// fetchBinanceP2PRate returns the median of the top USDT/<fiat> SELL ads on
+// Binance P2P. The endpoint is public but region-gated: restricted IPs get an
+// empty list (success:true, data:[]) — treated here as a soft miss.
+func fetchBinanceP2PRate(currency string) (decimal.Decimal, error) {
+	res, err := fastshot.NewClient("https://p2p.binance.com").
+		Config().SetTimeout(rateSourceTimeout).
+		Header().Add("Content-Type", "application/json").
+		Build().POST("/bapi/c2c/v2/friendly/c2c/adv/search").
+		Retry().Set(2, 3*time.Second).
+		Body().AsJSON(map[string]interface{}{
+		"asset":             "USDT",
+		"fiat":              currency,
+		"tradeType":         "SELL",
+		"page":              1,
+		"rows":              20,
+		"payTypes":          []string{},
+		"countries":         []string{},
+		"proMerchantAds":    false,
+		"shieldMerchantAds": false,
+		"publisherType":     nil,
+	}).
+		Send()
+	if err != nil {
+		return decimal.Zero, err
+	}
+	resData, err := utils.ParseJSONResponse(res.RawResponse)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	data, ok := resData["data"].([]interface{})
+	if !ok || len(data) == 0 {
+		return decimal.Zero, fmt.Errorf("binance: no ads (region-gated or none available)")
+	}
+	var prices []decimal.Decimal
+	for _, item := range data {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
 		}
-
-		price, err = decimal.NewFromString(data["data"].(map[string]interface{})["ticker"].(map[string]interface{})["buy"].(string))
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("ComputeMarketRate: %w", err)
+		adv, ok := m["adv"].(map[string]interface{})
+		if !ok {
+			continue
 		}
-	} else {
-		res, err := fastshot.NewClient("https://p2p.binance.com").
-			Config().SetTimeout(30*time.Second).
-			Header().Add("Content-Type", "application/json").
-			Build().POST("/bapi/c2c/v2/friendly/c2c/adv/search").
-			Retry().Set(3, 5*time.Second).
-			Body().AsJSON(map[string]interface{}{
-			"asset":     "USDT",
-			"fiat":      currency,
-			"tradeType": "SELL",
-			"page":      1,
-			"rows":      20,
-		}).
-			Send()
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("ComputeMarketRate: %w", err)
+		priceStr, ok := adv["price"].(string)
+		if !ok {
+			continue
 		}
-
-		resData, err := utils.ParseJSONResponse(res.RawResponse)
-		if err != nil {
-			return decimal.Zero, fmt.Errorf("ComputeMarketRate: %w", err)
-		}
-
-		// Access the data array
-		data, ok := resData["data"].([]interface{})
-		if !ok || len(data) == 0 {
-			return decimal.Zero, fmt.Errorf("ComputeMarketRate: No data in the response")
-		}
-
-		// Loop through the data array and extract prices
-		var prices []decimal.Decimal
-		for _, item := range data {
-			adv, ok := item.(map[string]interface{})["adv"].(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			price, err := decimal.NewFromString(adv["price"].(string))
-			if err != nil {
-				continue
-			}
-
+		if price, err := decimal.NewFromString(priceStr); err == nil {
 			prices = append(prices, price)
 		}
-
-		// Calculate and return the median
-		price = utils.Median(prices)
 	}
-
-	return price, nil
+	if len(prices) == 0 {
+		return decimal.Zero, fmt.Errorf("binance: no parseable prices")
+	}
+	return utils.Median(prices), nil
 }
 
 // ComputeMarketRate computes the market price for fiat currencies
@@ -577,46 +648,23 @@ func ComputeMarketRate() error {
 	}
 
 	for _, currency := range currencies {
-		// Fetch external rate
-		externalRate, err := fetchExternalRate(currency.Code)
+		// The market rate is the live, externally-computed price — never seeded
+		// and never derived from provider rates. If every source fails we keep
+		// the last good value rather than overwrite it with a bad/zero rate.
+		rate, err := fetchExternalRate(currency.Code)
 		if err != nil {
+			logger.Errorf("ComputeMarketRate: %s: %v", currency.Code, err)
+			continue
+		}
+		if !rate.IsPositive() {
 			continue
 		}
 
-		// Fetch rates from token configs with fixed conversion rate
-		tokenConfigs, err := storage.Client.ProviderOrderToken.
-			Query().
-			Where(
-				providerordertoken.SymbolIn("USDT", "USDC"),
-				providerordertoken.ConversionRateTypeEQ(providerordertoken.ConversionRateTypeFixed),
-			).
-			Select(providerordertoken.FieldFixedConversionRate).
-			All(ctx)
-		if err != nil {
-			continue
-		}
-
-		var rates []decimal.Decimal
-		for _, tokenConfig := range tokenConfigs {
-			rates = append(rates, tokenConfig.FixedConversionRate)
-		}
-
-		// Calculate median
-		median := utils.Median(rates)
-
-		// Check the median rate against the external rate to ensure it's not too far off
-		percentDeviation := utils.AbsPercentageDeviation(externalRate, median)
-		if percentDeviation.GreaterThan(orderConf.PercentDeviationFromExternalRate) {
-			median = externalRate
-		}
-
-		// Update currency with median rate
-		_, err = storage.Client.FiatCurrency.
+		if _, err := storage.Client.FiatCurrency.
 			UpdateOneID(currency.ID).
-			SetMarketRate(median).
-			Save(ctx)
-		if err != nil {
-			continue
+			SetMarketRate(rate).
+			Save(ctx); err != nil {
+			logger.Errorf("ComputeMarketRate: update %s: %v", currency.Code, err)
 		}
 	}
 
