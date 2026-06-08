@@ -733,6 +733,16 @@ func (s *SuiEventIndexer) updateOrderStatusSettled(ctx context.Context, evt *typ
 	// services/order ExecuteOrderService at match time — not here. By the time
 	// OrderSettled lands, the payout is already confirmed. See execute.go.
 
+	// Live feed: push the settled status to the assigned LP's dashboard.
+	if settled, err := db.Client.LockPaymentOrder.
+		Query().
+		Where(lockpaymentorder.GatewayIDEQ(evt.OrderID)).
+		All(ctx); err == nil {
+		for _, lo := range settled {
+			orderpkg.PublishOrderByID(orderpkg.EventOrderSettled, lo.ID)
+		}
+	}
+
 	// Integrator-facing webhook (only after successful commit so we never
 	// notify a state that didn't actually land).
 	if paymentOrderExists && po.Status != paymentorder.StatusSettled {

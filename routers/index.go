@@ -174,6 +174,7 @@ func providerRoutes(route *gin.Engine) {
 	v1.GET("rates/:token/:fiat", providerCtrl.GetMarketRate)
 	v1.GET("stats", providerCtrl.Stats)
 	v1.GET("balance", providerCtrl.GetBalance)
+	v1.GET("events", providerCtrl.Events)
 	v1.GET("node-info", providerCtrl.NodeInfo)
 }
 

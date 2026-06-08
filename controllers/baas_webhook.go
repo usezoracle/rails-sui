@@ -137,6 +137,9 @@ func applyFiatPayoutWebhook(ctx *gin.Context, reference, rawStatus string) {
 		return
 	}
 
+	// Live feed: push the new payout status to the LP dashboard.
+	orderpkg.PublishOrderByID(orderpkg.EventOrderPayout, id)
+
 	// Fiat confirmed → release the LP's USDC (fulfil + settle). Async so the
 	// webhook ACKs promptly; idempotent on the order's processing state.
 	if status == lockpaymentorder.FiatPayoutStatusSuccess {

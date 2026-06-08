@@ -954,6 +954,7 @@ func ReconcileFiatPayouts() error {
 				logger.Errorf("ReconcileFiatPayouts %s: persist success: %v", o.ID, err)
 				continue
 			}
+			orderpkg.PublishOrderByID(orderpkg.EventOrderPayout, o.ID)
 			// Fiat confirmed → release the LP's USDC (fulfil + settle).
 			if err := orderpkg.NewExecuteOrderService().SettleAfterPayout(ctx, o.ID); err != nil {
 				logger.Errorf("ReconcileFiatPayouts %s: settle: %v", o.ID, err)
@@ -966,6 +967,7 @@ func ReconcileFiatPayouts() error {
 				Exec(ctx); err != nil {
 				logger.Errorf("ReconcileFiatPayouts %s: persist failed: %v", o.ID, err)
 			}
+			orderpkg.PublishOrderByID(orderpkg.EventOrderPayout, o.ID)
 		default:
 			// still pending — keep polling next tick
 		}
