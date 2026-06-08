@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,8 +11,12 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/usezoracle/rails-sui/config"
+	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	orderpkg "github.com/usezoracle/rails-sui/services/order"
+	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
@@ -78,12 +83,69 @@ func (ctrl *Controller) SafeHavenWebhook(ctx *gin.Context) {
 		// TODO(route-a): mark RouteAOrder settled/failed by paymentReference.
 	case strings.HasPrefix(p.PaymentReference, "routeB-"), strings.HasPrefix(p.PaymentReference, "routeC-"):
 		logger.Infof("[safehaven] routeB/C transfer update ref=%s status=%s", p.PaymentReference, p.Status)
-		// TODO(route-b/c): mark LockPaymentOrder / payout record by paymentReference.
+		applyFiatPayoutWebhook(ctx, p.PaymentReference, p.Status)
 	default:
 		logger.Infof("[safehaven] webhook ref=%s type=%s status=%s (no handler)", p.PaymentReference, p.Type, p.Status)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "received"})
+}
+
+// applyFiatPayoutWebhook converges a Route B/C lock order's fiat payout status
+// from an inbound transfer callback. Idempotent: it keys on the order id parsed
+// from the reference ("routeB-<uuid>") and the matching fiat_payout_reference,
+// and only writes a terminal status (pending callbacks are no-ops). A malformed
+// reference or unknown status is logged and ignored so we always ACK 200.
+func applyFiatPayoutWebhook(ctx *gin.Context, reference, rawStatus string) {
+	idStr := reference
+	idStr = strings.TrimPrefix(idStr, "routeB-")
+	idStr = strings.TrimPrefix(idStr, "routeC-")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		logger.Warnf("[safehaven] payout webhook: unparseable order id in ref=%s", reference)
+		return
+	}
+
+	var status lockpaymentorder.FiatPayoutStatus
+	switch strings.ToLower(strings.TrimSpace(rawStatus)) {
+	case "success", "successful", "completed", "00", "approved":
+		status = lockpaymentorder.FiatPayoutStatusSuccess
+	case "failed", "rejected", "cancelled", "canceled", "reversed", "declined", "error":
+		status = lockpaymentorder.FiatPayoutStatusFailed
+	default:
+		logger.Infof("[safehaven] payout webhook: non-terminal status=%s ref=%s (ignored)", rawStatus, reference)
+		return
+	}
+
+	upd := storage.Client.LockPaymentOrder.Update().
+		Where(
+			lockpaymentorder.IDEQ(id),
+			lockpaymentorder.FiatPayoutReferenceEQ(reference),
+		).
+		SetFiatPayoutStatus(status).
+		ClearFiatPayoutSessionID()
+	if status == lockpaymentorder.FiatPayoutStatusSuccess {
+		upd = upd.ClearFiatPayoutError()
+	}
+	n, err := upd.Save(ctx)
+	if err != nil {
+		logger.Errorf("[safehaven] payout webhook: update %s: %v", id, err)
+		return
+	}
+	if n == 0 {
+		logger.Warnf("[safehaven] payout webhook: no matching order for ref=%s", reference)
+		return
+	}
+
+	// Fiat confirmed → release the LP's USDC (fulfil + settle). Async so the
+	// webhook ACKs promptly; idempotent on the order's processing state.
+	if status == lockpaymentorder.FiatPayoutStatusSuccess {
+		go func() {
+			if err := orderpkg.NewExecuteOrderService().SettleAfterPayout(context.Background(), id); err != nil {
+				logger.Errorf("[safehaven] payout webhook: settle %s: %v", id, err)
+			}
+		}()
+	}
 }
 
 // verifySafeHavenSignature checks an HMAC-SHA256 hex signature over the raw body.

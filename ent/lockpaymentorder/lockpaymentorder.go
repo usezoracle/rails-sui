@@ -46,6 +46,14 @@ const (
 	FieldCancellationCount = "cancellation_count"
 	// FieldCancellationReasons holds the string denoting the cancellation_reasons field in the database.
 	FieldCancellationReasons = "cancellation_reasons"
+	// FieldFiatPayoutReference holds the string denoting the fiat_payout_reference field in the database.
+	FieldFiatPayoutReference = "fiat_payout_reference"
+	// FieldFiatPayoutSessionID holds the string denoting the fiat_payout_session_id field in the database.
+	FieldFiatPayoutSessionID = "fiat_payout_session_id"
+	// FieldFiatPayoutStatus holds the string denoting the fiat_payout_status field in the database.
+	FieldFiatPayoutStatus = "fiat_payout_status"
+	// FieldFiatPayoutError holds the string denoting the fiat_payout_error field in the database.
+	FieldFiatPayoutError = "fiat_payout_error"
 	// EdgeToken holds the string denoting the token edge name in mutations.
 	EdgeToken = "token"
 	// EdgeProvisionBucket holds the string denoting the provision_bucket edge name in mutations.
@@ -113,6 +121,10 @@ var Columns = []string{
 	FieldMemo,
 	FieldCancellationCount,
 	FieldCancellationReasons,
+	FieldFiatPayoutReference,
+	FieldFiatPayoutSessionID,
+	FieldFiatPayoutStatus,
+	FieldFiatPayoutError,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "lock_payment_orders"
@@ -183,6 +195,34 @@ func StatusValidator(s Status) error {
 		return nil
 	default:
 		return fmt.Errorf("lockpaymentorder: invalid enum value for status field: %q", s)
+	}
+}
+
+// FiatPayoutStatus defines the type for the "fiat_payout_status" enum field.
+type FiatPayoutStatus string
+
+// FiatPayoutStatusNone is the default value of the FiatPayoutStatus enum.
+const DefaultFiatPayoutStatus = FiatPayoutStatusNone
+
+// FiatPayoutStatus values.
+const (
+	FiatPayoutStatusNone    FiatPayoutStatus = "none"
+	FiatPayoutStatusPending FiatPayoutStatus = "pending"
+	FiatPayoutStatusSuccess FiatPayoutStatus = "success"
+	FiatPayoutStatusFailed  FiatPayoutStatus = "failed"
+)
+
+func (fps FiatPayoutStatus) String() string {
+	return string(fps)
+}
+
+// FiatPayoutStatusValidator is a validator for the "fiat_payout_status" field enum values. It is called by the builders before save.
+func FiatPayoutStatusValidator(fps FiatPayoutStatus) error {
+	switch fps {
+	case FiatPayoutStatusNone, FiatPayoutStatusPending, FiatPayoutStatusSuccess, FiatPayoutStatusFailed:
+		return nil
+	default:
+		return fmt.Errorf("lockpaymentorder: invalid enum value for fiat_payout_status field: %q", fps)
 	}
 }
 
@@ -262,6 +302,26 @@ func ByMemo(opts ...sql.OrderTermOption) OrderOption {
 // ByCancellationCount orders the results by the cancellation_count field.
 func ByCancellationCount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCancellationCount, opts...).ToFunc()
+}
+
+// ByFiatPayoutReference orders the results by the fiat_payout_reference field.
+func ByFiatPayoutReference(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiatPayoutReference, opts...).ToFunc()
+}
+
+// ByFiatPayoutSessionID orders the results by the fiat_payout_session_id field.
+func ByFiatPayoutSessionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiatPayoutSessionID, opts...).ToFunc()
+}
+
+// ByFiatPayoutStatus orders the results by the fiat_payout_status field.
+func ByFiatPayoutStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiatPayoutStatus, opts...).ToFunc()
+}
+
+// ByFiatPayoutError orders the results by the fiat_payout_error field.
+func ByFiatPayoutError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFiatPayoutError, opts...).ToFunc()
 }
 
 // ByTokenField orders the results by token field.

@@ -729,6 +729,10 @@ func (s *SuiEventIndexer) updateOrderStatusSettled(ctx context.Context, evt *typ
 		return fmt.Errorf("OrderSettled: commit: %w", err)
 	}
 
+	// NB: the recipient's Naira leg is paid BEFORE settlement (fiat-first) by
+	// services/order ExecuteOrderService at match time — not here. By the time
+	// OrderSettled lands, the payout is already confirmed. See execute.go.
+
 	// Integrator-facing webhook (only after successful commit so we never
 	// notify a state that didn't actually land).
 	if paymentOrderExists && po.Status != paymentorder.StatusSettled {

@@ -25,6 +25,8 @@ import (
 	"github.com/usezoracle/rails-sui/ent/transactionlog"
 	"github.com/usezoracle/rails-sui/ent/webhookretryattempt"
 	"github.com/usezoracle/rails-sui/services"
+	"github.com/usezoracle/rails-sui/services/baas"
+	orderpkg "github.com/usezoracle/rails-sui/services/order"
 	shinamiGas "github.com/usezoracle/rails-sui/services/shinami_gas"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/types"
@@ -34,10 +36,6 @@ import (
 
 var orderConf = config.OrderConfig()
 var serverConf = config.ServerConfig()
-
-
-
-
 
 // ReassignPendingOrders reassigns declined order requests to providers
 func ReassignPendingOrders() {
@@ -118,10 +116,14 @@ func ReassignPendingOrders() {
 func ReassignUnfulfilledLockOrders() {
 	ctx := context.Background()
 
-	// Unassign unfulfilled lock orders.
+	// Unassign unfulfilled lock orders. Never touch an order whose platform
+	// payout is in-flight or already paid (pending/success) — that order is
+	// owned by the execute/settle flow and reassigning it could double-pay.
+	// Node-operated orders keep fiat_payout_status=none, so they're unaffected.
 	_, err := storage.Client.LockPaymentOrder.
 		Update().
 		Where(
+			lockpaymentorder.FiatPayoutStatusNotIn(lockpaymentorder.FiatPayoutStatusPending, lockpaymentorder.FiatPayoutStatusSuccess),
 			lockpaymentorder.Or(
 				lockpaymentorder.And(
 					lockpaymentorder.StatusEQ(lockpaymentorder.StatusProcessing),
@@ -150,6 +152,7 @@ func ReassignUnfulfilledLockOrders() {
 	lockOrders, err := storage.Client.LockPaymentOrder.
 		Query().
 		Where(
+			lockpaymentorder.FiatPayoutStatusNotIn(lockpaymentorder.FiatPayoutStatusPending, lockpaymentorder.FiatPayoutStatusSuccess),
 			lockpaymentorder.Or(
 				lockpaymentorder.Not(lockpaymentorder.HasFulfillments()),
 				lockpaymentorder.HasFulfillmentsWith(
@@ -216,10 +219,12 @@ func ReassignUnfulfilledLockOrders() {
 func ReassignUnvalidatedLockOrders() {
 	ctx := context.Background()
 
-	// Query unvalidated lock orders.
+	// Query unvalidated lock orders. Exclude orders with an in-flight/paid
+	// platform payout so a paid order is never refunded mid-settle.
 	lockOrders, err := storage.Client.LockPaymentOrder.
 		Query().
 		Where(
+			lockpaymentorder.FiatPayoutStatusNotIn(lockpaymentorder.FiatPayoutStatusPending, lockpaymentorder.FiatPayoutStatusSuccess),
 			lockpaymentorder.Or(
 				lockpaymentorder.StatusEQ(lockpaymentorder.StatusFulfilled),
 				lockpaymentorder.And(
@@ -854,5 +859,67 @@ func StartCronJobs() {
 		logger.Infof("StartCronJobs: SHINAMI_GAS_API_KEY empty — skipping Shinami fund-balance cron (aggregator Move calls will fail at runtime)")
 	}
 
+	// Reconcile in-flight Route B fiat payouts as a backstop to the webhook.
+	if _, err := scheduler.Cron("*/2 * * * *").Do(ReconcileFiatPayouts); err != nil {
+		logger.Errorf("StartCronJobs: %v", err)
+	}
+
 	scheduler.StartAsync()
+}
+
+// ReconcileFiatPayouts polls the BaaS rail for the outcome of in-flight Route B
+// payouts (fiat_payout_status=pending with a session id) and converges each lock
+// order to a terminal status. It is the backstop to the inbound webhook: if a
+// callback is missed, this closes the loop. No-op when the rail is unconfigured.
+func ReconcileFiatPayouts() error {
+	provider := baas.Default()
+	if provider == nil {
+		return nil
+	}
+	ctx := context.Background()
+
+	orders, err := storage.Client.LockPaymentOrder.
+		Query().
+		Where(
+			lockpaymentorder.FiatPayoutStatusEQ(lockpaymentorder.FiatPayoutStatusPending),
+			lockpaymentorder.FiatPayoutSessionIDNEQ(""),
+		).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("ReconcileFiatPayouts: query: %w", err)
+	}
+
+	for _, o := range orders {
+		tr, err := provider.TransferStatus(ctx, o.FiatPayoutSessionID)
+		if err != nil {
+			logger.Warnf("ReconcileFiatPayouts %s: status: %v", o.ID, err)
+			continue
+		}
+		switch tr.Status {
+		case baas.TransferSuccess:
+			if err := storage.Client.LockPaymentOrder.UpdateOneID(o.ID).
+				SetFiatPayoutStatus(lockpaymentorder.FiatPayoutStatusSuccess).
+				ClearFiatPayoutSessionID().
+				ClearFiatPayoutError().
+				Exec(ctx); err != nil {
+				logger.Errorf("ReconcileFiatPayouts %s: persist success: %v", o.ID, err)
+				continue
+			}
+			// Fiat confirmed → release the LP's USDC (fulfil + settle).
+			if err := orderpkg.NewExecuteOrderService().SettleAfterPayout(ctx, o.ID); err != nil {
+				logger.Errorf("ReconcileFiatPayouts %s: settle: %v", o.ID, err)
+			}
+		case baas.TransferFailed:
+			if err := storage.Client.LockPaymentOrder.UpdateOneID(o.ID).
+				SetFiatPayoutStatus(lockpaymentorder.FiatPayoutStatusFailed).
+				SetFiatPayoutError("rail reported: " + tr.RawStatus).
+				ClearFiatPayoutSessionID().
+				Exec(ctx); err != nil {
+				logger.Errorf("ReconcileFiatPayouts %s: persist failed: %v", o.ID, err)
+			}
+		default:
+			// still pending — keep polling next tick
+		}
+	}
+	return nil
 }

@@ -14,7 +14,7 @@ import (
 	suisdk "github.com/block-vision/sui-go-sdk/sui"
 
 	"github.com/usezoracle/rails-sui/config"
-	"github.com/usezoracle/rails-sui/services/baas/safehaven"
+	"github.com/usezoracle/rails-sui/services/baas"
 	"github.com/usezoracle/rails-sui/services/evm"
 	u "github.com/usezoracle/rails-sui/utils"
 )
@@ -111,21 +111,21 @@ func suiAggregatorBalances(ctx context.Context, conf *config.OrderConfiguration)
 	return out
 }
 
-// safehavenBalances lists the main float + LP sub-accounts (NGN).
+// safehavenBalances lists the main float + LP sub-accounts (NGN) via the BaaS rail.
 func safehavenBalances(ctx context.Context) gin.H {
-	client := safehaven.Default()
+	client := baas.Default()
 	if client == nil {
-		return gin.H{"available": false, "reason": "safe haven not configured"}
+		return gin.H{"available": false, "reason": "baas rail not configured"}
 	}
 
-	out := gin.H{"available": true}
+	out := gin.H{"available": true, "provider": client.Name()}
 
 	mainTotal := decimal.Zero
 	if mains, err := client.ListAccounts(ctx, false); err == nil {
 		accs := make([]gin.H, 0, len(mains))
 		for _, a := range mains {
-			mainTotal = mainTotal.Add(a.AccountBalance)
-			accs = append(accs, gin.H{"account": a.AccountNumber, "name": a.AccountName, "balance": a.AccountBalance.String(), "status": a.Status})
+			mainTotal = mainTotal.Add(a.Balance)
+			accs = append(accs, gin.H{"account": a.AccountNumber, "name": a.AccountName, "balance": a.Balance.String(), "status": a.Status})
 		}
 		out["main_accounts"] = accs
 		out["main_total_ngn"] = mainTotal.String()
@@ -137,8 +137,8 @@ func safehavenBalances(ctx context.Context) gin.H {
 	if subs, err := client.ListAccounts(ctx, true); err == nil {
 		accs := make([]gin.H, 0, len(subs))
 		for _, a := range subs {
-			subTotal = subTotal.Add(a.AccountBalance)
-			accs = append(accs, gin.H{"account": a.AccountNumber, "name": a.AccountName, "balance": a.AccountBalance.String(), "status": a.Status})
+			subTotal = subTotal.Add(a.Balance)
+			accs = append(accs, gin.H{"account": a.AccountNumber, "name": a.AccountName, "balance": a.Balance.String(), "status": a.Status})
 		}
 		out["lp_subaccounts"] = accs
 		out["lp_total_ngn"] = subTotal.String()

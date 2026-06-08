@@ -197,6 +197,10 @@ var (
 		{Name: "memo", Type: field.TypeString, Nullable: true},
 		{Name: "cancellation_count", Type: field.TypeInt, Default: 0},
 		{Name: "cancellation_reasons", Type: field.TypeJSON},
+		{Name: "fiat_payout_reference", Type: field.TypeString, Nullable: true},
+		{Name: "fiat_payout_session_id", Type: field.TypeString, Nullable: true},
+		{Name: "fiat_payout_status", Type: field.TypeEnum, Enums: []string{"none", "pending", "success", "failed"}, Default: "none"},
+		{Name: "fiat_payout_error", Type: field.TypeString, Nullable: true},
 		{Name: "provider_profile_assigned_orders", Type: field.TypeString, Nullable: true},
 		{Name: "provision_bucket_lock_payment_orders", Type: field.TypeInt, Nullable: true},
 		{Name: "token_lock_payment_orders", Type: field.TypeInt},
@@ -209,19 +213,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "lock_payment_orders_provider_profiles_assigned_orders",
-				Columns:    []*schema.Column{LockPaymentOrdersColumns[16]},
+				Columns:    []*schema.Column{LockPaymentOrdersColumns[20]},
 				RefColumns: []*schema.Column{ProviderProfilesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "lock_payment_orders_provision_buckets_lock_payment_orders",
-				Columns:    []*schema.Column{LockPaymentOrdersColumns[17]},
+				Columns:    []*schema.Column{LockPaymentOrdersColumns[21]},
 				RefColumns: []*schema.Column{ProvisionBucketsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "lock_payment_orders_tokens_lock_payment_orders",
-				Columns:    []*schema.Column{LockPaymentOrdersColumns[18]},
+				Columns:    []*schema.Column{LockPaymentOrdersColumns[22]},
 				RefColumns: []*schema.Column{TokensColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -230,7 +234,7 @@ var (
 			{
 				Name:    "lockpaymentorder_gateway_id_rate_tx_hash_block_number_institution_account_identifier_account_name_memo_token_lock_payment_orders",
 				Unique:  true,
-				Columns: []*schema.Column{LockPaymentOrdersColumns[3], LockPaymentOrdersColumns[5], LockPaymentOrdersColumns[7], LockPaymentOrdersColumns[9], LockPaymentOrdersColumns[10], LockPaymentOrdersColumns[11], LockPaymentOrdersColumns[12], LockPaymentOrdersColumns[13], LockPaymentOrdersColumns[18]},
+				Columns: []*schema.Column{LockPaymentOrdersColumns[3], LockPaymentOrdersColumns[5], LockPaymentOrdersColumns[7], LockPaymentOrdersColumns[9], LockPaymentOrdersColumns[10], LockPaymentOrdersColumns[11], LockPaymentOrdersColumns[12], LockPaymentOrdersColumns[13], LockPaymentOrdersColumns[22]},
 			},
 		},
 	}

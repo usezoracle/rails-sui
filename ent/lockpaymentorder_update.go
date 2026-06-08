@@ -269,6 +269,80 @@ func (lpou *LockPaymentOrderUpdate) AppendCancellationReasons(s []string) *LockP
 	return lpou
 }
 
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (lpou *LockPaymentOrderUpdate) SetFiatPayoutReference(s string) *LockPaymentOrderUpdate {
+	lpou.mutation.SetFiatPayoutReference(s)
+	return lpou
+}
+
+// SetNillableFiatPayoutReference sets the "fiat_payout_reference" field if the given value is not nil.
+func (lpou *LockPaymentOrderUpdate) SetNillableFiatPayoutReference(s *string) *LockPaymentOrderUpdate {
+	if s != nil {
+		lpou.SetFiatPayoutReference(*s)
+	}
+	return lpou
+}
+
+// ClearFiatPayoutReference clears the value of the "fiat_payout_reference" field.
+func (lpou *LockPaymentOrderUpdate) ClearFiatPayoutReference() *LockPaymentOrderUpdate {
+	lpou.mutation.ClearFiatPayoutReference()
+	return lpou
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (lpou *LockPaymentOrderUpdate) SetFiatPayoutSessionID(s string) *LockPaymentOrderUpdate {
+	lpou.mutation.SetFiatPayoutSessionID(s)
+	return lpou
+}
+
+// SetNillableFiatPayoutSessionID sets the "fiat_payout_session_id" field if the given value is not nil.
+func (lpou *LockPaymentOrderUpdate) SetNillableFiatPayoutSessionID(s *string) *LockPaymentOrderUpdate {
+	if s != nil {
+		lpou.SetFiatPayoutSessionID(*s)
+	}
+	return lpou
+}
+
+// ClearFiatPayoutSessionID clears the value of the "fiat_payout_session_id" field.
+func (lpou *LockPaymentOrderUpdate) ClearFiatPayoutSessionID() *LockPaymentOrderUpdate {
+	lpou.mutation.ClearFiatPayoutSessionID()
+	return lpou
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (lpou *LockPaymentOrderUpdate) SetFiatPayoutStatus(lps lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpdate {
+	lpou.mutation.SetFiatPayoutStatus(lps)
+	return lpou
+}
+
+// SetNillableFiatPayoutStatus sets the "fiat_payout_status" field if the given value is not nil.
+func (lpou *LockPaymentOrderUpdate) SetNillableFiatPayoutStatus(lps *lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpdate {
+	if lps != nil {
+		lpou.SetFiatPayoutStatus(*lps)
+	}
+	return lpou
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (lpou *LockPaymentOrderUpdate) SetFiatPayoutError(s string) *LockPaymentOrderUpdate {
+	lpou.mutation.SetFiatPayoutError(s)
+	return lpou
+}
+
+// SetNillableFiatPayoutError sets the "fiat_payout_error" field if the given value is not nil.
+func (lpou *LockPaymentOrderUpdate) SetNillableFiatPayoutError(s *string) *LockPaymentOrderUpdate {
+	if s != nil {
+		lpou.SetFiatPayoutError(*s)
+	}
+	return lpou
+}
+
+// ClearFiatPayoutError clears the value of the "fiat_payout_error" field.
+func (lpou *LockPaymentOrderUpdate) ClearFiatPayoutError() *LockPaymentOrderUpdate {
+	lpou.mutation.ClearFiatPayoutError()
+	return lpou
+}
+
 // SetTokenID sets the "token" edge to the Token entity by ID.
 func (lpou *LockPaymentOrderUpdate) SetTokenID(id int) *LockPaymentOrderUpdate {
 	lpou.mutation.SetTokenID(id)
@@ -461,6 +535,11 @@ func (lpou *LockPaymentOrderUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "LockPaymentOrder.status": %w`, err)}
 		}
 	}
+	if v, ok := lpou.mutation.FiatPayoutStatus(); ok {
+		if err := lockpaymentorder.FiatPayoutStatusValidator(v); err != nil {
+			return &ValidationError{Name: "fiat_payout_status", err: fmt.Errorf(`ent: validator failed for field "LockPaymentOrder.fiat_payout_status": %w`, err)}
+		}
+	}
 	if lpou.mutation.TokenCleared() && len(lpou.mutation.TokenIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "LockPaymentOrder.token"`)
 	}
@@ -546,6 +625,27 @@ func (lpou *LockPaymentOrderUpdate) sqlSave(ctx context.Context) (n int, err err
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, lockpaymentorder.FieldCancellationReasons, value)
 		})
+	}
+	if value, ok := lpou.mutation.FiatPayoutReference(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutReference, field.TypeString, value)
+	}
+	if lpou.mutation.FiatPayoutReferenceCleared() {
+		_spec.ClearField(lockpaymentorder.FieldFiatPayoutReference, field.TypeString)
+	}
+	if value, ok := lpou.mutation.FiatPayoutSessionID(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutSessionID, field.TypeString, value)
+	}
+	if lpou.mutation.FiatPayoutSessionIDCleared() {
+		_spec.ClearField(lockpaymentorder.FieldFiatPayoutSessionID, field.TypeString)
+	}
+	if value, ok := lpou.mutation.FiatPayoutStatus(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutStatus, field.TypeEnum, value)
+	}
+	if value, ok := lpou.mutation.FiatPayoutError(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutError, field.TypeString, value)
+	}
+	if lpou.mutation.FiatPayoutErrorCleared() {
+		_spec.ClearField(lockpaymentorder.FieldFiatPayoutError, field.TypeString)
 	}
 	if lpou.mutation.TokenCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -977,6 +1077,80 @@ func (lpouo *LockPaymentOrderUpdateOne) AppendCancellationReasons(s []string) *L
 	return lpouo
 }
 
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (lpouo *LockPaymentOrderUpdateOne) SetFiatPayoutReference(s string) *LockPaymentOrderUpdateOne {
+	lpouo.mutation.SetFiatPayoutReference(s)
+	return lpouo
+}
+
+// SetNillableFiatPayoutReference sets the "fiat_payout_reference" field if the given value is not nil.
+func (lpouo *LockPaymentOrderUpdateOne) SetNillableFiatPayoutReference(s *string) *LockPaymentOrderUpdateOne {
+	if s != nil {
+		lpouo.SetFiatPayoutReference(*s)
+	}
+	return lpouo
+}
+
+// ClearFiatPayoutReference clears the value of the "fiat_payout_reference" field.
+func (lpouo *LockPaymentOrderUpdateOne) ClearFiatPayoutReference() *LockPaymentOrderUpdateOne {
+	lpouo.mutation.ClearFiatPayoutReference()
+	return lpouo
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (lpouo *LockPaymentOrderUpdateOne) SetFiatPayoutSessionID(s string) *LockPaymentOrderUpdateOne {
+	lpouo.mutation.SetFiatPayoutSessionID(s)
+	return lpouo
+}
+
+// SetNillableFiatPayoutSessionID sets the "fiat_payout_session_id" field if the given value is not nil.
+func (lpouo *LockPaymentOrderUpdateOne) SetNillableFiatPayoutSessionID(s *string) *LockPaymentOrderUpdateOne {
+	if s != nil {
+		lpouo.SetFiatPayoutSessionID(*s)
+	}
+	return lpouo
+}
+
+// ClearFiatPayoutSessionID clears the value of the "fiat_payout_session_id" field.
+func (lpouo *LockPaymentOrderUpdateOne) ClearFiatPayoutSessionID() *LockPaymentOrderUpdateOne {
+	lpouo.mutation.ClearFiatPayoutSessionID()
+	return lpouo
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (lpouo *LockPaymentOrderUpdateOne) SetFiatPayoutStatus(lps lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpdateOne {
+	lpouo.mutation.SetFiatPayoutStatus(lps)
+	return lpouo
+}
+
+// SetNillableFiatPayoutStatus sets the "fiat_payout_status" field if the given value is not nil.
+func (lpouo *LockPaymentOrderUpdateOne) SetNillableFiatPayoutStatus(lps *lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpdateOne {
+	if lps != nil {
+		lpouo.SetFiatPayoutStatus(*lps)
+	}
+	return lpouo
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (lpouo *LockPaymentOrderUpdateOne) SetFiatPayoutError(s string) *LockPaymentOrderUpdateOne {
+	lpouo.mutation.SetFiatPayoutError(s)
+	return lpouo
+}
+
+// SetNillableFiatPayoutError sets the "fiat_payout_error" field if the given value is not nil.
+func (lpouo *LockPaymentOrderUpdateOne) SetNillableFiatPayoutError(s *string) *LockPaymentOrderUpdateOne {
+	if s != nil {
+		lpouo.SetFiatPayoutError(*s)
+	}
+	return lpouo
+}
+
+// ClearFiatPayoutError clears the value of the "fiat_payout_error" field.
+func (lpouo *LockPaymentOrderUpdateOne) ClearFiatPayoutError() *LockPaymentOrderUpdateOne {
+	lpouo.mutation.ClearFiatPayoutError()
+	return lpouo
+}
+
 // SetTokenID sets the "token" edge to the Token entity by ID.
 func (lpouo *LockPaymentOrderUpdateOne) SetTokenID(id int) *LockPaymentOrderUpdateOne {
 	lpouo.mutation.SetTokenID(id)
@@ -1182,6 +1356,11 @@ func (lpouo *LockPaymentOrderUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "LockPaymentOrder.status": %w`, err)}
 		}
 	}
+	if v, ok := lpouo.mutation.FiatPayoutStatus(); ok {
+		if err := lockpaymentorder.FiatPayoutStatusValidator(v); err != nil {
+			return &ValidationError{Name: "fiat_payout_status", err: fmt.Errorf(`ent: validator failed for field "LockPaymentOrder.fiat_payout_status": %w`, err)}
+		}
+	}
 	if lpouo.mutation.TokenCleared() && len(lpouo.mutation.TokenIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "LockPaymentOrder.token"`)
 	}
@@ -1284,6 +1463,27 @@ func (lpouo *LockPaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *Loc
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, lockpaymentorder.FieldCancellationReasons, value)
 		})
+	}
+	if value, ok := lpouo.mutation.FiatPayoutReference(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutReference, field.TypeString, value)
+	}
+	if lpouo.mutation.FiatPayoutReferenceCleared() {
+		_spec.ClearField(lockpaymentorder.FieldFiatPayoutReference, field.TypeString)
+	}
+	if value, ok := lpouo.mutation.FiatPayoutSessionID(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutSessionID, field.TypeString, value)
+	}
+	if lpouo.mutation.FiatPayoutSessionIDCleared() {
+		_spec.ClearField(lockpaymentorder.FieldFiatPayoutSessionID, field.TypeString)
+	}
+	if value, ok := lpouo.mutation.FiatPayoutStatus(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutStatus, field.TypeEnum, value)
+	}
+	if value, ok := lpouo.mutation.FiatPayoutError(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutError, field.TypeString, value)
+	}
+	if lpouo.mutation.FiatPayoutErrorCleared() {
+		_spec.ClearField(lockpaymentorder.FieldFiatPayoutError, field.TypeString)
 	}
 	if lpouo.mutation.TokenCleared() {
 		edge := &sqlgraph.EdgeSpec{

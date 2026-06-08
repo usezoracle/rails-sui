@@ -168,6 +168,62 @@ func (lpoc *LockPaymentOrderCreate) SetCancellationReasons(s []string) *LockPaym
 	return lpoc
 }
 
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (lpoc *LockPaymentOrderCreate) SetFiatPayoutReference(s string) *LockPaymentOrderCreate {
+	lpoc.mutation.SetFiatPayoutReference(s)
+	return lpoc
+}
+
+// SetNillableFiatPayoutReference sets the "fiat_payout_reference" field if the given value is not nil.
+func (lpoc *LockPaymentOrderCreate) SetNillableFiatPayoutReference(s *string) *LockPaymentOrderCreate {
+	if s != nil {
+		lpoc.SetFiatPayoutReference(*s)
+	}
+	return lpoc
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (lpoc *LockPaymentOrderCreate) SetFiatPayoutSessionID(s string) *LockPaymentOrderCreate {
+	lpoc.mutation.SetFiatPayoutSessionID(s)
+	return lpoc
+}
+
+// SetNillableFiatPayoutSessionID sets the "fiat_payout_session_id" field if the given value is not nil.
+func (lpoc *LockPaymentOrderCreate) SetNillableFiatPayoutSessionID(s *string) *LockPaymentOrderCreate {
+	if s != nil {
+		lpoc.SetFiatPayoutSessionID(*s)
+	}
+	return lpoc
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (lpoc *LockPaymentOrderCreate) SetFiatPayoutStatus(lps lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderCreate {
+	lpoc.mutation.SetFiatPayoutStatus(lps)
+	return lpoc
+}
+
+// SetNillableFiatPayoutStatus sets the "fiat_payout_status" field if the given value is not nil.
+func (lpoc *LockPaymentOrderCreate) SetNillableFiatPayoutStatus(lps *lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderCreate {
+	if lps != nil {
+		lpoc.SetFiatPayoutStatus(*lps)
+	}
+	return lpoc
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (lpoc *LockPaymentOrderCreate) SetFiatPayoutError(s string) *LockPaymentOrderCreate {
+	lpoc.mutation.SetFiatPayoutError(s)
+	return lpoc
+}
+
+// SetNillableFiatPayoutError sets the "fiat_payout_error" field if the given value is not nil.
+func (lpoc *LockPaymentOrderCreate) SetNillableFiatPayoutError(s *string) *LockPaymentOrderCreate {
+	if s != nil {
+		lpoc.SetFiatPayoutError(*s)
+	}
+	return lpoc
+}
+
 // SetID sets the "id" field.
 func (lpoc *LockPaymentOrderCreate) SetID(u uuid.UUID) *LockPaymentOrderCreate {
 	lpoc.mutation.SetID(u)
@@ -316,6 +372,10 @@ func (lpoc *LockPaymentOrderCreate) defaults() {
 		v := lockpaymentorder.DefaultCancellationReasons
 		lpoc.mutation.SetCancellationReasons(v)
 	}
+	if _, ok := lpoc.mutation.FiatPayoutStatus(); !ok {
+		v := lockpaymentorder.DefaultFiatPayoutStatus
+		lpoc.mutation.SetFiatPayoutStatus(v)
+	}
 	if _, ok := lpoc.mutation.ID(); !ok {
 		v := lockpaymentorder.DefaultID()
 		lpoc.mutation.SetID(v)
@@ -372,6 +432,14 @@ func (lpoc *LockPaymentOrderCreate) check() error {
 	}
 	if _, ok := lpoc.mutation.CancellationReasons(); !ok {
 		return &ValidationError{Name: "cancellation_reasons", err: errors.New(`ent: missing required field "LockPaymentOrder.cancellation_reasons"`)}
+	}
+	if _, ok := lpoc.mutation.FiatPayoutStatus(); !ok {
+		return &ValidationError{Name: "fiat_payout_status", err: errors.New(`ent: missing required field "LockPaymentOrder.fiat_payout_status"`)}
+	}
+	if v, ok := lpoc.mutation.FiatPayoutStatus(); ok {
+		if err := lockpaymentorder.FiatPayoutStatusValidator(v); err != nil {
+			return &ValidationError{Name: "fiat_payout_status", err: fmt.Errorf(`ent: validator failed for field "LockPaymentOrder.fiat_payout_status": %w`, err)}
+		}
 	}
 	if len(lpoc.mutation.TokenIDs()) == 0 {
 		return &ValidationError{Name: "token", err: errors.New(`ent: missing required edge "LockPaymentOrder.token"`)}
@@ -471,6 +539,22 @@ func (lpoc *LockPaymentOrderCreate) createSpec() (*LockPaymentOrder, *sqlgraph.C
 	if value, ok := lpoc.mutation.CancellationReasons(); ok {
 		_spec.SetField(lockpaymentorder.FieldCancellationReasons, field.TypeJSON, value)
 		_node.CancellationReasons = value
+	}
+	if value, ok := lpoc.mutation.FiatPayoutReference(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutReference, field.TypeString, value)
+		_node.FiatPayoutReference = value
+	}
+	if value, ok := lpoc.mutation.FiatPayoutSessionID(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutSessionID, field.TypeString, value)
+		_node.FiatPayoutSessionID = value
+	}
+	if value, ok := lpoc.mutation.FiatPayoutStatus(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutStatus, field.TypeEnum, value)
+		_node.FiatPayoutStatus = value
+	}
+	if value, ok := lpoc.mutation.FiatPayoutError(); ok {
+		_spec.SetField(lockpaymentorder.FieldFiatPayoutError, field.TypeString, value)
+		_node.FiatPayoutError = value
 	}
 	if nodes := lpoc.mutation.TokenIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -817,6 +901,72 @@ func (u *LockPaymentOrderUpsert) UpdateCancellationReasons() *LockPaymentOrderUp
 	return u
 }
 
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (u *LockPaymentOrderUpsert) SetFiatPayoutReference(v string) *LockPaymentOrderUpsert {
+	u.Set(lockpaymentorder.FieldFiatPayoutReference, v)
+	return u
+}
+
+// UpdateFiatPayoutReference sets the "fiat_payout_reference" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsert) UpdateFiatPayoutReference() *LockPaymentOrderUpsert {
+	u.SetExcluded(lockpaymentorder.FieldFiatPayoutReference)
+	return u
+}
+
+// ClearFiatPayoutReference clears the value of the "fiat_payout_reference" field.
+func (u *LockPaymentOrderUpsert) ClearFiatPayoutReference() *LockPaymentOrderUpsert {
+	u.SetNull(lockpaymentorder.FieldFiatPayoutReference)
+	return u
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (u *LockPaymentOrderUpsert) SetFiatPayoutSessionID(v string) *LockPaymentOrderUpsert {
+	u.Set(lockpaymentorder.FieldFiatPayoutSessionID, v)
+	return u
+}
+
+// UpdateFiatPayoutSessionID sets the "fiat_payout_session_id" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsert) UpdateFiatPayoutSessionID() *LockPaymentOrderUpsert {
+	u.SetExcluded(lockpaymentorder.FieldFiatPayoutSessionID)
+	return u
+}
+
+// ClearFiatPayoutSessionID clears the value of the "fiat_payout_session_id" field.
+func (u *LockPaymentOrderUpsert) ClearFiatPayoutSessionID() *LockPaymentOrderUpsert {
+	u.SetNull(lockpaymentorder.FieldFiatPayoutSessionID)
+	return u
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (u *LockPaymentOrderUpsert) SetFiatPayoutStatus(v lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpsert {
+	u.Set(lockpaymentorder.FieldFiatPayoutStatus, v)
+	return u
+}
+
+// UpdateFiatPayoutStatus sets the "fiat_payout_status" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsert) UpdateFiatPayoutStatus() *LockPaymentOrderUpsert {
+	u.SetExcluded(lockpaymentorder.FieldFiatPayoutStatus)
+	return u
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (u *LockPaymentOrderUpsert) SetFiatPayoutError(v string) *LockPaymentOrderUpsert {
+	u.Set(lockpaymentorder.FieldFiatPayoutError, v)
+	return u
+}
+
+// UpdateFiatPayoutError sets the "fiat_payout_error" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsert) UpdateFiatPayoutError() *LockPaymentOrderUpsert {
+	u.SetExcluded(lockpaymentorder.FieldFiatPayoutError)
+	return u
+}
+
+// ClearFiatPayoutError clears the value of the "fiat_payout_error" field.
+func (u *LockPaymentOrderUpsert) ClearFiatPayoutError() *LockPaymentOrderUpsert {
+	u.SetNull(lockpaymentorder.FieldFiatPayoutError)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -1110,6 +1260,83 @@ func (u *LockPaymentOrderUpsertOne) SetCancellationReasons(v []string) *LockPaym
 func (u *LockPaymentOrderUpsertOne) UpdateCancellationReasons() *LockPaymentOrderUpsertOne {
 	return u.Update(func(s *LockPaymentOrderUpsert) {
 		s.UpdateCancellationReasons()
+	})
+}
+
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (u *LockPaymentOrderUpsertOne) SetFiatPayoutReference(v string) *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutReference(v)
+	})
+}
+
+// UpdateFiatPayoutReference sets the "fiat_payout_reference" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertOne) UpdateFiatPayoutReference() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutReference()
+	})
+}
+
+// ClearFiatPayoutReference clears the value of the "fiat_payout_reference" field.
+func (u *LockPaymentOrderUpsertOne) ClearFiatPayoutReference() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.ClearFiatPayoutReference()
+	})
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (u *LockPaymentOrderUpsertOne) SetFiatPayoutSessionID(v string) *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutSessionID(v)
+	})
+}
+
+// UpdateFiatPayoutSessionID sets the "fiat_payout_session_id" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertOne) UpdateFiatPayoutSessionID() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutSessionID()
+	})
+}
+
+// ClearFiatPayoutSessionID clears the value of the "fiat_payout_session_id" field.
+func (u *LockPaymentOrderUpsertOne) ClearFiatPayoutSessionID() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.ClearFiatPayoutSessionID()
+	})
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (u *LockPaymentOrderUpsertOne) SetFiatPayoutStatus(v lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutStatus(v)
+	})
+}
+
+// UpdateFiatPayoutStatus sets the "fiat_payout_status" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertOne) UpdateFiatPayoutStatus() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutStatus()
+	})
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (u *LockPaymentOrderUpsertOne) SetFiatPayoutError(v string) *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutError(v)
+	})
+}
+
+// UpdateFiatPayoutError sets the "fiat_payout_error" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertOne) UpdateFiatPayoutError() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutError()
+	})
+}
+
+// ClearFiatPayoutError clears the value of the "fiat_payout_error" field.
+func (u *LockPaymentOrderUpsertOne) ClearFiatPayoutError() *LockPaymentOrderUpsertOne {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.ClearFiatPayoutError()
 	})
 }
 
@@ -1573,6 +1800,83 @@ func (u *LockPaymentOrderUpsertBulk) SetCancellationReasons(v []string) *LockPay
 func (u *LockPaymentOrderUpsertBulk) UpdateCancellationReasons() *LockPaymentOrderUpsertBulk {
 	return u.Update(func(s *LockPaymentOrderUpsert) {
 		s.UpdateCancellationReasons()
+	})
+}
+
+// SetFiatPayoutReference sets the "fiat_payout_reference" field.
+func (u *LockPaymentOrderUpsertBulk) SetFiatPayoutReference(v string) *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutReference(v)
+	})
+}
+
+// UpdateFiatPayoutReference sets the "fiat_payout_reference" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertBulk) UpdateFiatPayoutReference() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutReference()
+	})
+}
+
+// ClearFiatPayoutReference clears the value of the "fiat_payout_reference" field.
+func (u *LockPaymentOrderUpsertBulk) ClearFiatPayoutReference() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.ClearFiatPayoutReference()
+	})
+}
+
+// SetFiatPayoutSessionID sets the "fiat_payout_session_id" field.
+func (u *LockPaymentOrderUpsertBulk) SetFiatPayoutSessionID(v string) *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutSessionID(v)
+	})
+}
+
+// UpdateFiatPayoutSessionID sets the "fiat_payout_session_id" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertBulk) UpdateFiatPayoutSessionID() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutSessionID()
+	})
+}
+
+// ClearFiatPayoutSessionID clears the value of the "fiat_payout_session_id" field.
+func (u *LockPaymentOrderUpsertBulk) ClearFiatPayoutSessionID() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.ClearFiatPayoutSessionID()
+	})
+}
+
+// SetFiatPayoutStatus sets the "fiat_payout_status" field.
+func (u *LockPaymentOrderUpsertBulk) SetFiatPayoutStatus(v lockpaymentorder.FiatPayoutStatus) *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutStatus(v)
+	})
+}
+
+// UpdateFiatPayoutStatus sets the "fiat_payout_status" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertBulk) UpdateFiatPayoutStatus() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutStatus()
+	})
+}
+
+// SetFiatPayoutError sets the "fiat_payout_error" field.
+func (u *LockPaymentOrderUpsertBulk) SetFiatPayoutError(v string) *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.SetFiatPayoutError(v)
+	})
+}
+
+// UpdateFiatPayoutError sets the "fiat_payout_error" field to the value that was provided on create.
+func (u *LockPaymentOrderUpsertBulk) UpdateFiatPayoutError() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.UpdateFiatPayoutError()
+	})
+}
+
+// ClearFiatPayoutError clears the value of the "fiat_payout_error" field.
+func (u *LockPaymentOrderUpsertBulk) ClearFiatPayoutError() *LockPaymentOrderUpsertBulk {
+	return u.Update(func(s *LockPaymentOrderUpsert) {
+		s.ClearFiatPayoutError()
 	})
 }
 

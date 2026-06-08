@@ -122,6 +122,21 @@ func CancellationCount(v int) predicate.LockPaymentOrder {
 	return predicate.LockPaymentOrder(sql.FieldEQ(FieldCancellationCount, v))
 }
 
+// FiatPayoutReference applies equality check predicate on the "fiat_payout_reference" field. It's identical to FiatPayoutReferenceEQ.
+func FiatPayoutReference(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutSessionID applies equality check predicate on the "fiat_payout_session_id" field. It's identical to FiatPayoutSessionIDEQ.
+func FiatPayoutSessionID(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutError applies equality check predicate on the "fiat_payout_error" field. It's identical to FiatPayoutErrorEQ.
+func FiatPayoutError(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutError, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.LockPaymentOrder {
 	return predicate.LockPaymentOrder(sql.FieldEQ(FieldCreatedAt, v))
@@ -830,6 +845,251 @@ func CancellationCountLT(v int) predicate.LockPaymentOrder {
 // CancellationCountLTE applies the LTE predicate on the "cancellation_count" field.
 func CancellationCountLTE(v int) predicate.LockPaymentOrder {
 	return predicate.LockPaymentOrder(sql.FieldLTE(FieldCancellationCount, v))
+}
+
+// FiatPayoutReferenceEQ applies the EQ predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceEQ(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceNEQ applies the NEQ predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceNEQ(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNEQ(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceIn applies the In predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceIn(vs ...string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIn(FieldFiatPayoutReference, vs...))
+}
+
+// FiatPayoutReferenceNotIn applies the NotIn predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceNotIn(vs ...string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotIn(FieldFiatPayoutReference, vs...))
+}
+
+// FiatPayoutReferenceGT applies the GT predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceGT(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldGT(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceGTE applies the GTE predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceGTE(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldGTE(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceLT applies the LT predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceLT(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldLT(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceLTE applies the LTE predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceLTE(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldLTE(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceContains applies the Contains predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceContains(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldContains(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceHasPrefix applies the HasPrefix predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceHasPrefix(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldHasPrefix(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceHasSuffix applies the HasSuffix predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceHasSuffix(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldHasSuffix(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceIsNil applies the IsNil predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceIsNil() predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIsNull(FieldFiatPayoutReference))
+}
+
+// FiatPayoutReferenceNotNil applies the NotNil predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceNotNil() predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotNull(FieldFiatPayoutReference))
+}
+
+// FiatPayoutReferenceEqualFold applies the EqualFold predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceEqualFold(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEqualFold(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutReferenceContainsFold applies the ContainsFold predicate on the "fiat_payout_reference" field.
+func FiatPayoutReferenceContainsFold(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldContainsFold(FieldFiatPayoutReference, v))
+}
+
+// FiatPayoutSessionIDEQ applies the EQ predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDEQ(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDNEQ applies the NEQ predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDNEQ(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNEQ(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDIn applies the In predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDIn(vs ...string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIn(FieldFiatPayoutSessionID, vs...))
+}
+
+// FiatPayoutSessionIDNotIn applies the NotIn predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDNotIn(vs ...string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotIn(FieldFiatPayoutSessionID, vs...))
+}
+
+// FiatPayoutSessionIDGT applies the GT predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDGT(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldGT(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDGTE applies the GTE predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDGTE(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldGTE(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDLT applies the LT predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDLT(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldLT(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDLTE applies the LTE predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDLTE(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldLTE(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDContains applies the Contains predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDContains(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldContains(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDHasPrefix applies the HasPrefix predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDHasPrefix(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldHasPrefix(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDHasSuffix applies the HasSuffix predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDHasSuffix(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldHasSuffix(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDIsNil applies the IsNil predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDIsNil() predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIsNull(FieldFiatPayoutSessionID))
+}
+
+// FiatPayoutSessionIDNotNil applies the NotNil predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDNotNil() predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotNull(FieldFiatPayoutSessionID))
+}
+
+// FiatPayoutSessionIDEqualFold applies the EqualFold predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDEqualFold(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEqualFold(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutSessionIDContainsFold applies the ContainsFold predicate on the "fiat_payout_session_id" field.
+func FiatPayoutSessionIDContainsFold(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldContainsFold(FieldFiatPayoutSessionID, v))
+}
+
+// FiatPayoutStatusEQ applies the EQ predicate on the "fiat_payout_status" field.
+func FiatPayoutStatusEQ(v FiatPayoutStatus) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutStatus, v))
+}
+
+// FiatPayoutStatusNEQ applies the NEQ predicate on the "fiat_payout_status" field.
+func FiatPayoutStatusNEQ(v FiatPayoutStatus) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNEQ(FieldFiatPayoutStatus, v))
+}
+
+// FiatPayoutStatusIn applies the In predicate on the "fiat_payout_status" field.
+func FiatPayoutStatusIn(vs ...FiatPayoutStatus) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIn(FieldFiatPayoutStatus, vs...))
+}
+
+// FiatPayoutStatusNotIn applies the NotIn predicate on the "fiat_payout_status" field.
+func FiatPayoutStatusNotIn(vs ...FiatPayoutStatus) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotIn(FieldFiatPayoutStatus, vs...))
+}
+
+// FiatPayoutErrorEQ applies the EQ predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorEQ(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEQ(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorNEQ applies the NEQ predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorNEQ(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNEQ(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorIn applies the In predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorIn(vs ...string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIn(FieldFiatPayoutError, vs...))
+}
+
+// FiatPayoutErrorNotIn applies the NotIn predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorNotIn(vs ...string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotIn(FieldFiatPayoutError, vs...))
+}
+
+// FiatPayoutErrorGT applies the GT predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorGT(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldGT(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorGTE applies the GTE predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorGTE(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldGTE(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorLT applies the LT predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorLT(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldLT(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorLTE applies the LTE predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorLTE(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldLTE(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorContains applies the Contains predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorContains(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldContains(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorHasPrefix applies the HasPrefix predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorHasPrefix(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldHasPrefix(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorHasSuffix applies the HasSuffix predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorHasSuffix(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldHasSuffix(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorIsNil applies the IsNil predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorIsNil() predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldIsNull(FieldFiatPayoutError))
+}
+
+// FiatPayoutErrorNotNil applies the NotNil predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorNotNil() predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldNotNull(FieldFiatPayoutError))
+}
+
+// FiatPayoutErrorEqualFold applies the EqualFold predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorEqualFold(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldEqualFold(FieldFiatPayoutError, v))
+}
+
+// FiatPayoutErrorContainsFold applies the ContainsFold predicate on the "fiat_payout_error" field.
+func FiatPayoutErrorContainsFold(v string) predicate.LockPaymentOrder {
+	return predicate.LockPaymentOrder(sql.FieldContainsFold(FieldFiatPayoutError, v))
 }
 
 // HasToken applies the HasEdge predicate on the "token" edge.

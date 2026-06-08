@@ -50,6 +50,19 @@ func (LockPaymentOrder) Fields() []ent.Field {
 			Default(0),
 		field.Strings("cancellation_reasons").
 			Default([]string{}),
+		// Route B fiat payout: set when the LP's delegated BaaS sub-account is
+		// debited to pay the recipient after on-chain settle. Reference is the
+		// idempotency key ("routeB-<id>"); session id is the rail's txn ref used
+		// to reconcile via webhook + TransferStatus poll; status is normalised.
+		field.String("fiat_payout_reference").
+			Optional(),
+		field.String("fiat_payout_session_id").
+			Optional(),
+		field.Enum("fiat_payout_status").
+			Values("none", "pending", "success", "failed").
+			Default("none"),
+		field.String("fiat_payout_error").
+			Optional(),
 	}
 }
 
