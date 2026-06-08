@@ -89,6 +89,14 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 			SetIsEmailVerified(true)
 	}
 
+	// Providers (LPs) are onboarded partners, not part of the consumer beta —
+	// so they must not be blocked by the early-access gate at login. Google
+	// sign-in already grants this; keep email/password registration consistent
+	// so an LP who registers can actually log in (after verifying their email).
+	if u.ContainsString(payload.Scopes, "provider") {
+		userCreate = userCreate.SetHasEarlyAccess(true)
+	}
+
 	user, err := userCreate.Save(ctx)
 	if err != nil {
 		_ = tx.Rollback()
@@ -295,9 +303,13 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// Check if user has early access
+	// Check if user has early access. Providers (LPs) are onboarded partners,
+	// not part of the consumer beta, so the early-access wall never applies to
+	// them — this also unblocks LP accounts created before early access was
+	// granted on registration.
 	environment := serverConf.Environment
-	if !user.HasEarlyAccess && (environment == "production" || environment == "staging") {
+	isProvider := u.ContainsString(strings.Fields(user.Scope), "provider")
+	if !user.HasEarlyAccess && !isProvider && (environment == "production" || environment == "staging") {
 		u.APIResponse(ctx, http.StatusUnauthorized, "error",
 			"Your early access request is still pending", nil,
 		)
