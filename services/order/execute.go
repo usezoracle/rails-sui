@@ -118,6 +118,9 @@ func (s *ExecuteOrderService) Execute(ctx context.Context, orderID uuid.UUID, pr
 		return nil // already claimed by another worker
 	}
 
+	// Live feed: the order is now assigned to this LP and processing.
+	PublishOrderByID(EventOrderAssigned, orderID)
+
 	// Pay the recipient's Naira from the LP's sub-account.
 	ne, err := rail.NameEnquiry(ctx, order.Institution, order.AccountIdentifier)
 	if err != nil {
@@ -144,6 +147,7 @@ func (s *ExecuteOrderService) Execute(ctx context.Context, orderID uuid.UUID, pr
 	switch tr.Status {
 	case baas.TransferSuccess:
 		s.setPayoutSuccess(ctx, orderID)
+		PublishOrderByID(EventOrderPayout, orderID)
 		return s.SettleAfterPayout(ctx, orderID)
 	case baas.TransferFailed:
 		s.reassign(ctx, order, providerID, "rail rejected: "+tr.RawStatus)
@@ -156,6 +160,7 @@ func (s *ExecuteOrderService) Execute(ctx context.Context, orderID uuid.UUID, pr
 			Exec(ctx); err != nil {
 			logger.Errorf("execute %s: persist session id: %v", orderID, err)
 		}
+		PublishOrderByID(EventOrderPayout, orderID)
 		return nil
 	}
 }
