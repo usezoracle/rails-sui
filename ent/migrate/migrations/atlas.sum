@@ -1,4 +1,4 @@
-h1:5VkHXcWvGc9UzGbqvu6SbB6XX6iEGJWM1u99uEJYDzs=
+h1:EvoIU0JKGvjA68CFblcNSmJqAdegcWaKaNzhzf6zwms=
 20240118234246_initial.sql h1:dYuYBqns33WT+3p8VQvbKUP62k3k6w6h8S+FqNqgSvU=
 20240130122324_order_from_address.sql h1:mMVI2iBUd1roIYLUqu0d2jZ7+B6exppRN8qqn+aIHx4=
 20240202010744_fees_on_order.sql h1:P7ngxZKqDKefBM5vk6M3kbWeMPVwbZ4MZVcLBjEfS34=
@@ -48,3 +48,4 @@ h1:5VkHXcWvGc9UzGbqvu6SbB6XX6iEGJWM1u99uEJYDzs=
 20250117094130_usd_institutions.sql h1:n6s33YqbcsBLOuXYGFojdDJnH9l3yO4rMkPT47EFez0=
 20250117095934_brl_institutions.sql h1:038j/vb7vHg+1gGlz03OLH+Z1NUz0iLKrJjOZ+dPDHU=
 20260608170000_add_fiat_payout_fields.sql h1:7y0Hc6QxsL6WJyyrNRXDazH8x99i7Ug85yVcI2SIjzk=
+20260608210000_seed_sui_networks_and_usdc.sql h1:2f0y8iiMNVl6WJEtZ1E1mEfk/zNulC2hWlAZP2AbHGs=
