@@ -170,7 +170,7 @@ func (c *ConfigController) GetNetworks(ctx *gin.Context) {
 
 // --- Providers / LPs --------------------------------------------------------
 
-// GetProviders lists LPs with their activation, KYB, and Safe Haven mapping.
+// GetProviders lists LPs with their activation, KYB, and the BaaS provider mapping.
 //
 //	GET /v1/admin/config/providers
 func (c *ConfigController) GetProviders(ctx *gin.Context) {
@@ -196,7 +196,7 @@ type providerPatch struct {
 	SafehavenAccountNumber *string `json:"safehaven_account_number"`
 }
 
-// UpdateProvider sets a provider's activation / KYB / Safe Haven deposit account.
+// UpdateProvider sets a provider's activation / KYB / the BaaS provider deposit account.
 //
 //	PATCH /v1/admin/config/providers/:id
 func (c *ConfigController) UpdateProvider(ctx *gin.Context) {

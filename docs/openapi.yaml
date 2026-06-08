@@ -1734,12 +1734,12 @@ paths:
                         properties:
                           base_aggregator: { type: object }
                           sui_aggregator: { type: object }
-                          safehaven: { type: object }
+                          mfb: { type: object }
 
   /v1/admin/funding/transfer:
     post:
       tags: [Admin — Funding]
-      summary: Transfer funds from a Safe Haven account to a beneficiary NGN bank account
+      summary: Transfer funds from a the BaaS provider account to a beneficiary NGN bank account
       security: [{ adminToken: [] }]
       requestBody:
         required: true
@@ -1949,7 +1949,7 @@ paths:
   /v1/admin/config/providers/{id}:
     patch:
       tags: [Admin — Config]
-      summary: Update a provider's activation/KYB status or Safe Haven account mapping
+      summary: Update a provider's activation/KYB status or the BaaS provider account mapping
       security: [{ adminToken: [] }]
       parameters:
         - in: path
@@ -2251,7 +2251,7 @@ paths:
                             properties:
                               base_aggregator: { type: object }
                               sui_aggregator: { type: object }
-                              safehaven: { type: object }
+                              mfb: { type: object }
                           summary:
                             type: object
                             properties:

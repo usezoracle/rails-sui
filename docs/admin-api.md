@@ -20,8 +20,8 @@ Each step: `{source, step, status, at, actor?, network?, tx_hash?, error?, detai
 ## Funding
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/v1/admin/funding/balances` | Base aggregator (ETH+USDC), Sui aggregator (gas), Safe Haven main float + LP sub-accounts. Each source degrades gracefully + low-balance flags. |
-| POST | `/v1/admin/funding/transfer` | Safe Haven payout. **Money movement.** Body: `debit_account?`, `beneficiary_bank_code`, `beneficiary_account`, `amount`, `narration?`, `reference` (idempotency), `confirm`. Dry-run resolves the name + plan; `confirm:true` executes (idempotent on `reference`). |
+| GET | `/v1/admin/funding/balances` | Base aggregator (ETH+USDC), Sui aggregator (gas), the BaaS provider main float + LP sub-accounts. Each source degrades gracefully + low-balance flags. |
+| POST | `/v1/admin/funding/transfer` | the BaaS provider payout. **Money movement.** Body: `debit_account?`, `beneficiary_bank_code`, `beneficiary_account`, `amount`, `narration?`, `reference` (idempotency), `confirm`. Dry-run resolves the name + plan; `confirm:true` executes (idempotent on `reference`). |
 
 ## Config
 | Method | Path | Purpose |
@@ -40,7 +40,7 @@ Each step: `{source, step, status, at, actor?, network?, tx_hash?, error?, detai
 ## Notes / follow-ups
 - Auth is a shared secret. Before this grows, replace with **RBAC + per-operator
   identity** (the audit `actor` becomes a user id).
-- `/funding/transfer` currently covers the Safe Haven (NGN) rail. On-chain
+- `/funding/transfer` currently covers the the BaaS provider (NGN) rail. On-chain
   sweeps/top-ups (Base/Sui aggregator) are a follow-up.
 - The refund endpoint records the decision + flips status; wiring it to the
-  actual on-chain `refund_order` / Safe Haven reversal is the next step.
+  actual on-chain `refund_order` / the BaaS provider reversal is the next step.

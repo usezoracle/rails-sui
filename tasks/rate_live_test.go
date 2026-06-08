@@ -28,7 +28,7 @@ func TestLiveRate(t *testing.T) {
 		name string
 		fn   func(string) (decimal.Decimal, error)
 	}{
-		{"paycrest", fetchPaycrestRate},
+		{"aggregator", fetchAggregatorRate},
 		{"binance", fetchBinanceP2PRate},
 		{"quidax", fetchQuidaxRate},
 	} {

@@ -482,7 +482,7 @@ var supportedRateCurrencies = map[string]bool{
 const rateSourceTimeout = 15 * time.Second
 
 // fetchExternalRate returns the live USDT/<fiat> market price aggregated across
-// several independent sources — Paycrest's rates API, Binance P2P, and (for NGN)
+// several independent sources — the aggregator's rates API, Binance P2P, and (for NGN)
 // Quidax. It takes the MEDIAN of whatever sources respond, so a source being
 // down, geo-restricted (Binance P2P is region-gated), or returning an outlier
 // never breaks the rate. It errors only when EVERY source fails. There is no
@@ -495,10 +495,10 @@ func fetchExternalRate(currency string) (decimal.Decimal, error) {
 
 	var rates []decimal.Decimal
 
-	// Source 1 — Paycrest aggregator rates API (region-agnostic; itself a
+	// Source 1 — the aggregator aggregator rates API (region-agnostic; itself a
 	// multi-source median, so the most reliable single source).
-	if r, err := fetchPaycrestRate(currency); err != nil {
-		logger.Warnf("fetchExternalRate: paycrest %s: %v", currency, err)
+	if r, err := fetchAggregatorRate(currency); err != nil {
+		logger.Warnf("fetchExternalRate: aggregator %s: %v", currency, err)
 	} else if r.IsPositive() {
 		rates = append(rates, r)
 	}
@@ -526,9 +526,9 @@ func fetchExternalRate(currency string) (decimal.Decimal, error) {
 	return utils.Median(rates), nil
 }
 
-// fetchPaycrestRate reads USDT/<fiat> from Paycrest's public rates API, e.g.
+// fetchAggregatorRate reads USDT/<fiat> from the aggregator's public rates API, e.g.
 // GET https://api.paycrest.io/v1/rates/USDT/1/NGN -> {"data":"1380"}.
-func fetchPaycrestRate(currency string) (decimal.Decimal, error) {
+func fetchAggregatorRate(currency string) (decimal.Decimal, error) {
 	res, err := fastshot.NewClient("https://api.paycrest.io").
 		Config().SetTimeout(rateSourceTimeout).
 		Build().GET(fmt.Sprintf("/v1/rates/USDT/1/%s", currency)).
@@ -543,7 +543,7 @@ func fetchPaycrestRate(currency string) (decimal.Decimal, error) {
 	}
 	raw, ok := data["data"].(string)
 	if !ok {
-		return decimal.Zero, fmt.Errorf("paycrest: unexpected response shape: %v", data["data"])
+		return decimal.Zero, fmt.Errorf("aggregator: unexpected response shape: %v", data["data"])
 	}
 	return decimal.NewFromString(raw)
 }

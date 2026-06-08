@@ -20,12 +20,12 @@ import (
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
-var safehavenConf = config.SafehavenConfig()
+var baasConf = config.BaaSConfig()
 
-// safeHavenWebhookPayload is Safe Haven's transfer/credit notification. Exact
+// baasWebhookPayload is the BaaS provider's transfer/credit notification. Exact
 // shape is to be confirmed against a live webhook — unknown keys are ignored, so
 // adding fields later is non-breaking.
-type safeHavenWebhookPayload struct {
+type baasWebhookPayload struct {
 	Type             string `json:"type"`
 	PaymentReference string `json:"paymentReference"`
 	SessionID        string `json:"sessionId"`
@@ -34,15 +34,15 @@ type safeHavenWebhookPayload struct {
 	AccountNumber    string `json:"accountNumber"`
 }
 
-// SafeHavenWebhook ingests Safe Haven transfer-status / credit callbacks. It
+// BaaSWebhook ingests the BaaS provider transfer-status / credit callbacks. It
 // verifies the signature (when a secret is configured), then routes by the
 // paymentReference prefix to the owning settlement flow. It always ACKs 200 on a
-// well-formed, authentic event so Safe Haven stops retrying.
+// well-formed, authentic event so the BaaS provider stops retrying.
 //
 // The per-route handlers are intentionally stubs: they light up as each route is
 // wired (Route A treasury dispatch, Route B/C settlement). The reference prefix
-// is set by safehaven.PaymentReference(prefix, orderID).
-func (ctrl *Controller) SafeHavenWebhook(ctx *gin.Context) {
+// is set by mfb.PaymentReference(prefix, orderID).
+func (ctrl *Controller) BaaSWebhook(ctx *gin.Context) {
 	raw, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "unreadable body"})
@@ -52,26 +52,26 @@ func (ctrl *Controller) SafeHavenWebhook(ctx *gin.Context) {
 	// Signature verification (HMAC-SHA256 over the raw body). FAIL CLOSED: an
 	// unsigned webhook can move order state, so outside local dev we reject when
 	// no secret is configured rather than trusting the caller.
-	secret := safehavenConf.WebhookSecret
+	secret := baasConf.WebhookSecret
 	if secret == "" {
 		if serverConf.Environment != "local" && serverConf.Environment != "" {
-			logger.Errorf("[safehaven] webhook REJECTED: SAFEHAVEN_WEBHOOK_SECRET not set in env=%s", serverConf.Environment)
+			logger.Errorf("[mfb] webhook REJECTED: SAFEHAVEN_WEBHOOK_SECRET not set in env=%s", serverConf.Environment)
 			ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "webhook signature not configured"})
 			return
 		}
-		logger.Warnf("[safehaven] webhook signature SKIPPED (no secret; local dev only)")
+		logger.Warnf("[mfb] webhook signature SKIPPED (no secret; local dev only)")
 	} else {
 		sig := ctx.GetHeader("X-Safehaven-Signature")
-		if !verifySafeHavenSignature(raw, sig, secret) {
-			logger.Errorf("[safehaven] webhook signature mismatch")
+		if !verifyBaaSSignature(raw, sig, secret) {
+			logger.Errorf("[mfb] webhook signature mismatch")
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
 			return
 		}
 	}
 
-	var p safeHavenWebhookPayload
+	var p baasWebhookPayload
 	if err := json.Unmarshal(raw, &p); err != nil {
-		logger.Errorf("[safehaven] webhook parse: %v", err)
+		logger.Errorf("[mfb] webhook parse: %v", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 		return
 	}
@@ -79,13 +79,13 @@ func (ctrl *Controller) SafeHavenWebhook(ctx *gin.Context) {
 	// Idempotent dispatch by reference prefix.
 	switch {
 	case strings.HasPrefix(p.PaymentReference, "routeA-"):
-		logger.Infof("[safehaven] routeA transfer update ref=%s status=%s", p.PaymentReference, p.Status)
+		logger.Infof("[mfb] routeA transfer update ref=%s status=%s", p.PaymentReference, p.Status)
 		// TODO(route-a): mark RouteAOrder settled/failed by paymentReference.
 	case strings.HasPrefix(p.PaymentReference, "routeB-"), strings.HasPrefix(p.PaymentReference, "routeC-"):
-		logger.Infof("[safehaven] routeB/C transfer update ref=%s status=%s", p.PaymentReference, p.Status)
+		logger.Infof("[mfb] routeB/C transfer update ref=%s status=%s", p.PaymentReference, p.Status)
 		applyFiatPayoutWebhook(ctx, p.PaymentReference, p.Status)
 	default:
-		logger.Infof("[safehaven] webhook ref=%s type=%s status=%s (no handler)", p.PaymentReference, p.Type, p.Status)
+		logger.Infof("[mfb] webhook ref=%s type=%s status=%s (no handler)", p.PaymentReference, p.Type, p.Status)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"status": "received"})
@@ -102,7 +102,7 @@ func applyFiatPayoutWebhook(ctx *gin.Context, reference, rawStatus string) {
 	idStr = strings.TrimPrefix(idStr, "routeC-")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		logger.Warnf("[safehaven] payout webhook: unparseable order id in ref=%s", reference)
+		logger.Warnf("[mfb] payout webhook: unparseable order id in ref=%s", reference)
 		return
 	}
 
@@ -113,7 +113,7 @@ func applyFiatPayoutWebhook(ctx *gin.Context, reference, rawStatus string) {
 	case "failed", "rejected", "cancelled", "canceled", "reversed", "declined", "error":
 		status = lockpaymentorder.FiatPayoutStatusFailed
 	default:
-		logger.Infof("[safehaven] payout webhook: non-terminal status=%s ref=%s (ignored)", rawStatus, reference)
+		logger.Infof("[mfb] payout webhook: non-terminal status=%s ref=%s (ignored)", rawStatus, reference)
 		return
 	}
 
@@ -129,11 +129,11 @@ func applyFiatPayoutWebhook(ctx *gin.Context, reference, rawStatus string) {
 	}
 	n, err := upd.Save(ctx)
 	if err != nil {
-		logger.Errorf("[safehaven] payout webhook: update %s: %v", id, err)
+		logger.Errorf("[mfb] payout webhook: update %s: %v", id, err)
 		return
 	}
 	if n == 0 {
-		logger.Warnf("[safehaven] payout webhook: no matching order for ref=%s", reference)
+		logger.Warnf("[mfb] payout webhook: no matching order for ref=%s", reference)
 		return
 	}
 
@@ -142,14 +142,14 @@ func applyFiatPayoutWebhook(ctx *gin.Context, reference, rawStatus string) {
 	if status == lockpaymentorder.FiatPayoutStatusSuccess {
 		go func() {
 			if err := orderpkg.NewExecuteOrderService().SettleAfterPayout(context.Background(), id); err != nil {
-				logger.Errorf("[safehaven] payout webhook: settle %s: %v", id, err)
+				logger.Errorf("[mfb] payout webhook: settle %s: %v", id, err)
 			}
 		}()
 	}
 }
 
-// verifySafeHavenSignature checks an HMAC-SHA256 hex signature over the raw body.
-func verifySafeHavenSignature(body []byte, sigHex, secret string) bool {
+// verifyBaaSSignature checks an HMAC-SHA256 hex signature over the raw body.
+func verifyBaaSSignature(body []byte, sigHex, secret string) bool {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(body)
 	expected := hex.EncodeToString(mac.Sum(nil))

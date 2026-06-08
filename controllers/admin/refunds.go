@@ -26,7 +26,7 @@ type refundBody struct {
 
 // RefundOrder marks a payment order refunded — a reconciliation state change
 // recorded after the funds have been returned out-of-band (on-chain refund or a
-// Safe Haven transfer via /funding/transfer). Gated: confirm + justification,
+// the BaaS provider transfer via /funding/transfer). Gated: confirm + justification,
 // audited, idempotent. It does NOT move funds itself.
 //
 //	POST /v1/admin/orders/:id/refund

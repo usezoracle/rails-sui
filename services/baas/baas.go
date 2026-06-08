@@ -1,7 +1,7 @@
 // Package baas defines a provider-agnostic Banking-as-a-Service rail: the NGN
 // fiat in/out used by Route B (decentralized LP) and Route C (managed float).
 //
-// The concrete provider (today Safe Haven MFB) lives behind the Provider
+// The concrete provider (today the BaaS provider MFB) lives behind the Provider
 // interface and provider-neutral domain types declared here. All app code —
 // the auto-pay loop, the admin funding console, the reconcile cron, the LP
 // balance endpoint — depends ONLY on this package, never on a vendor SDK. To

@@ -1,9 +1,9 @@
 // route_a_quote.go composes the per-source-token quote logic for Route A.
 //
-// USDC orders quote directly off Paycrest (NGN/USDC); native SUI orders
+// USDC orders quote directly off the aggregator (NGN/USDC); native SUI orders
 // don't have a direct SUI/NGN venue, so we chain two quotes: LiFi gives
 // us the SUI→USDC effective rate (after bridge fees + slippage), then
-// Paycrest gives us USDC→NGN. The composite is the rate the user
+// the aggregator gives us USDC→NGN. The composite is the rate the user
 // actually receives end-to-end.
 package services
 
@@ -62,18 +62,18 @@ func NativeSuiSlippage() float64 {
 // what the user effectively gets in NGN per SUI, broken down so the
 // caller can persist or display each leg.
 type SuiCompositeRate struct {
-	// Rate is NGN per SUI — composite of LiFi (SUI/USDC) × Paycrest
+	// Rate is NGN per SUI — composite of LiFi (SUI/USDC) × the aggregator
 	// (NGN/USDC). This is what we store on PaymentOrder.Rate for SUI
 	// orders.
 	Rate decimal.Decimal
 
 	// UsdcEquivalent is what LiFi quoted us as the USDC delivered on
 	// Base for the bridged SUI amount (already net of LiFi fees +
-	// slippage tolerance). Used both for display and for the Paycrest
+	// slippage tolerance). Used both for display and for the the aggregator
 	// rate query (which is amount-sensitive).
 	UsdcEquivalent decimal.Decimal
 
-	// UsdcToNgnRate is the underlying Paycrest NGN/USDC rate at the
+	// UsdcToNgnRate is the underlying the aggregator NGN/USDC rate at the
 	// quoted USDC size. Lets us reconstruct what the EVM-side
 	// createOrder call uses without re-querying.
 	UsdcToNgnRate decimal.Decimal
@@ -105,7 +105,7 @@ func QuoteSuiToNgn(
 
 // QuoteSuiTokenToNgn composes a off-ramp rate for any Sui token (e.g. SUI, USDC)
 // to fiat (NGN) by chaining the cross-chain bridge quote (Sui -> Base USDC) and the
-// Paycrest NGN/USDC rate quote. This factors in all bridge fees, gas reservations, and slippage.
+// the aggregator NGN/USDC rate quote. This factors in all bridge fees, gas reservations, and slippage.
 func QuoteSuiTokenToNgn(
 	ctx context.Context,
 	lifiClient *lifi.Client,
@@ -172,29 +172,29 @@ func QuoteSuiTokenToNgn(
 	feeFactor := decimal.NewFromInt(1).Sub(feeBpsDec.Div(decimal.NewFromInt(10000)))
 	usdcNet := usdcEquivalent.Mul(feeFactor)
 
-	paycrest, err := settlementClient.FetchRate(ctx, "base", "USDC", usdcNet, "NGN")
+	aggRate, err := settlementClient.FetchRate(ctx, "base", "USDC", usdcNet, "NGN")
 	if err != nil {
-		return nil, fmt.Errorf("paycrest usdc/ngn rate: %w", err)
+		return nil, fmt.Errorf("aggRate usdc/ngn rate: %w", err)
 	}
 
 	// NGN per Token = (USDC Net per Token) × (NGN per USDC).
 	usdcPerToken := usdcNet.Div(bridgedAmount)
-	composite := usdcPerToken.Mul(paycrest.Rate)
+	composite := usdcPerToken.Mul(aggRate.Rate)
 
 	return &SuiCompositeRate{
 		Rate:                 composite,
 		UsdcEquivalent:       usdcEquivalent, // Keep original bridged amount for transparency
-		UsdcToNgnRate:        paycrest.Rate,
+		UsdcToNgnRate:        aggRate.Rate,
 		BridgedSuiAmount:     bridgedAmount, // Holds the actual bridged token amount (net of gas reservation if SUI)
-		ProviderIDs:          paycrest.ProviderIDs,
-		OrderType:            paycrest.OrderType,
-		RefundTimeoutMinutes: paycrest.RefundTimeoutMinutes,
+		ProviderIDs:          aggRate.ProviderIDs,
+		OrderType:            aggRate.OrderType,
+		RefundTimeoutMinutes: aggRate.RefundTimeoutMinutes,
 	}, nil
 }
 
 // QuoteSuiTokenAmountForFiat resolves the source-token amount needed to deliver
 // a target fiat amount through Route A. The Route-A quote is amount-sensitive
-// because LiFi fees/slippage and Paycrest rates depend on size, so callers
+// because LiFi fees/slippage and the aggregator rates depend on size, so callers
 // cannot safely use fiat / market_rate. We bootstrap with fallbackRate, quote,
 // then re-quote once using the derived token amount.
 func QuoteSuiTokenAmountForFiat(

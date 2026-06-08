@@ -16,13 +16,13 @@ import (
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
-// ExecuteOrderService drives a matched order through the role a Paycrest
+// ExecuteOrderService drives a matched order through the role a the aggregator
 // provider *node* would otherwise play — except here the platform operates the
 // LP's delegated BaaS sub-account instead of the LP running a node. The only
-// difference from Paycrest is the executor: same fiat-first ordering, same
+// difference from the aggregator is the executor: same fiat-first ordering, same
 // accept → pay → fulfil → settle lifecycle.
 //
-// Fiat-first is deliberate and matches Paycrest: the recipient's Naira is paid
+// Fiat-first is deliberate and matches the aggregator: the recipient's Naira is paid
 // from the LP's sub-account BEFORE any USDC escrow is released, so a settled LP
 // can never have skipped the payout. Settlement (releasing USDC to the LP) is
 // the reimbursement, and only fires once the fiat leg is CONFIRMED.

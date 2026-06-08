@@ -1,4 +1,4 @@
-package safehaven
+package mfb
 
 import (
 	"encoding/json"
@@ -16,10 +16,10 @@ type tokenResponse struct {
 	IBSUserID    string `json:"ibs_user_id"`
 }
 
-// apiResponse is Safe Haven's standard envelope for the REST (non-OAuth)
+// apiResponse is the BaaS provider's standard envelope for the REST (non-OAuth)
 // endpoints. Data is left raw so each typed call decodes its own shape.
 //
-// Note: Safe Haven returns HTTP 200 even for business-level rejections; the
+// Note: the BaaS provider returns HTTP 200 even for business-level rejections; the
 // real outcome is in StatusCode/ResponseCode. Callers must check those, not
 // just the HTTP status. ("200"/"00" denote success on the gateway.)
 type apiResponse struct {
@@ -37,7 +37,7 @@ type Bank struct {
 	Active   bool   `json:"active"`
 }
 
-// Account is a Safe Haven account — our main float account (isSubAccount=false)
+// Account is a the BaaS provider account — our main float account (isSubAccount=false)
 // or an LP deposit sub-account (isSubAccount=true). AccountBalance is spendable;
 // debit it via Transfer.DebitAccountNumber.
 type Account struct {
@@ -52,7 +52,7 @@ type Account struct {
 }
 
 // NameEnquiry resolves a beneficiary account name and returns the sessionId that
-// a subsequent Transfer must reference (Safe Haven binds the transfer to the
+// a subsequent Transfer must reference (the BaaS provider binds the transfer to the
 // enquiry to prevent mis-sends). Returned by POST /transfers/name-enquiry.
 type NameEnquiry struct {
 	SessionID     string `json:"sessionId"`
@@ -63,7 +63,7 @@ type NameEnquiry struct {
 
 // TransferRequest is the body for POST /transfers. PaymentReference MUST be
 // derived deterministically from our order id so a retried transfer is
-// idempotent on Safe Haven's side and never double-pays.
+// idempotent on the BaaS provider's side and never double-pays.
 type TransferRequest struct {
 	NameEnquiryReference string          `json:"nameEnquiryReference"`
 	DebitAccountNumber   string          `json:"debitAccountNumber"`
@@ -76,7 +76,7 @@ type TransferRequest struct {
 }
 
 // Transfer is the result of POST /transfers (and POST /transfers/tqs). Status is
-// Safe Haven's transaction status; treat anything other than a terminal success
+// the BaaS provider's transaction status; treat anything other than a terminal success
 // as pending and reconcile via webhook + TransferStatus polling.
 type Transfer struct {
 	SessionID        string          `json:"sessionId"`

@@ -21,12 +21,12 @@ failure modes:
 6. RouteADispatcher.startBridge      (LiFi quote → Allbridge/Wormhole PTB)
 7. Dispatcher polls LiFi /status     (HTTP, 15min stale timeout)
 8. Dispatcher.dispatchLP on Base     (approve + createOrder, EVM)
-9. Dispatcher.advanceDispatching     (Paycrest /orders polling)
+9. Dispatcher.advanceDispatching     (the aggregator /orders polling)
    → settled | refunded
 ```
 
 External dependencies we don't control: **Sui RPC, Sui WebSocket, LiFi
-HTTP API, Allbridge relayer, Base RPC, Paycrest HTTP API, BaaS partner
+HTTP API, Allbridge relayer, Base RPC, the aggregator HTTP API, BaaS partner
 (treasury mode)**. Any one being slow or wrong can strand a user's
 funds today.
 
@@ -45,7 +45,7 @@ funds today.
    misses.
 5. **Graceful degradation.** External outage downgrades, not fails. A
    timed-out bridge stays in "uncertain" until a 24h poller resolves
-   it; a stuck Paycrest doesn't auto-mark refunded.
+   it; a stuck the aggregator doesn't auto-mark refunded.
 6. **Operator override.** Every state can be force-advanced or
    force-refunded via admin tooling with a logged justification.
 
@@ -171,7 +171,7 @@ captures reconciler activity.
   rolling window, mark it unhealthy for M minutes and skip it on
   new quotes.
 - **Exponential backoff with jitter** on every external HTTP call
-  (LiFi, Paycrest, Sui RPC, Base RPC). 3 attempts, base 500ms,
+  (LiFi, the aggregator, Sui RPC, Base RPC). 3 attempts, base 500ms,
   multiplier 2, jitter ±30%.
 - **Health-check endpoint** `/v1/admin/health/upstreams` that
   pings each external service and reports last-known status.

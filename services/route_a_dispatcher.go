@@ -788,11 +788,11 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 	}
 	bridged := decimalToSubunit(*order.BridgedAmount, d.conf.BaseUSDCDecimals)
 
-	// Fetch fresh rate quote from Paycrest to ensure we don't submit an expired/stale rate
+	// Fetch fresh rate quote from the aggregator to ensure we don't submit an expired/stale rate
 	// that LPs will reject.
 	liveQuote, err := d.settlement.FetchRate(ctx, "base", "USDC", *order.BridgedAmount, "NGN")
 	if err != nil {
-		return fmt.Errorf("fetch live Paycrest rate: %w", err)
+		return fmt.Errorf("fetch live the aggregator rate: %w", err)
 	}
 
 	// The merchant expects to receive exactly the quoted fiat amount: po.Amount * po.Rate
@@ -816,7 +816,7 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		return fmt.Errorf("insufficient bridged USDC: have %s, need %s (live rate %s)", bridged.String(), total.String(), liveQuote.Rate.String())
 	}
 
-	logger.Infof("📈 route-a: fetched fresh Paycrest rate for order %d: NGN/USDC=%s (original NGN/USDC was %s). Payout adjusted: amount=%s USDC, senderFee=%s USDC, bridged=%s USDC",
+	logger.Infof("📈 route-a: fetched fresh the aggregator rate for order %d: NGN/USDC=%s (original NGN/USDC was %s). Payout adjusted: amount=%s USDC, senderFee=%s USDC, bridged=%s USDC",
 		order.ID, liveQuote.Rate.String(), po.Rate.String(), amountDec.String(), senderFeeDec.String(), order.BridgedAmount.String())
 
 	rateScaled := liveQuote.Rate.Mul(decimal.NewFromInt(100)).Truncate(0)

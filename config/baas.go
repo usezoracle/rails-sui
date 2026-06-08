@@ -5,11 +5,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-// SafehavenConfiguration holds credentials for the Safe Haven MFB BaaS rail —
+// BaaSConfiguration holds credentials for the the BaaS provider MFB BaaS rail —
 // the NGN fiat payout used by Route C (managed liquidity) and Route A's
-// treasury mode. See services/baas/safehaven.
-type SafehavenConfiguration struct {
-	// ClientID is the OAuth Client ID from the Safe Haven dashboard.
+// treasury mode. See services/baas/mfb.
+type BaaSConfiguration struct {
+	// ClientID is the OAuth Client ID from the the BaaS provider dashboard.
 	ClientID string
 	// PrivateKeyPEM is the RSA private key whose public cert is registered on
 	// the dashboard. Store as a secret; "\n" escapes are tolerated.
@@ -20,9 +20,9 @@ type SafehavenConfiguration struct {
 	Audience string
 	// Issuer overrides the JWT iss claim; empty → ClientID.
 	Issuer string
-	// DebitAccountNumber is our funded Safe Haven account that payouts debit.
+	// DebitAccountNumber is our funded the BaaS provider account that payouts debit.
 	DebitAccountNumber string
-	// WebhookSecret verifies inbound Safe Haven transfer/credit callbacks. When
+	// WebhookSecret verifies inbound the BaaS provider transfer/credit callbacks. When
 	// empty, signature verification is skipped (dev only).
 	WebhookSecret string
 	// MaxTransferNGN caps a single admin payout to guard against fat-finger /
@@ -30,8 +30,8 @@ type SafehavenConfiguration struct {
 	MaxTransferNGN decimal.Decimal
 }
 
-// SafehavenConfig reads Safe Haven settings from env.
-func SafehavenConfig() *SafehavenConfiguration {
+// BaaSConfig reads the BaaS provider settings from env.
+func BaaSConfig() *BaaSConfiguration {
 	viper.SetDefault("SAFEHAVEN_BASE_URL", "https://api.safehavenmfb.com")
 	viper.SetDefault("SAFEHAVEN_MAX_TRANSFER_NGN", "1000000")
 
@@ -40,7 +40,7 @@ func SafehavenConfig() *SafehavenConfiguration {
 		maxTransfer = decimal.NewFromInt(1_000_000)
 	}
 
-	return &SafehavenConfiguration{
+	return &BaaSConfiguration{
 		ClientID:           viper.GetString("SAFEHAVEN_CLIENT_ID"),
 		PrivateKeyPEM:      viper.GetString("SAFEHAVEN_PRIVATE_KEY"),
 		BaseURL:            viper.GetString("SAFEHAVEN_BASE_URL"),

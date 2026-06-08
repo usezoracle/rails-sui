@@ -417,7 +417,7 @@ func (s *PriorityQueueService) notifyProvider(ctx context.Context, orderRequestD
 		return err
 	}
 
-	// Platform-operated execution. The only structural difference from Paycrest:
+	// Platform-operated execution. The only structural difference from the aggregator:
 	// when the LP runs no node (no host identifier), the platform operates the
 	// LP's delegated BaaS sub-account directly — pay the recipient's Naira, then
 	// settle — instead of POSTing an order request to a node for the node to pay.
