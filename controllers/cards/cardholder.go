@@ -358,6 +358,82 @@ func (ctrl *Controller) Revoke(ctx *gin.Context) {
 }
 
 // -----------------------------------------------------------------------------
+// POST /v1/cards/me/limits
+// -----------------------------------------------------------------------------
+
+type updateLimitsRequest struct {
+	DailyLimitSubunit      uint64 `json:"daily_limit_subunit"`
+	PerTapLimitSubunit     uint64 `json:"per_tap_limit_subunit"`
+	StepUpThresholdSubunit uint64 `json:"step_up_threshold_subunit"`
+}
+
+// UpdateLimits validates new spend limits, updates the off-chain mirror
+// immediately (optimistic — this is what the PWA reads back via GET
+// /v1/cards/me), and returns the `tapp_card::update_limits` PTB skeleton for
+// the PWA to sign via zkLogin. Same posture as Revoke: local state moves now,
+// the chain is reconciled when PTB signing is wired.
+//
+// Note: on-chain `update_limits` carries only daily + per-tap; the step-up
+// threshold is an off-chain-only construct, so it lives solely in the mirror.
+func (ctrl *Controller) UpdateLimits(ctx *gin.Context) {
+	var req updateLimitsRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Failed to validate payload", u.GetErrorData(err))
+		return
+	}
+	// Mirror the on-chain invariant (per_tap > 0, daily >= per_tap) plus the
+	// PWA's per-tap ≤ step-up ≤ daily ordering. Validated explicitly because a
+	// zero value is meaningful here (so `binding:"required"` can't be used).
+	if req.PerTapLimitSubunit == 0 ||
+		req.PerTapLimitSubunit > req.StepUpThresholdSubunit ||
+		req.StepUpThresholdSubunit > req.DailyLimitSubunit {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"Limits must satisfy: 0 < per-tap ≤ step-up ≤ daily",
+			map[string]any{"code": "limits_invalid"})
+		return
+	}
+
+	user, ok := userFromCtx(ctx)
+	if !ok {
+		return
+	}
+	card, ok := cardForUser(ctx, user)
+	if !ok {
+		return
+	}
+	if card.CapObjectID == nil || card.CoinType == nil {
+		u.APIResponse(ctx, http.StatusConflict, "error",
+			"Card is not yet live — finish linking first", nil)
+		return
+	}
+
+	if _, err := card.Update().
+		SetDailyLimitSubunit(req.DailyLimitSubunit).
+		SetPerTapLimitSubunit(req.PerTapLimitSubunit).
+		SetStepUpThresholdSubunit(req.StepUpThresholdSubunit).
+		Save(ctx); err != nil {
+		logger.Errorf("UpdateLimits: persist: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error",
+			"Failed to save limits", nil)
+		return
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "Limits saved",
+		ptbSkeletonResponse{
+			Module:   "tapp_card",
+			Function: "update_limits",
+			TypeArgs: []string{*card.CoinType},
+			Args: []any{
+				*card.CapObjectID,
+				uint64ToString(req.DailyLimitSubunit),
+				uint64ToString(req.PerTapLimitSubunit),
+			},
+			Note: "Off-chain limits saved. PWA signs update_limits via zkLogin to enforce on-chain.",
+		})
+}
+
+// -----------------------------------------------------------------------------
 // POST /v1/cards/me/resync
 // -----------------------------------------------------------------------------
 
