@@ -123,7 +123,12 @@ func (ctrl *Controller) Resolve(ctx *gin.Context) {
 	switch card.Status {
 	case tappcard.StatusIssued:
 		target = pwa + "/link?token=" + token
-	case tappcard.StatusClaimed, tappcard.StatusLive:
+	case tappcard.StatusClaimed:
+		// Claimed but linking isn't finished — there's no on-chain cap yet, so
+		// the card can't transact. Send the holder back into the link flow to
+		// finish (set PIN/limits → write K → create_cap), not to the dashboard.
+		target = pwa + "/link/configure?card=" + card.ID.String()
+	case tappcard.StatusLive:
 		target = pwa + "/dashboard/cards/" + card.ID.String()
 	case tappcard.StatusRevoked, tappcard.StatusLocked:
 		target = pwa + "/cards/unavailable?status=" + string(card.Status)
