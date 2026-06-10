@@ -388,11 +388,7 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 				map[string]any{"code": "rate_unavailable"})
 			return
 		}
-		debitUsdcSubunit := amount.Div(ngn.MarketRate).
-			Mul(decimal.NewFromInt(1_000_000)).BigInt().Uint64()
-		if debitUsdcSubunit == 0 {
-			debitUsdcSubunit = 1 // Move rejects a zero-amount debit (EZeroAmount)
-		}
+		debitUsdcSubunit := usdcSubunitFromNGN(amount, ngn.MarketRate)
 		if svcSui, ok := orderSvc.NewOrderSui().(*orderSvc.OrderSui); ok {
 			digest, err := svcSui.DebitCard(
 				ctx.Request.Context(),
@@ -688,7 +684,7 @@ func persistTapCardPaymentOrder(
 	if err != nil || !ngn.MarketRate.IsPositive() {
 		return nil, "", fmt.Errorf("market rate unavailable: %w", err)
 	}
-	usdcAmount := amount.Div(ngn.MarketRate)
+	usdcAmount := usdcFromNGN(amount, ngn.MarketRate)
 
 	// Receive address — even though the card flow doesn't actually
 	// use it (the Move debit settles directly), the existing
@@ -809,6 +805,25 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// usdcFromNGN converts a NGN amount to USDC using the market rate (NGN per
+// USDC). The cap is USDC-denominated, so card charges + order amounts go
+// through this rather than passing the raw fiat figure.
+func usdcFromNGN(amountNGN, marketRate decimal.Decimal) decimal.Decimal {
+	return amountNGN.Div(marketRate)
+}
+
+// usdcSubunitFromNGN converts a NGN amount to USDC subunit (6 dp) for the
+// on-chain debit. Never returns 0 — the Move debit rejects a zero amount
+// (EZeroAmount).
+func usdcSubunitFromNGN(amountNGN, marketRate decimal.Decimal) uint64 {
+	sub := usdcFromNGN(amountNGN, marketRate).
+		Mul(decimal.NewFromInt(1_000_000)).BigInt().Uint64()
+	if sub == 0 {
+		return 1
+	}
+	return sub
 }
 
 // senderFromCtx mirrors the helper in controllers/sender/merchant.go.
