@@ -194,6 +194,8 @@ func cardsRoutes(route *gin.Engine) {
 	cardholder.POST("link/claim", cardsCtrl.Claim)
 	cardholder.POST("link/complete", cardsCtrl.LinkComplete)
 	cardholder.GET("me", cardsCtrl.Me)
+	cardholder.GET("reclaimable", cardsCtrl.Reclaimable)
+	cardholder.POST("reset", cardsCtrl.Reset)
 	cardholder.POST("me/limits", cardsCtrl.UpdateLimits)
 	cardholder.POST("top-up", cardsCtrl.TopUp)
 	cardholder.POST("revoke", cardsCtrl.Revoke)

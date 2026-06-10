@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/usezoracle/rails-sui/config"
+	"github.com/usezoracle/rails-sui/controllers/cards"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
@@ -95,14 +95,9 @@ func cardView(ctx *gin.Context, card *ent.TappCard) gin.H {
 		})
 		if err == nil && resp.Data != nil && resp.Data.Content != nil && resp.Data.Content.Fields != nil {
 			fields := resp.Data.Content.Fields
-			// balance
-			if balField, ok := fields["balance"]; ok {
-				if balMap, ok := balField.(map[string]any); ok {
-					if val, ok := balMap["value"]; ok {
-						cardMap["on_chain_balance"] = fmt.Sprintf("%v", val)
-					}
-				}
-			}
+			// balance — Balance<T> serializes as a scalar u64 string, parsed
+			// centrally so this can't silently fall through to "0" again.
+			cardMap["on_chain_balance"] = cards.ParseCapBalanceField(fields)
 			// limits
 			if dl, ok := fields["daily_limit_subunit"]; ok {
 				cardMap["daily_limit_subunit"] = parseUint64(dl)
@@ -207,7 +202,7 @@ func (c *CardOpsController) Unlock(ctx *gin.Context) {
 		"previous_status": card.Status.String(),
 	})
 	fresh, _ := c.load(ctx)
-	u.APIResponse(ctx, http.StatusOK, "success", "card unlocked", cardView(fresh))
+	u.APIResponse(ctx, http.StatusOK, "success", "card unlocked", cardView(ctx, fresh))
 }
 
 type cardStatusReq struct {
@@ -257,5 +252,5 @@ func (c *CardOpsController) SetStatus(ctx *gin.Context) {
 		"reason":          body.Reason,
 	})
 	fresh, _ := c.load(ctx)
-	u.APIResponse(ctx, http.StatusOK, "success", "card status updated", cardView(fresh))
+	u.APIResponse(ctx, http.StatusOK, "success", "card status updated", cardView(ctx, fresh))
 }

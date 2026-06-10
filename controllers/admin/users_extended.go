@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/usezoracle/rails-sui/config"
+	"github.com/usezoracle/rails-sui/controllers/cards"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/identityverificationrequest"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
@@ -113,14 +113,8 @@ func (c *UsersController) GetUser(ctx *gin.Context) {
 				// Parse on-chain balance and limits from fields
 				if resp.Data.Content != nil && resp.Data.Content.Fields != nil {
 					fields := resp.Data.Content.Fields
-					// balance
-					if balField, ok := fields["balance"]; ok {
-						if balMap, ok := balField.(map[string]any); ok {
-							if val, ok := balMap["value"]; ok {
-								cardMap["on_chain_balance"] = fmt.Sprintf("%v", val)
-							}
-						}
-					}
+					// balance — scalar u64; parsed centrally (see cards pkg).
+					cardMap["on_chain_balance"] = cards.ParseCapBalanceField(fields)
 					// limits
 					if dl, ok := fields["daily_limit_subunit"]; ok {
 						cardMap["daily_limit_subunit"] = parseUint64(dl)

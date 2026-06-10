@@ -18,7 +18,6 @@
 package cards
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -26,10 +25,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/block-vision/sui-go-sdk/sui"
-	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
+	"github.com/usezoracle/rails-sui/ent/cardservernonce"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	svc "github.com/usezoracle/rails-sui/services"
@@ -70,6 +67,23 @@ func userFromCtx(ctx *gin.Context) (*ent.User, bool) {
 // user↔card; multi-card support lives in v2 and would replace this
 // with a `card_id` route param.
 func cardForUser(ctx *gin.Context, user *ent.User) (*ent.TappCard, bool) {
+	// Prefer the user's LIVE (linked + funded) card over abandoned
+	// claimed/issued attempts. Without this, a user who re-runs linking sees
+	// the new *claimed* row here — the client then can't tell they already
+	// have a funded card and funds a second cap (the double-charge). Falling
+	// back to most-recent keeps first-time linking working.
+	live, err := storage.Client.TappCard.
+		Query().
+		Where(
+			tappcard.HasUserWith(userEnt.IDEQ(user.ID)),
+			tappcard.StatusEQ(tappcard.StatusLive),
+		).
+		Order(ent.Desc(tappcard.FieldCreatedAt)).
+		First(ctx)
+	if err == nil {
+		return live, true
+	}
+
 	card, err := storage.Client.TappCard.
 		Query().
 		Where(tappcard.HasUserWith(userEnt.IDEQ(user.ID))).
@@ -119,6 +133,22 @@ func (ctrl *Controller) LinkComplete(ctx *gin.Context) {
 	}
 	user, ok := userFromCtx(ctx)
 	if !ok {
+		return
+	}
+
+	// One funded card per user. If they already have a live card, refuse to
+	// record a second — the backend backstop to the client's pre-funding
+	// guard against duplicate, double-funded cards. They must reset/revoke
+	// the existing card before linking a new one.
+	if existing, err := storage.Client.TappCard.Query().
+		Where(
+			tappcard.HasUserWith(userEnt.IDEQ(user.ID)),
+			tappcard.StatusEQ(tappcard.StatusLive),
+		).
+		First(ctx); err == nil && existing != nil {
+		u.APIResponse(ctx, http.StatusConflict, "error",
+			"You already have an active card",
+			map[string]any{"code": "card_already_live", "card_id": existing.ID.String()})
 		return
 	}
 
@@ -267,29 +297,105 @@ func (ctrl *Controller) Me(ctx *gin.Context) {
 		resp.CoinType = *card.CoinType
 	}
 
+	// Card balance lives only on-chain in CardSpendingCap.balance; read it
+	// authoritatively from the cap object the user signed into existence.
 	if card.CapObjectID != nil && *card.CapObjectID != "" {
-		client := sui.NewSuiClient(config.OrderConfig().SuiRpcURL)
-		objResp, err := client.SuiGetObject(ctx, models.SuiGetObjectRequest{
-			ObjectId: *card.CapObjectID,
-			Options: models.SuiObjectDataOptions{
-				ShowContent: true,
-			},
-		})
-		if err == nil && objResp.Data != nil && objResp.Data.Content != nil && objResp.Data.Content.Fields != nil {
-			fields := objResp.Data.Content.Fields
-			if balField, ok := fields["balance"]; ok {
-				if balMap, ok := balField.(map[string]any); ok {
-					if val, ok := balMap["value"]; ok {
-						resp.OnChainBalance = fmt.Sprintf("%v", val)
-					}
-				}
-			}
-		} else if err != nil {
-			logger.Warnf("Me: failed to fetch on-chain card object: %v", err)
-		}
+		resp.OnChainBalance = CapBalanceSubunit(ctx, *card.CapObjectID)
 	}
 
 	u.APIResponse(ctx, http.StatusOK, "success", "Card", resp)
+}
+
+// -----------------------------------------------------------------------------
+// GET /v1/cards/reclaimable  — caps to destroy_and_reclaim before a reset
+// -----------------------------------------------------------------------------
+
+type reclaimableCap struct {
+	CardID         string `json:"card_id"`
+	CapObjectID    string `json:"cap_object_id"`
+	CoinType       string `json:"coin_type"`
+	OnChainBalance string `json:"on_chain_balance"`
+}
+
+// Reclaimable lists every cap the user owns that still has an on-chain object,
+// so the PWA can sign destroy_and_reclaim on each — returning the USDC to the
+// holder's wallet — before resetting.
+func (ctrl *Controller) Reclaimable(ctx *gin.Context) {
+	user, ok := userFromCtx(ctx)
+	if !ok {
+		return
+	}
+	cards, err := storage.Client.TappCard.Query().
+		Where(tappcard.HasUserWith(userEnt.IDEQ(user.ID))).
+		All(ctx)
+	if err != nil {
+		logger.Errorf("Reclaimable: query: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to load cards", nil)
+		return
+	}
+	out := make([]reclaimableCap, 0, len(cards))
+	for _, c := range cards {
+		if c.CapObjectID == nil || *c.CapObjectID == "" || c.CoinType == nil {
+			continue
+		}
+		out = append(out, reclaimableCap{
+			CardID:         c.ID.String(),
+			CapObjectID:    *c.CapObjectID,
+			CoinType:       *c.CoinType,
+			OnChainBalance: CapBalanceSubunit(ctx, *c.CapObjectID),
+		})
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{"caps": out})
+}
+
+// -----------------------------------------------------------------------------
+// POST /v1/cards/reset  — delete the user's cards so they can start fresh
+// -----------------------------------------------------------------------------
+
+// Reset deletes ALL of the user's card rows so they can link again from
+// scratch. It refuses while any cap still holds an on-chain balance — the
+// holder must destroy_and_reclaim first (GET /v1/cards/reclaimable) so funds
+// are never orphaned by deleting the row that points at the cap. After a
+// reclaim the cap object is gone, so its balance reads as "0" and reset passes.
+func (ctrl *Controller) Reset(ctx *gin.Context) {
+	user, ok := userFromCtx(ctx)
+	if !ok {
+		return
+	}
+	cards, err := storage.Client.TappCard.Query().
+		Where(tappcard.HasUserWith(userEnt.IDEQ(user.ID))).
+		All(ctx)
+	if err != nil {
+		logger.Errorf("Reset: query: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to load cards", nil)
+		return
+	}
+	for _, c := range cards {
+		if c.CapObjectID != nil && *c.CapObjectID != "" {
+			if CapBalanceSubunit(ctx, *c.CapObjectID) != "0" {
+				u.APIResponse(ctx, http.StatusConflict, "error",
+					"Reclaim your card balance before resetting",
+					map[string]any{"code": "funds_not_reclaimed", "card_id": c.ID.String()})
+				return
+			}
+		}
+	}
+
+	// Drop per-card server nonces first (FK), then the cards themselves.
+	if _, err := storage.Client.CardServerNonce.Delete().
+		Where(cardservernonce.HasCardWith(tappcard.HasUserWith(userEnt.IDEQ(user.ID)))).
+		Exec(ctx); err != nil {
+		logger.Errorf("Reset: delete nonces: %v", err)
+	}
+	n, err := storage.Client.TappCard.Delete().
+		Where(tappcard.HasUserWith(userEnt.IDEQ(user.ID))).
+		Exec(ctx)
+	if err != nil {
+		logger.Errorf("Reset: delete cards: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to reset cards", nil)
+		return
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "Cards reset", gin.H{"deleted": n})
 }
 
 // -----------------------------------------------------------------------------

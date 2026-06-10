@@ -106,6 +106,50 @@ func verifyCreateCap(
 	}, nil
 }
 
+// ParseCapBalanceField extracts a CardSpendingCap's `balance` (coin subunit,
+// as a decimal string) from a Sui object's parsed content `fields` map.
+//
+// IMPORTANT: Sui serializes a Move `Balance<T>` struct field as the bare u64
+// value string (e.g. "1000000"), NOT as {"value": "..."}. Earlier callers
+// asserted the latter and silently fell through to "0" — the root cause of
+// cards showing a 0 balance. Handle both shapes here, once, so no caller has
+// to get it right again.
+func ParseCapBalanceField(fields map[string]any) string {
+	if fields == nil {
+		return "0"
+	}
+	bal, ok := fields["balance"]
+	if !ok {
+		return "0"
+	}
+	if m, ok := bal.(map[string]any); ok {
+		if v, ok := m["value"]; ok {
+			return fmt.Sprintf("%v", v)
+		}
+		return "0"
+	}
+	return fmt.Sprintf("%v", bal)
+}
+
+// CapBalanceSubunit reads a CardSpendingCap object via Sui RPC and returns its
+// on-chain balance (coin subunit, decimal string), or "0" on any error. Use
+// this when you only need the balance; callers that already fetch the object
+// for other fields should call ParseCapBalanceField on the fields they have.
+func CapBalanceSubunit(ctx context.Context, capObjectID string) string {
+	if capObjectID == "" {
+		return "0"
+	}
+	client := sui.NewSuiClient(config.OrderConfig().SuiRpcURL)
+	resp, err := client.SuiGetObject(ctx, models.SuiGetObjectRequest{
+		ObjectId: capObjectID,
+		Options:  models.SuiObjectDataOptions{ShowContent: true},
+	})
+	if err != nil || resp.Data == nil || resp.Data.Content == nil {
+		return "0"
+	}
+	return ParseCapBalanceField(resp.Data.Content.Fields)
+}
+
 // txSuccess mirrors order/sui.go's isTxSuccess for the block-vision
 // JSON-RPC response shape.
 func txSuccess(resp models.SuiTransactionBlockResponse) bool {
