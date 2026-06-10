@@ -231,6 +231,22 @@ func (ctrl *Controller) Claim(ctx *gin.Context) {
 		return
 	}
 
+	// One card per user, enforced at the entry of the flow: don't let them
+	// claim a NEW card while they already have a live one. Re-claiming the
+	// same card is handled above (idempotent). This stops the wasted
+	// configure → write → fund loop before any money moves; the client sends
+	// them to their existing card.
+	if hasLive, _ := storage.Client.TappCard.Query().
+		Where(
+			tappcard.HasUserWith(userEnt.IDEQ(user.ID)),
+			tappcard.StatusEQ(tappcard.StatusLive),
+		).Exist(ctx); hasLive {
+		u.APIResponse(ctx, http.StatusConflict, "error",
+			"You already have an active card",
+			map[string]any{"code": "card_already_live"})
+		return
+	}
+
 	saved, err := card.Update().
 		SetStatus(tappcard.StatusClaimed).
 		SetUser(user).
