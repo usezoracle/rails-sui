@@ -27,6 +27,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/cardservernonce"
+	"github.com/usezoracle/rails-sui/ent/fiatcurrency"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
@@ -370,16 +371,33 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 	// production fallback is obvious in observability.
 	txHash := stubTxHash
 	if card.CapObjectID != nil && card.CoinType != nil {
+		// The cap is denominated in its coin (USDC, 6dp) — NOT NGN kobo.
+		// Convert the fiat charge to USDC subunit via the live market rate so
+		// the chain debits the correct value (₦1,500 → ~1.37 USDC, not the
+		// 0.15 you'd get by passing kobo as micro). The off-chain daily-limit
+		// bookkeeping (spent_today) stays in NGN kobo — only the chain amount
+		// is converted. Caps are created with USDC-subunit limits (see the PWA
+		// create_cap), so the Move per-tap check compares like units.
+		ngn, cerr := storage.Client.FiatCurrency.Query().
+			Where(fiatcurrency.CodeEQ("NGN"), fiatcurrency.IsEnabledEQ(true)).
+			Only(ctx)
+		if cerr != nil || !ngn.MarketRate.IsPositive() {
+			u.APIResponse(ctx, http.StatusFailedDependency, "error",
+				"Market rate unavailable — try again shortly",
+				map[string]any{"code": "rate_unavailable"})
+			return
+		}
+		debitUsdcSubunit := amount.Div(ngn.MarketRate).
+			Mul(decimal.NewFromInt(1_000_000)).BigInt().Uint64()
+		if debitUsdcSubunit == 0 {
+			debitUsdcSubunit = 1 // Move rejects a zero-amount debit (EZeroAmount)
+		}
 		if svcSui, ok := orderSvc.NewOrderSui().(*orderSvc.OrderSui); ok {
 			digest, err := svcSui.DebitCard(
 				ctx.Request.Context(),
 				*card.CapObjectID,
 				*card.CoinType,
-				// Move enforces in subunit terms. For NGN→USDC we'd
-				// need an off-chain rate quote here; for v1 we pass
-				// the kobo amount directly so the chain math matches
-				// the spent_today bookkeeping below.
-				amountKobo,
+				debitUsdcSubunit,
 				"", // recipient: default to aggregator address (see DebitCard)
 				[]byte(po.ID.String()),
 			)
