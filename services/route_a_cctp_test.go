@@ -47,13 +47,15 @@ func TestUsdcSubunitsUint64(t *testing.T) {
 	}
 }
 
-// TestQuoteFallsBackToCCTPRate exercises the quote path end-to-end
+// TestQuoteUSDCViaCCTPPrimary exercises the quote path end-to-end
 // against stub HTTP servers: LiFi hard-down, settlement aggregator
-// quoting NGN/USDC=1500. A native-USDC quote must succeed via the 1:1
-// CCTP rate (tagged QuotedVia="cctp"); a native-SUI quote must keep
-// failing — CCTP has no swap leg to price it.
-func TestQuoteFallsBackToCCTPRate(t *testing.T) {
+// quoting NGN/USDC=1500. Native-USDC quotes price via the 1:1 CCTP
+// rail WITHOUT touching LiFi at all (it's the primary); native SUI
+// still needs LiFi; the kill switch reverts USDC to the LiFi path.
+func TestQuoteUSDCViaCCTPPrimary(t *testing.T) {
+	var lifiHits int
 	lifiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		lifiHits++
 		http.Error(w, `{"message":"upstream exploded"}`, http.StatusBadGateway)
 	}))
 	defer lifiSrv.Close()
@@ -82,10 +84,13 @@ func TestQuoteFallsBackToCCTPRate(t *testing.T) {
 	got, err := QuoteSuiTokenToNgn(context.Background(), lifiClient, setClient, conf,
 		"0xaggregator-sui", decimal.NewFromInt(100), net.SuiUSDCCoinType, 6)
 	if err != nil {
-		t.Fatalf("USDC quote should fall back to CCTP, got: %v", err)
+		t.Fatalf("USDC quote should price via CCTP, got: %v", err)
 	}
 	if got.QuotedVia != routeAProviderCCTP || got.BridgeProvider() != routeAProviderCCTP {
 		t.Errorf("QuotedVia = %q, want cctp", got.QuotedVia)
+	}
+	if lifiHits != 0 {
+		t.Errorf("USDC quote hit LiFi %d times — CCTP is primary, LiFi should not be called", lifiHits)
 	}
 	if !got.UsdcEquivalent.Equal(decimal.NewFromInt(100)) {
 		t.Errorf("UsdcEquivalent = %s, want 100 (1:1)", got.UsdcEquivalent)
@@ -101,11 +106,37 @@ func TestQuoteFallsBackToCCTPRate(t *testing.T) {
 		t.Error("native SUI quote with LiFi down: want error")
 	}
 
-	// Kill switch off — USDC quote must fail like before the fallback.
+	// Kill switch off — USDC reverts to the LiFi path (down → error).
 	conf.CCTPFallbackEnabled = false
 	if _, err := QuoteSuiTokenToNgn(context.Background(), lifiClient, setClient, conf,
 		"0xaggregator-sui", decimal.NewFromInt(100), net.SuiUSDCCoinType, 6); err == nil {
-		t.Error("fallback disabled: want error")
+		t.Error("CCTP disabled + LiFi down: want error")
+	}
+	if lifiHits == 0 {
+		t.Error("CCTP disabled: USDC quote should have gone to LiFi")
+	}
+}
+
+// TestLifiCoversQuote pins the fit-guard arithmetic that decides
+// whether LiFi may execute an order quoted at CCTP's 1:1 rate.
+func TestLifiCoversQuote(t *testing.T) {
+	d := decimal.RequireFromString
+	// Order: 100 USDC quoted 1:1 at rate 1492.5 NGN/USDC (0.5% fee) →
+	// target 149,250 NGN. At live rate 1500, required ≈ 99.5 × 1.005 =
+	// 99.9975 USDC.
+	target := d("149250")
+	if !lifiCoversQuote(target, d("1500"), 50, d("99.9975")) {
+		t.Error("exactly-covering delivery should pass")
+	}
+	if lifiCoversQuote(target, d("1500"), 50, d("99.7")) {
+		t.Error("under-delivery should be refused")
+	}
+	// Rate moved in our favor (NGN/USDC up) — smaller delivery suffices.
+	if !lifiCoversQuote(target, d("1530"), 50, d("98.5")) {
+		t.Error("favorable rate move should let a smaller delivery pass")
+	}
+	if lifiCoversQuote(target, d("0"), 50, d("100")) {
+		t.Error("non-positive live rate should be refused")
 	}
 }
 

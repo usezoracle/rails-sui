@@ -1,19 +1,20 @@
-// route_a_cctp.go — the direct-CCTP bridge fallback for Route A.
+// route_a_cctp.go — the direct-CCTP bridge rail for Route A.
 //
-// Everything fallback-specific lives in this file + services/cctp +
-// services/evm/cctp.go. The LiFi path in route_a_dispatcher.go is
-// untouched except for three branch points:
+// CCTP is the PRIMARY rail for native-USDC orders (1:1, fee-free,
+// slippage-free — Circle is the USDC issuer, so burn-and-mint just
+// teleports supply); LiFi is the fallback for USDC and the only rail
+// for native SUI (which needs a swap leg). Everything CCTP-specific
+// lives in this file + services/cctp + services/evm/cctp.go; the
+// dispatcher has three branch points:
 //
-//  1. advancePending: after cctpFallbackAfter consecutive LiFi quote
-//     failures, eligible orders are bridged here instead of burning
-//     more retries toward FAILED.
+//  1. advancePending: USDC orders start here (startBridgeForProvider);
+//     after bridgeFallbackAfter consecutive failures the other rail is
+//     tried — CCTP→LiFi gated by lifiCoversCCTPQuote (a 1:1-quoted
+//     order must not be under-delivered by a fee-taking bridge),
+//     LiFi→CCTP gated by coin-type eligibility.
 //  2. advanceBridging: orders with bridge_provider="cctp" poll Circle
 //     (pollOneCCTP) instead of LiFi /status.
 //  3. advanceUncertain: same split for the late-recovery loop.
-//
-// Orders with bridge_provider="lifi" (the default, including every
-// pre-existing row) never enter any code in this file — if a fallback
-// bridge misbehaves, the blast radius is the fallback.
 //
 // Why direct CCTP and not Wormhole's own products: the Gateway dispatch
 // needs NATIVE Circle USDC on Base. Wormhole's token bridge (WTT)
@@ -23,10 +24,6 @@
 // Base signer, so we redeem the mint ourselves. Fewer moving parts,
 // each step inspectable: burn digest on Suiscan, attestation at Circle,
 // mint receipt on Basescan.
-//
-// Scope: USDC-source orders only. Native-SUI orders need a swap leg,
-// which is exactly the job LiFi exists for — they keep the original
-// retry-then-fail behavior.
 package services
 
 import (
@@ -34,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	suimodels "github.com/block-vision/sui-go-sdk/models"
@@ -44,19 +42,24 @@ import (
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/services/cctp"
+	"github.com/usezoracle/rails-sui/services/lifi"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
-// cctpFallbackAfter is how many consecutive LiFi quote failures an
-// order accrues before the dispatcher tries the CCTP fallback. Ticks
-// are one minute apart, so 3 ≈ three minutes of LiFi being down —
-// long enough to skip transient blips, short enough that card
-// settlements don't sit for the full 10-retry death march.
-const cctpFallbackAfter = 3
+// bridgeFallbackAfter is how many consecutive start-bridge failures an
+// order accrues on its primary rail before the dispatcher tries the
+// other rail. Ticks are one minute apart, so 3 ≈ three minutes of the
+// primary being down — long enough to skip transient blips, short
+// enough that card settlements don't sit for the full 10-retry death
+// march.
+const bridgeFallbackAfter = 3
 
-// routeAProviderCCTP is the bridge_provider value marking orders that
-// bridged via the direct-CCTP fallback. Default rows are "lifi".
-const routeAProviderCCTP = "cctp"
+// bridge_provider values. CCTP is primary for native-USDC orders;
+// LiFi is the USDC fallback and the only rail for native SUI.
+const (
+	routeAProviderCCTP = "cctp"
+	routeAProviderLiFi = "lifi"
+)
 
 // cctpQuoteAvailable reports whether a quote-time CCTP fallback rate
 // (1:1, fee-free) is valid for this source token: the fallback must be
@@ -89,13 +92,29 @@ func (d *RouteADispatcher) cctpReady() (string, bool) {
 	}
 }
 
-// startBridgeForProvider is advancePending's entry point: orders
-// already tagged bridge_provider="cctp" (quoted via CCTP because LiFi
-// was down at order time) start directly on the CCTP rail — their 1:1
-// quote must not be filled by a fee-taking LiFi bridge. Everything
-// else takes the unchanged LiFi path.
+// cctpPrimaryEligible reports whether this order should START on the
+// CCTP rail: the rail is runnable and the source coin is the canonical
+// native Sui USDC. Token-based, not provider-based, so USDC orders
+// created without a composite quote (card taps) also ride CCTP.
+func (d *RouteADispatcher) cctpPrimaryEligible(order *ent.RouteAOrder) bool {
+	if _, ok := d.cctpReady(); !ok {
+		return false
+	}
+	po := order.Edges.PaymentOrder
+	if po == nil || po.Edges.Token == nil {
+		return false
+	}
+	return po.Edges.Token.ContractAddress == d.cctpNet.SuiUSDCCoinType
+}
+
+// startBridgeForProvider is advancePending's entry point. Native-USDC
+// orders start on CCTP (primary); everything else takes the LiFi path.
+// Orders already tagged bridge_provider="cctp" (quoted at the 1:1
+// rate) stay on CCTP even when the rail reports not-ready — the
+// resulting error feeds the failure counter and tryLiFiFallback's
+// fit-guard decides whether LiFi may honor their quote.
 func (d *RouteADispatcher) startBridgeForProvider(ctx context.Context, order *ent.RouteAOrder) error {
-	if order.BridgeProvider == routeAProviderCCTP {
+	if order.BridgeProvider == routeAProviderCCTP || d.cctpPrimaryEligible(order) {
 		return d.startCCTPBridge(ctx, order, 0)
 	}
 	return d.startBridge(ctx, order)
@@ -107,6 +126,71 @@ func (d *RouteADispatcher) startBridgeForProvider(ctx context.Context, order *en
 // any error leaves the order exactly where the LiFi retry loop had it.
 func (d *RouteADispatcher) tryCCTPFallback(ctx context.Context, order *ent.RouteAOrder, lifiFailures int) error {
 	return d.startCCTPBridge(ctx, order, lifiFailures)
+}
+
+// tryLiFiFallback hands a failing CCTP order to LiFi — but only when
+// LiFi's guaranteed minimum delivery (ToAmountMin) still covers the
+// order's NGN target at the live settlement rate plus the sender fee.
+// CCTP-quoted orders promise a 1:1 rate; letting a fee-taking bridge
+// under-deliver would wedge them at dispatch ("insufficient bridged
+// USDC", retrying forever). Refusing keeps the order on CCTP retries
+// → eventually failed → refund, with funds still safe on Sui.
+func (d *RouteADispatcher) tryLiFiFallback(ctx context.Context, order *ent.RouteAOrder, cctpFailures int) error {
+	po := order.Edges.PaymentOrder
+	if po == nil || po.Edges.Token == nil {
+		return fmt.Errorf("order %d missing payment_order/token edge", order.ID)
+	}
+	if d.settlement == nil {
+		return fmt.Errorf("settlement client not configured — can't verify LiFi covers the CCTP quote")
+	}
+	tok := po.Edges.Token
+
+	// Probe quote: what would LiFi guarantee right now?
+	quote, err := d.lifi.GetQuote(ctx, lifi.QuoteRequest{
+		FromChain:   strconv.FormatInt(lifi.SuiChainID, 10),
+		ToChain:     strconv.FormatInt(d.conf.BaseChainID, 10),
+		FromToken:   tok.ContractAddress,
+		ToToken:     d.conf.BaseUSDCContract,
+		FromAmount:  po.Amount.Shift(int32(tok.Decimals)).Truncate(0).String(),
+		FromAddress: d.signer.Address,
+		ToAddress:   d.conf.BaseAggregatorAddress,
+	})
+	if err != nil {
+		return fmt.Errorf("lifi probe quote: %w", err)
+	}
+	minDelivery, ok := parseAmountToDecimal(quote.Estimate.ToAmountMin, d.conf.BaseUSDCDecimals)
+	if !ok || !minDelivery.IsPositive() {
+		return fmt.Errorf("lifi probe: unusable ToAmountMin %q", quote.Estimate.ToAmountMin)
+	}
+
+	liveQuote, err := d.settlement.FetchRate(ctx, "base", "USDC", minDelivery, "NGN")
+	if err != nil {
+		return fmt.Errorf("settlement rate for fit check: %w", err)
+	}
+	targetNGN := po.Amount.Mul(po.Rate)
+	if !lifiCoversQuote(targetNGN, liveQuote.Rate, d.conf.BaseSenderFeeBPS, minDelivery) {
+		return fmt.Errorf("LiFi min delivery %s USDC can't honor the order's quote (target %s NGN at live rate %s) — staying on CCTP retries",
+			minDelivery, targetNGN, liveQuote.Rate)
+	}
+
+	logger.Infof("🔁 route-a: order %d falling back CCTP→LiFi after %d failures (LiFi min %s USDC covers target)",
+		order.ID, cctpFailures, minDelivery)
+	// startBridge re-quotes, submits, and persists bridge_provider=lifi;
+	// from there the order is a normal LiFi order (pollOneBridge etc.).
+	return d.startBridge(ctx, order)
+}
+
+// lifiCoversQuote is the fit-guard arithmetic: delivered-minimum must
+// cover targetNGN converted at the live rate, plus the sender fee skim
+// dispatchLP will add on top.
+func lifiCoversQuote(targetNGN, liveRate decimal.Decimal, senderFeeBPS int64, minDelivery decimal.Decimal) bool {
+	if !liveRate.IsPositive() || !targetNGN.IsPositive() {
+		return false
+	}
+	required := targetNGN.Div(liveRate).
+		Mul(decimal.NewFromInt(10_000 + senderFeeBPS)).
+		Div(decimal.NewFromInt(10_000))
+	return minDelivery.GreaterThanOrEqual(required)
 }
 
 // startCCTPBridge burns the order's USDC on Sui via deposit_for_burn

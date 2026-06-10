@@ -1,26 +1,32 @@
-# Route A: direct-CCTP bridge fallback
+# Route A: bridge rails — CCTP primary (USDC), LiFi fallback
 
-When LiFi can't quote, USDC-source Route-A orders no longer death-march
-to FAILED — after **3 consecutive quote failures** the dispatcher
-bridges them itself over Circle's CCTP v1 (the same burn-and-mint rail
-Wormhole's CCTP product and LiFi's `cctp` tool ride on, minus their
-relayer: we redeem on Base with the aggregator signer we already run).
+Native-USDC orders bridge Sui→Base over Circle's CCTP v1 as the
+**primary** rail (the same burn-and-mint rail Wormhole's CCTP product
+and LiFi's `cctp` tool ride on, minus their relayer: we redeem on Base
+with the aggregator signer we already run). LiFi is the USDC
+**fallback** — after 3 consecutive CCTP failures, gated by a fit-guard
+— and remains the only rail for native SUI, which needs a swap leg.
 
-## Quote-time fallback (rates without LiFi)
+## Quote-time pricing
 
-`QuoteSuiTokenToNgn` no longer hard-depends on LiFi for native-USDC
-orders. If LiFi errors (or returns an unusable `ToAmountMin`), the
-Sui→Base leg is priced the way CCTP actually executes it: **1:1, zero
-fee, zero slippage** — `usdcEquivalent = bridgedAmount` — then the
+For native-USDC, `QuoteSuiTokenToNgn` prices the Sui→Base leg the way
+CCTP executes it — **1:1, zero fee, zero slippage**
+(`usdcEquivalent = bridgedAmount`) — with no LiFi call at all; then the
 usual sender-fee factor and aggregator NGN/USDC rate apply. The result
-carries `QuotedVia="cctp"`, and order creation persists that as
-`bridge_provider`, so the dispatcher executes those orders directly on
-the CCTP rail (`startCCTPBridge`, never LiFi). That pairing is the
-correctness invariant: a 1:1 quote must never be filled by a
-fee-taking LiFi bridge, or the Gateway dispatch could come up short.
+carries `QuotedVia="cctp"`, persisted as `bridge_provider` at order
+creation.
 
-Native-SUI quotes still require LiFi (CCTP has no swap leg) and fail
-exactly as before when it's down.
+The correctness invariant: **a 1:1 quote must never be silently filled
+by a fee-taking bridge.** If CCTP keeps failing at bridge time, the
+LiFi fallback (`tryLiFiFallback`) first probes LiFi's `ToAmountMin` and
+the live settlement rate, and only takes over when the guaranteed
+minimum delivery still covers the order's NGN target plus sender fee
+(`lifiCoversQuote`). Otherwise the order stays on CCTP retries →
+failed → refund, with funds still safe on Sui.
+
+Native-SUI quotes still go through LiFi (CCTP has no swap leg). USDC
+quotes also revert to LiFi when `CCTP_FALLBACK_ENABLED=false` or the
+chain has no CCTP deployment.
 
 ## Why this design
 
@@ -55,8 +61,9 @@ exactly as before when it's down.
 ## State machine (reuses the existing one)
 
 ```
-pending (bridge_provider=cctp, quoted via CCTP) ──────────────┐
-pending → [LiFi quote fails ×3, eligible] → CCTP burn submitted
+pending (USDC, CCTP-eligible) → CCTP burn submitted            [primary]
+pending → [CCTP fails ×3 + LiFi fit-guard passes] → LiFi path  [fallback]
+pending → [LiFi fails ×3, USDC-eligible] → CCTP burn submitted [reverse fallback]
         → bridging (bridge_provider=cctp, lifi_tool=cctp, bridge_tx_sui=digest)
         → poll Iris each tick:
             not indexed past 20 min  → bridge_uncertain (24h Iris re-poll, then failed)

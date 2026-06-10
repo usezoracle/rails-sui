@@ -297,21 +297,27 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 			logger.Errorf("❌ route-a: start bridge for order %d (attempt %d/%d): %v",
 				order.ID, count, maxQuoteRetries, err)
 
-			// LiFi keeps failing — hand eligible orders to the direct-
-			// CCTP fallback (services/route_a_cctp.go) before the retry
-			// counter death-marches to FAILED. Ineligible or failed
-			// fallback attempts fall through to the original behavior.
-			// Orders already on the CCTP rail are failing in CCTP
-			// itself; re-trying the same rail here would be circular.
-			if count >= cctpFallbackAfter && order.BridgeProvider != routeAProviderCCTP {
-				if ferr := d.tryCCTPFallback(ctx, order, count); ferr == nil {
+			// The primary rail keeps failing — try the other one
+			// (services/route_a_cctp.go) before the retry counter
+			// death-marches to FAILED. CCTP-primary orders fall back
+			// to LiFi behind a fit-guard; LiFi-primary orders fall
+			// back to CCTP behind its coin-type eligibility check.
+			// Ineligible or failed fallback attempts fall through to
+			// the original retry-then-fail behavior.
+			if count >= bridgeFallbackAfter {
+				var ferr error
+				if order.BridgeProvider == routeAProviderCCTP || d.cctpPrimaryEligible(order) {
+					ferr = d.tryLiFiFallback(ctx, order, count)
+				} else {
+					ferr = d.tryCCTPFallback(ctx, order, count)
+				}
+				if ferr == nil {
 					d.quoteFailMu.Lock()
 					delete(d.quoteFailCounts, order.ID)
 					d.quoteFailMu.Unlock()
 					continue
-				} else {
-					logger.Errorf("❌ route-a: CCTP fallback for order %d: %v", order.ID, ferr)
 				}
+				logger.Errorf("❌ route-a: bridge fallback for order %d: %v", order.ID, ferr)
 			}
 
 			if count >= maxQuoteRetries {
@@ -472,6 +478,9 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 	if _, err := order.Update().
 		SetLifiQuoteID(quote.ID).
 		SetLifiTool(quote.Tool).
+		// Explicit even though it's the column default: an order that
+		// fell back CCTP→LiFi must flip so polling follows LiFi /status.
+		SetBridgeProvider(routeAProviderLiFi).
 		SetBridgeTxSui(resp.Digest).
 		SetBridgeStatus(routeaorder.BridgeStatusBridging).
 		Save(ctx); err != nil {
