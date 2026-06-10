@@ -31,6 +31,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
+	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/suireceiveaddress"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
@@ -677,6 +678,18 @@ func persistTapCardPaymentOrder(
 		return nil, "", fmt.Errorf("default token: %w", err)
 	}
 
+	// Denominate the order in USDC (the cap debits USDC and Route A bridges
+	// USDC). Convert the fiat charge via the live market rate — same as the
+	// QR/broadcast flow — so the dispatcher bridges the correct amount, not
+	// the raw NGN figure.
+	ngn, err := storage.Client.FiatCurrency.Query().
+		Where(fiatcurrency.CodeEQ("NGN"), fiatcurrency.IsEnabledEQ(true)).
+		Only(ctx)
+	if err != nil || !ngn.MarketRate.IsPositive() {
+		return nil, "", fmt.Errorf("market rate unavailable: %w", err)
+	}
+	usdcAmount := amount.Div(ngn.MarketRate)
+
 	// Receive address — even though the card flow doesn't actually
 	// use it (the Move debit settles directly), the existing
 	// PaymentOrder schema requires one. PoC: generate a fresh
@@ -723,7 +736,7 @@ func persistTapCardPaymentOrder(
 		SetID(orderID).
 		SetReference(card.ID.String()). // correlate this order back to the card
 		SetSenderProfile(sender).
-		SetAmount(amount).
+		SetAmount(usdcAmount).
 		SetAmountPaid(decimal.NewFromInt(0)).
 		SetAmountReturned(decimal.NewFromInt(0)).
 		SetPercentSettled(decimal.NewFromInt(0)).
@@ -731,7 +744,7 @@ func persistTapCardPaymentOrder(
 		SetProtocolFee(decimal.NewFromInt(0)).
 		SetSenderFee(decimal.NewFromInt(0)).
 		SetToken(tok).
-		SetRate(decimal.NewFromInt(1)).
+		SetRate(ngn.MarketRate).
 		SetSuiReceiveAddress(receiveAddr).
 		SetReceiveAddressText(receiveAddr.Address).
 		SetFeePercent(decimal.NewFromInt(0)).
@@ -749,6 +762,20 @@ func persistTapCardPaymentOrder(
 		SetAccountIdentifier(bank.AccountNumber).
 		SetAccountName(bank.AccountName).
 		SetMemo(memo).
+		SetPaymentOrder(po).
+		Save(ctx); err != nil {
+		_ = tx.Rollback()
+		return nil, "", err
+	}
+
+	// Enrol the card-debit order in Route A — same settlement path as the
+	// QR/broadcast flow. The card debit already sends the USDC to the
+	// aggregator wallet, so the dispatcher (advancePending checks the
+	// aggregator balance) bridges it and settles to the merchant's bank.
+	// Without this row the order is treated as Route B (LP matching).
+	if _, err := tx.RouteAOrder.Create().
+		SetMode(routeaorder.ModeLp).
+		SetBridgeStatus(routeaorder.BridgeStatusPending).
 		SetPaymentOrder(po).
 		Save(ctx); err != nil {
 		_ = tx.Rollback()
