@@ -597,6 +597,7 @@ var (
 		{Name: "mode", Type: field.TypeEnum, Enums: []string{"lp", "treasury"}, Default: "treasury"},
 		{Name: "lifi_quote_id", Type: field.TypeString, Nullable: true},
 		{Name: "lifi_tool", Type: field.TypeString, Nullable: true},
+		{Name: "bridge_provider", Type: field.TypeString, Default: "lifi"},
 		{Name: "bridge_tx_sui", Type: field.TypeString, Nullable: true},
 		{Name: "bridge_tx_dest", Type: field.TypeString, Nullable: true},
 		{Name: "bridge_status", Type: field.TypeEnum, Enums: []string{"pending", "awaiting_funds", "bridging", "bridge_uncertain", "bridged", "dispatching", "settled", "failed", "refunded"}, Default: "pending"},
@@ -618,7 +619,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "route_aorders_payment_orders_route_a_order",
-				Columns:    []*schema.Column{RouteAordersColumns[17]},
+				Columns:    []*schema.Column{RouteAordersColumns[18]},
 				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},

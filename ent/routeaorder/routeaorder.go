@@ -25,6 +25,8 @@ const (
 	FieldLifiQuoteID = "lifi_quote_id"
 	// FieldLifiTool holds the string denoting the lifi_tool field in the database.
 	FieldLifiTool = "lifi_tool"
+	// FieldBridgeProvider holds the string denoting the bridge_provider field in the database.
+	FieldBridgeProvider = "bridge_provider"
 	// FieldBridgeTxSui holds the string denoting the bridge_tx_sui field in the database.
 	FieldBridgeTxSui = "bridge_tx_sui"
 	// FieldBridgeTxDest holds the string denoting the bridge_tx_dest field in the database.
@@ -77,6 +79,7 @@ var Columns = []string{
 	FieldMode,
 	FieldLifiQuoteID,
 	FieldLifiTool,
+	FieldBridgeProvider,
 	FieldBridgeTxSui,
 	FieldBridgeTxDest,
 	FieldBridgeStatus,
@@ -118,6 +121,8 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultBridgeProvider holds the default value on creation for the "bridge_provider" field.
+	DefaultBridgeProvider string
 )
 
 // Mode defines the type for the "mode" enum field.
@@ -210,6 +215,11 @@ func ByLifiQuoteID(opts ...sql.OrderTermOption) OrderOption {
 // ByLifiTool orders the results by the lifi_tool field.
 func ByLifiTool(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLifiTool, opts...).ToFunc()
+}
+
+// ByBridgeProvider orders the results by the bridge_provider field.
+func ByBridgeProvider(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBridgeProvider, opts...).ToFunc()
 }
 
 // ByBridgeTxSui orders the results by the bridge_tx_sui field.

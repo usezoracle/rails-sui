@@ -30,6 +30,8 @@ type RouteAOrder struct {
 	LifiQuoteID string `json:"lifi_quote_id,omitempty"`
 	// LifiTool holds the value of the "lifi_tool" field.
 	LifiTool string `json:"lifi_tool,omitempty"`
+	// BridgeProvider holds the value of the "bridge_provider" field.
+	BridgeProvider string `json:"bridge_provider,omitempty"`
 	// BridgeTxSui holds the value of the "bridge_tx_sui" field.
 	BridgeTxSui string `json:"bridge_tx_sui,omitempty"`
 	// BridgeTxDest holds the value of the "bridge_tx_dest" field.
@@ -99,7 +101,7 @@ func (*RouteAOrder) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(decimal.Decimal)}
 		case routeaorder.FieldID, routeaorder.FieldGatewayChainID:
 			values[i] = new(sql.NullInt64)
-		case routeaorder.FieldMode, routeaorder.FieldLifiQuoteID, routeaorder.FieldLifiTool, routeaorder.FieldBridgeTxSui, routeaorder.FieldBridgeTxDest, routeaorder.FieldBridgeStatus, routeaorder.FieldGatewayOrderID, routeaorder.FieldSettlementStatus, routeaorder.FieldTreasuryPayoutRef, routeaorder.FieldFailureReason:
+		case routeaorder.FieldMode, routeaorder.FieldLifiQuoteID, routeaorder.FieldLifiTool, routeaorder.FieldBridgeProvider, routeaorder.FieldBridgeTxSui, routeaorder.FieldBridgeTxDest, routeaorder.FieldBridgeStatus, routeaorder.FieldGatewayOrderID, routeaorder.FieldSettlementStatus, routeaorder.FieldTreasuryPayoutRef, routeaorder.FieldFailureReason:
 			values[i] = new(sql.NullString)
 		case routeaorder.FieldCreatedAt, routeaorder.FieldUpdatedAt, routeaorder.FieldSettlementPolledAt:
 			values[i] = new(sql.NullTime)
@@ -155,6 +157,12 @@ func (ra *RouteAOrder) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field lifi_tool", values[i])
 			} else if value.Valid {
 				ra.LifiTool = value.String
+			}
+		case routeaorder.FieldBridgeProvider:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field bridge_provider", values[i])
+			} else if value.Valid {
+				ra.BridgeProvider = value.String
 			}
 		case routeaorder.FieldBridgeTxSui:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -292,6 +300,9 @@ func (ra *RouteAOrder) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("lifi_tool=")
 	builder.WriteString(ra.LifiTool)
+	builder.WriteString(", ")
+	builder.WriteString("bridge_provider=")
+	builder.WriteString(ra.BridgeProvider)
 	builder.WriteString(", ")
 	builder.WriteString("bridge_tx_sui=")
 	builder.WriteString(ra.BridgeTxSui)

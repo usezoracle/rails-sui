@@ -92,6 +92,20 @@ func (rau *RouteAOrderUpdate) ClearLifiTool() *RouteAOrderUpdate {
 	return rau
 }
 
+// SetBridgeProvider sets the "bridge_provider" field.
+func (rau *RouteAOrderUpdate) SetBridgeProvider(s string) *RouteAOrderUpdate {
+	rau.mutation.SetBridgeProvider(s)
+	return rau
+}
+
+// SetNillableBridgeProvider sets the "bridge_provider" field if the given value is not nil.
+func (rau *RouteAOrderUpdate) SetNillableBridgeProvider(s *string) *RouteAOrderUpdate {
+	if s != nil {
+		rau.SetBridgeProvider(*s)
+	}
+	return rau
+}
+
 // SetBridgeTxSui sets the "bridge_tx_sui" field.
 func (rau *RouteAOrderUpdate) SetBridgeTxSui(s string) *RouteAOrderUpdate {
 	rau.mutation.SetBridgeTxSui(s)
@@ -469,6 +483,9 @@ func (rau *RouteAOrderUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if rau.mutation.LifiToolCleared() {
 		_spec.ClearField(routeaorder.FieldLifiTool, field.TypeString)
 	}
+	if value, ok := rau.mutation.BridgeProvider(); ok {
+		_spec.SetField(routeaorder.FieldBridgeProvider, field.TypeString, value)
+	}
 	if value, ok := rau.mutation.BridgeTxSui(); ok {
 		_spec.SetField(routeaorder.FieldBridgeTxSui, field.TypeString, value)
 	}
@@ -692,6 +709,20 @@ func (rauo *RouteAOrderUpdateOne) SetNillableLifiTool(s *string) *RouteAOrderUpd
 // ClearLifiTool clears the value of the "lifi_tool" field.
 func (rauo *RouteAOrderUpdateOne) ClearLifiTool() *RouteAOrderUpdateOne {
 	rauo.mutation.ClearLifiTool()
+	return rauo
+}
+
+// SetBridgeProvider sets the "bridge_provider" field.
+func (rauo *RouteAOrderUpdateOne) SetBridgeProvider(s string) *RouteAOrderUpdateOne {
+	rauo.mutation.SetBridgeProvider(s)
+	return rauo
+}
+
+// SetNillableBridgeProvider sets the "bridge_provider" field if the given value is not nil.
+func (rauo *RouteAOrderUpdateOne) SetNillableBridgeProvider(s *string) *RouteAOrderUpdateOne {
+	if s != nil {
+		rauo.SetBridgeProvider(*s)
+	}
 	return rauo
 }
 
@@ -1101,6 +1132,9 @@ func (rauo *RouteAOrderUpdateOne) sqlSave(ctx context.Context) (_node *RouteAOrd
 	}
 	if rauo.mutation.LifiToolCleared() {
 		_spec.ClearField(routeaorder.FieldLifiTool, field.TypeString)
+	}
+	if value, ok := rauo.mutation.BridgeProvider(); ok {
+		_spec.SetField(routeaorder.FieldBridgeProvider, field.TypeString, value)
 	}
 	if value, ok := rauo.mutation.BridgeTxSui(); ok {
 		_spec.SetField(routeaorder.FieldBridgeTxSui, field.TypeString, value)

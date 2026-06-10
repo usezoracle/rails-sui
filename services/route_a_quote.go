@@ -18,6 +18,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/services/lifi"
 	"github.com/usezoracle/rails-sui/services/settlement"
+	"github.com/usezoracle/rails-sui/utils/logger"
 )
 
 // NativeSuiCoinType is the Move type string for native SUI. Used to
@@ -89,6 +90,22 @@ type SuiCompositeRate struct {
 	ProviderIDs          []string
 	OrderType            string
 	RefundTimeoutMinutes int
+
+	// QuotedVia records which bridge rail priced the Sui→Base leg:
+	// "lifi" (normal) or "cctp" (LiFi was unavailable; 1:1 burn-and-
+	// mint pricing). Order creation persists this as bridge_provider
+	// so execution uses the same rail the user was quoted on — a CCTP
+	// 1:1 quote must never be filled by a LiFi bridge that takes fees.
+	QuotedVia string
+}
+
+// BridgeProvider returns QuotedVia, defaulting to "lifi" so callers
+// persisting it can never write an empty provider.
+func (r *SuiCompositeRate) BridgeProvider() string {
+	if r.QuotedVia == "" {
+		return "lifi"
+	}
+	return r.QuotedVia
 }
 
 // QuoteSuiToNgn is a backward-compatible wrapper for SUI-specific off-ramp quoting.
@@ -154,17 +171,34 @@ func QuoteSuiTokenToNgn(
 		qreq.Slippage = NativeSuiSlippage()
 	}
 
-	quote, err := lifiClient.GetQuote(ctx, qreq)
-	if err != nil {
-		return nil, fmt.Errorf("lifi bridge quote: %w", err)
-	}
+	quotedVia := "lifi"
+	var usdcEquivalent decimal.Decimal
 
-	// ToAmountMin is the floor LiFi guarantees; quoting off the floor ensures the user is not surprised by under-delivery
-	usdcSubunit, ok := new(big.Int).SetString(quote.Estimate.ToAmountMin, 10)
-	if !ok || usdcSubunit.Sign() <= 0 {
-		return nil, fmt.Errorf("lifi returned no usable ToAmountMin (got %q)", quote.Estimate.ToAmountMin)
+	quote, err := lifiClient.GetQuote(ctx, qreq)
+	if err == nil {
+		// ToAmountMin is the floor LiFi guarantees; quoting off the floor ensures the user is not surprised by under-delivery
+		usdcSubunit, ok := new(big.Int).SetString(quote.Estimate.ToAmountMin, 10)
+		if !ok || usdcSubunit.Sign() <= 0 {
+			err = fmt.Errorf("lifi returned no usable ToAmountMin (got %q)", quote.Estimate.ToAmountMin)
+		} else {
+			usdcEquivalent = decimal.NewFromBigInt(usdcSubunit, -int32(conf.BaseUSDCDecimals))
+		}
 	}
-	usdcEquivalent := decimal.NewFromBigInt(usdcSubunit, -int32(conf.BaseUSDCDecimals))
+	if err != nil {
+		// LiFi can't price the bridge leg. Native-USDC orders have a
+		// trustworthy rate without LiFi: the direct-CCTP fallback
+		// (route_a_cctp.go) burns-and-mints exactly 1:1 with no fee or
+		// slippage, so the USDC delivered on Base IS the bridged
+		// amount. Orders quoted this way are tagged QuotedVia="cctp"
+		// and execute over CCTP. Anything else (native SUI needs a
+		// swap leg) still fails the quote.
+		if !cctpQuoteAvailable(conf, fromToken) {
+			return nil, fmt.Errorf("lifi bridge quote: %w", err)
+		}
+		quotedVia = routeAProviderCCTP
+		usdcEquivalent = bridgedAmount
+		logger.Infof("route-a: quoting %s via direct CCTP (1:1) — LiFi unavailable: %v", fromToken, err)
+	}
 
 	// Factor in the platform sender fee (BaseSenderFeeBPS) charged during settlement on Base.
 	// This ensures the merchant receives exactly the expected fiat amount.
@@ -189,6 +223,7 @@ func QuoteSuiTokenToNgn(
 		ProviderIDs:          aggRate.ProviderIDs,
 		OrderType:            aggRate.OrderType,
 		RefundTimeoutMinutes: aggRate.RefundTimeoutMinutes,
+		QuotedVia:            quotedVia,
 	}, nil
 }
 

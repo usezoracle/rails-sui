@@ -588,6 +588,9 @@ func (ctrl *SenderController) InitiateRouteAOrder(ctx *gin.Context) {
 		Create().
 		SetMode(routeaorder.Mode(mode)).
 		SetBridgeStatus(routeaorder.BridgeStatusPending).
+		// Execute on the rail the user was quoted on — "cctp" when the
+		// quote fell back to 1:1 CCTP pricing because LiFi was down.
+		SetBridgeProvider(composite.BridgeProvider()).
 		SetPaymentOrder(paymentOrder).
 		Save(ctx); err != nil {
 		_ = tx.Rollback()

@@ -35,6 +35,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
+	"github.com/usezoracle/rails-sui/services/cctp"
 	"github.com/usezoracle/rails-sui/services/evm"
 	"github.com/usezoracle/rails-sui/services/lifi"
 	"github.com/usezoracle/rails-sui/services/settlement"
@@ -133,6 +134,13 @@ type RouteADispatcher struct {
 	// count exceeds maxQuoteRetries.
 	quoteFailMu     sync.Mutex
 	quoteFailCounts map[int]int
+
+	// Direct-CCTP bridge fallback (services/route_a_cctp.go). Resolved
+	// once at boot; cctpNetOK=false simply means the fallback never
+	// engages — the LiFi path is unaffected either way.
+	cctpNet   cctp.Network
+	cctpNetOK bool
+	cctpIris  *cctp.Iris
 }
 
 // NewRouteADispatcher constructs the dispatcher from config. Returns nil
@@ -157,6 +165,15 @@ func NewRouteADispatcher() *RouteADispatcher {
 		signer:          signer,
 		lifi:            lifi.New(conf.LiFiAPIKey),
 		quoteFailCounts: make(map[int]int),
+	}
+
+	// CCTP fallback wiring — constants resolved from the destination
+	// chain id; nothing else in the dispatcher changes when this is
+	// absent or disabled.
+	if net, ok := cctp.ForBaseChainID(conf.BaseChainID); ok {
+		d.cctpNet = net.WithIrisURL(conf.CCTPIrisURL)
+		d.cctpNetOK = true
+		d.cctpIris = cctp.NewIris(d.cctpNet.IrisBaseURL)
 	}
 
 	// settlement client is cheap to construct (no network on init).
@@ -256,7 +273,7 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 	}
 
 	for _, order := range orders {
-		if err := d.startBridge(ctx, order); err != nil {
+		if err := d.startBridgeForProvider(ctx, order); err != nil {
 			// Awaiting-funds: the deposit hasn't self-settled to the aggregator yet.
 			// Persist awaiting_funds so the DB reflects reality, skip the
 			// retry counter — we recheck every tick until funds arrive.
@@ -280,8 +297,26 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 			logger.Errorf("❌ route-a: start bridge for order %d (attempt %d/%d): %v",
 				order.ID, count, maxQuoteRetries, err)
 
+			// LiFi keeps failing — hand eligible orders to the direct-
+			// CCTP fallback (services/route_a_cctp.go) before the retry
+			// counter death-marches to FAILED. Ineligible or failed
+			// fallback attempts fall through to the original behavior.
+			// Orders already on the CCTP rail are failing in CCTP
+			// itself; re-trying the same rail here would be circular.
+			if count >= cctpFallbackAfter && order.BridgeProvider != routeAProviderCCTP {
+				if ferr := d.tryCCTPFallback(ctx, order, count); ferr == nil {
+					d.quoteFailMu.Lock()
+					delete(d.quoteFailCounts, order.ID)
+					d.quoteFailMu.Unlock()
+					continue
+				} else {
+					logger.Errorf("❌ route-a: CCTP fallback for order %d: %v", order.ID, ferr)
+				}
+			}
+
 			if count >= maxQuoteRetries {
-				reason := fmt.Sprintf("LiFi quote failed %d consecutive times: %v", count, err)
+				reason := fmt.Sprintf("bridge start (%s) failed %d consecutive times: %v",
+					order.BridgeProvider, count, err)
 				if _, uerr := order.Update().
 					SetBridgeStatus(routeaorder.BridgeStatusFailed).
 					SetFailureReason(reason).
@@ -467,6 +502,10 @@ func (d *RouteADispatcher) advanceBridging(ctx context.Context) error {
 		if order.BridgeTxSui == "" {
 			continue
 		}
+		if order.BridgeProvider == routeAProviderCCTP {
+			d.pollOneCCTP(ctx, order)
+			continue
+		}
 		d.pollOneBridge(ctx, order)
 	}
 	return nil
@@ -612,6 +651,11 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 	}
 
 	for _, order := range orders {
+		if order.BridgeProvider == routeAProviderCCTP {
+			d.recoverUncertainCCTP(ctx, order)
+			continue
+		}
+
 		var loopErr error
 		timer := Time(ctx, order.ID, StepBridgeUncertain, ActorDispatcher).
 			With("bridge_tx_sui", order.BridgeTxSui).

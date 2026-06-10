@@ -38,6 +38,11 @@ type OrderConfiguration struct {
 	LiFiBaseURL  string
 	LiFiAPIKey   string // optional; free tier when empty (rate-limited)
 
+	// Direct-CCTP bridge fallback (services/route_a_cctp.go) — engages
+	// only after repeated LiFi quote failures on USDC-source orders.
+	CCTPFallbackEnabled bool   // kill switch; default true
+	CCTPIrisURL         string // optional override of Circle's attestation host (tests/proxies)
+
 	// Shinami Gas Station — sponsors all aggregator-initiated Move
 	// calls (CreateOrder, SettleOrder, RefundOrder, DebitCard). When
 	// empty, the OrderSui code path falls back to a typed error so
@@ -79,6 +84,7 @@ func OrderConfig() *OrderConfiguration {
 	viper.SetDefault("PERCENT_DEVIATION_FROM_MARKET_RATE", 0.1)
 	viper.SetDefault("SUI_RPC_URL", "https://fullnode.testnet.sui.io:443")
 	viper.SetDefault("LIFI_BASE_URL", "https://li.quest/v1")
+	viper.SetDefault("CCTP_FALLBACK_ENABLED", true)
 	viper.SetDefault("BASE_RPC_URL", "https://sepolia.base.org")                       // Sepolia default; mainnet = https://mainnet.base.org
 	viper.SetDefault("BASE_CHAIN_ID", 84532)                                           // Base Sepolia; mainnet = 8453
 	viper.SetDefault("BASE_SENDER_FEE_BPS", 50)                                        // 0.5% sender fee
@@ -117,6 +123,8 @@ func OrderConfig() *OrderConfiguration {
 		SuiAggregatorPrivateKey:          aggregatorKey,
 		LiFiBaseURL:                      viper.GetString("LIFI_BASE_URL"),
 		LiFiAPIKey:                       viper.GetString("LIFI_API_KEY"),
+		CCTPFallbackEnabled:              viper.GetBool("CCTP_FALLBACK_ENABLED"),
+		CCTPIrisURL:                      viper.GetString("CCTP_IRIS_URL"),
 		ShinamiGasAPIKey:                 viper.GetString("SHINAMI_GAS_API_KEY"),
 		ShinamiGasBaseURL:                viper.GetString("SHINAMI_GAS_BASE_URL"),
 		BaseRpcURL:                       viper.GetString("BASE_RPC_URL"),

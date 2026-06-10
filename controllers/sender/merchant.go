@@ -448,6 +448,9 @@ func (ctrl *SenderController) InitiateTapPayment(ctx *gin.Context) {
 		Create().
 		SetMode(routeaorder.ModeLp).
 		SetBridgeStatus(routeaorder.BridgeStatusPending).
+		// Execute on the rail the user was quoted on — "cctp" when the
+		// quote fell back to 1:1 CCTP pricing because LiFi was down.
+		SetBridgeProvider(composite.BridgeProvider()).
 		SetPaymentOrder(po).
 		Save(ctx); err != nil {
 		logger.Errorf("InitiateTapPayment: route_a_order: %v", err)

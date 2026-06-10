@@ -76,6 +76,11 @@ func LifiTool(v string) predicate.RouteAOrder {
 	return predicate.RouteAOrder(sql.FieldEQ(FieldLifiTool, v))
 }
 
+// BridgeProvider applies equality check predicate on the "bridge_provider" field. It's identical to BridgeProviderEQ.
+func BridgeProvider(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeProvider, v))
+}
+
 // BridgeTxSui applies equality check predicate on the "bridge_tx_sui" field. It's identical to BridgeTxSuiEQ.
 func BridgeTxSui(v string) predicate.RouteAOrder {
 	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeTxSui, v))
@@ -374,6 +379,71 @@ func LifiToolEqualFold(v string) predicate.RouteAOrder {
 // LifiToolContainsFold applies the ContainsFold predicate on the "lifi_tool" field.
 func LifiToolContainsFold(v string) predicate.RouteAOrder {
 	return predicate.RouteAOrder(sql.FieldContainsFold(FieldLifiTool, v))
+}
+
+// BridgeProviderEQ applies the EQ predicate on the "bridge_provider" field.
+func BridgeProviderEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEQ(FieldBridgeProvider, v))
+}
+
+// BridgeProviderNEQ applies the NEQ predicate on the "bridge_provider" field.
+func BridgeProviderNEQ(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNEQ(FieldBridgeProvider, v))
+}
+
+// BridgeProviderIn applies the In predicate on the "bridge_provider" field.
+func BridgeProviderIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldIn(FieldBridgeProvider, vs...))
+}
+
+// BridgeProviderNotIn applies the NotIn predicate on the "bridge_provider" field.
+func BridgeProviderNotIn(vs ...string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldNotIn(FieldBridgeProvider, vs...))
+}
+
+// BridgeProviderGT applies the GT predicate on the "bridge_provider" field.
+func BridgeProviderGT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGT(FieldBridgeProvider, v))
+}
+
+// BridgeProviderGTE applies the GTE predicate on the "bridge_provider" field.
+func BridgeProviderGTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldGTE(FieldBridgeProvider, v))
+}
+
+// BridgeProviderLT applies the LT predicate on the "bridge_provider" field.
+func BridgeProviderLT(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLT(FieldBridgeProvider, v))
+}
+
+// BridgeProviderLTE applies the LTE predicate on the "bridge_provider" field.
+func BridgeProviderLTE(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldLTE(FieldBridgeProvider, v))
+}
+
+// BridgeProviderContains applies the Contains predicate on the "bridge_provider" field.
+func BridgeProviderContains(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContains(FieldBridgeProvider, v))
+}
+
+// BridgeProviderHasPrefix applies the HasPrefix predicate on the "bridge_provider" field.
+func BridgeProviderHasPrefix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasPrefix(FieldBridgeProvider, v))
+}
+
+// BridgeProviderHasSuffix applies the HasSuffix predicate on the "bridge_provider" field.
+func BridgeProviderHasSuffix(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldHasSuffix(FieldBridgeProvider, v))
+}
+
+// BridgeProviderEqualFold applies the EqualFold predicate on the "bridge_provider" field.
+func BridgeProviderEqualFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldEqualFold(FieldBridgeProvider, v))
+}
+
+// BridgeProviderContainsFold applies the ContainsFold predicate on the "bridge_provider" field.
+func BridgeProviderContainsFold(v string) predicate.RouteAOrder {
+	return predicate.RouteAOrder(sql.FieldContainsFold(FieldBridgeProvider, v))
 }
 
 // BridgeTxSuiEQ applies the EQ predicate on the "bridge_tx_sui" field.

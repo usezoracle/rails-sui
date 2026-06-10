@@ -18778,6 +18778,7 @@ type RouteAOrderMutation struct {
 	mode                  *routeaorder.Mode
 	lifi_quote_id         *string
 	lifi_tool             *string
+	bridge_provider       *string
 	bridge_tx_sui         *string
 	bridge_tx_dest        *string
 	bridge_status         *routeaorder.BridgeStatus
@@ -19105,6 +19106,42 @@ func (m *RouteAOrderMutation) LifiToolCleared() bool {
 func (m *RouteAOrderMutation) ResetLifiTool() {
 	m.lifi_tool = nil
 	delete(m.clearedFields, routeaorder.FieldLifiTool)
+}
+
+// SetBridgeProvider sets the "bridge_provider" field.
+func (m *RouteAOrderMutation) SetBridgeProvider(s string) {
+	m.bridge_provider = &s
+}
+
+// BridgeProvider returns the value of the "bridge_provider" field in the mutation.
+func (m *RouteAOrderMutation) BridgeProvider() (r string, exists bool) {
+	v := m.bridge_provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBridgeProvider returns the old "bridge_provider" field's value of the RouteAOrder entity.
+// If the RouteAOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RouteAOrderMutation) OldBridgeProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBridgeProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBridgeProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBridgeProvider: %w", err)
+	}
+	return oldValue.BridgeProvider, nil
+}
+
+// ResetBridgeProvider resets all changes to the "bridge_provider" field.
+func (m *RouteAOrderMutation) ResetBridgeProvider() {
+	m.bridge_provider = nil
 }
 
 // SetBridgeTxSui sets the "bridge_tx_sui" field.
@@ -19823,7 +19860,7 @@ func (m *RouteAOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RouteAOrderMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 17)
 	if m.created_at != nil {
 		fields = append(fields, routeaorder.FieldCreatedAt)
 	}
@@ -19838,6 +19875,9 @@ func (m *RouteAOrderMutation) Fields() []string {
 	}
 	if m.lifi_tool != nil {
 		fields = append(fields, routeaorder.FieldLifiTool)
+	}
+	if m.bridge_provider != nil {
+		fields = append(fields, routeaorder.FieldBridgeProvider)
 	}
 	if m.bridge_tx_sui != nil {
 		fields = append(fields, routeaorder.FieldBridgeTxSui)
@@ -19890,6 +19930,8 @@ func (m *RouteAOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.LifiQuoteID()
 	case routeaorder.FieldLifiTool:
 		return m.LifiTool()
+	case routeaorder.FieldBridgeProvider:
+		return m.BridgeProvider()
 	case routeaorder.FieldBridgeTxSui:
 		return m.BridgeTxSui()
 	case routeaorder.FieldBridgeTxDest:
@@ -19931,6 +19973,8 @@ func (m *RouteAOrderMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldLifiQuoteID(ctx)
 	case routeaorder.FieldLifiTool:
 		return m.OldLifiTool(ctx)
+	case routeaorder.FieldBridgeProvider:
+		return m.OldBridgeProvider(ctx)
 	case routeaorder.FieldBridgeTxSui:
 		return m.OldBridgeTxSui(ctx)
 	case routeaorder.FieldBridgeTxDest:
@@ -19996,6 +20040,13 @@ func (m *RouteAOrderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLifiTool(v)
+		return nil
+	case routeaorder.FieldBridgeProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBridgeProvider(v)
 		return nil
 	case routeaorder.FieldBridgeTxSui:
 		v, ok := value.(string)
@@ -20251,6 +20302,9 @@ func (m *RouteAOrderMutation) ResetField(name string) error {
 		return nil
 	case routeaorder.FieldLifiTool:
 		m.ResetLifiTool()
+		return nil
+	case routeaorder.FieldBridgeProvider:
+		m.ResetBridgeProvider()
 		return nil
 	case routeaorder.FieldBridgeTxSui:
 		m.ResetBridgeTxSui()

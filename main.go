@@ -44,11 +44,21 @@ func main() {
 	// changes (they all depend on baas.Default()).
 	initBaaSRail()
 
-	// Subscribe to Redis keyspace events
-	tasks.SubscribeToRedisKeyspaceEvents()
+	// Background workers: Redis keyspace listeners + cron jobs (event
+	// indexers, Route-A dispatcher, reconcilers). DISABLE_BACKGROUND_JOBS=true
+	// runs this process API-only — exactly one worker instance should ever
+	// run against a database, so side-by-side instances (canary builds,
+	// separate HTTP scaling) must set this flag.
+	viper.SetDefault("DISABLE_BACKGROUND_JOBS", false)
+	if viper.GetBool("DISABLE_BACKGROUND_JOBS") {
+		logger.Infof("DISABLE_BACKGROUND_JOBS=true — API-only mode (no keyspace subscriptions, no cron jobs)")
+	} else {
+		// Subscribe to Redis keyspace events
+		tasks.SubscribeToRedisKeyspaceEvents()
 
-	// Start cron jobs
-	tasks.StartCronJobs()
+		// Start cron jobs
+		tasks.StartCronJobs()
+	}
 
 	// Run the server
 	router := routers.Routes()

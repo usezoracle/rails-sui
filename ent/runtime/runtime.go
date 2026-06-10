@@ -452,6 +452,10 @@ func init() {
 	routeaorder.DefaultUpdatedAt = routeaorderDescUpdatedAt.Default.(func() time.Time)
 	// routeaorder.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	routeaorder.UpdateDefaultUpdatedAt = routeaorderDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// routeaorderDescBridgeProvider is the schema descriptor for bridge_provider field.
+	routeaorderDescBridgeProvider := routeaorderFields[3].Descriptor()
+	// routeaorder.DefaultBridgeProvider holds the default value on creation for the bridge_provider field.
+	routeaorder.DefaultBridgeProvider = routeaorderDescBridgeProvider.Default.(string)
 	senderordertokenMixin := schema.SenderOrderToken{}.Mixin()
 	senderordertokenMixinFields0 := senderordertokenMixin[0].Fields()
 	_ = senderordertokenMixinFields0

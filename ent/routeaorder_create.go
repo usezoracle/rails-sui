@@ -96,6 +96,20 @@ func (rac *RouteAOrderCreate) SetNillableLifiTool(s *string) *RouteAOrderCreate 
 	return rac
 }
 
+// SetBridgeProvider sets the "bridge_provider" field.
+func (rac *RouteAOrderCreate) SetBridgeProvider(s string) *RouteAOrderCreate {
+	rac.mutation.SetBridgeProvider(s)
+	return rac
+}
+
+// SetNillableBridgeProvider sets the "bridge_provider" field if the given value is not nil.
+func (rac *RouteAOrderCreate) SetNillableBridgeProvider(s *string) *RouteAOrderCreate {
+	if s != nil {
+		rac.SetBridgeProvider(*s)
+	}
+	return rac
+}
+
 // SetBridgeTxSui sets the "bridge_tx_sui" field.
 func (rac *RouteAOrderCreate) SetBridgeTxSui(s string) *RouteAOrderCreate {
 	rac.mutation.SetBridgeTxSui(s)
@@ -323,6 +337,10 @@ func (rac *RouteAOrderCreate) defaults() {
 		v := routeaorder.DefaultMode
 		rac.mutation.SetMode(v)
 	}
+	if _, ok := rac.mutation.BridgeProvider(); !ok {
+		v := routeaorder.DefaultBridgeProvider
+		rac.mutation.SetBridgeProvider(v)
+	}
 	if _, ok := rac.mutation.BridgeStatus(); !ok {
 		v := routeaorder.DefaultBridgeStatus
 		rac.mutation.SetBridgeStatus(v)
@@ -344,6 +362,9 @@ func (rac *RouteAOrderCreate) check() error {
 		if err := routeaorder.ModeValidator(v); err != nil {
 			return &ValidationError{Name: "mode", err: fmt.Errorf(`ent: validator failed for field "RouteAOrder.mode": %w`, err)}
 		}
+	}
+	if _, ok := rac.mutation.BridgeProvider(); !ok {
+		return &ValidationError{Name: "bridge_provider", err: errors.New(`ent: missing required field "RouteAOrder.bridge_provider"`)}
 	}
 	if _, ok := rac.mutation.BridgeStatus(); !ok {
 		return &ValidationError{Name: "bridge_status", err: errors.New(`ent: missing required field "RouteAOrder.bridge_status"`)}
@@ -402,6 +423,10 @@ func (rac *RouteAOrderCreate) createSpec() (*RouteAOrder, *sqlgraph.CreateSpec) 
 	if value, ok := rac.mutation.LifiTool(); ok {
 		_spec.SetField(routeaorder.FieldLifiTool, field.TypeString, value)
 		_node.LifiTool = value
+	}
+	if value, ok := rac.mutation.BridgeProvider(); ok {
+		_spec.SetField(routeaorder.FieldBridgeProvider, field.TypeString, value)
+		_node.BridgeProvider = value
 	}
 	if value, ok := rac.mutation.BridgeTxSui(); ok {
 		_spec.SetField(routeaorder.FieldBridgeTxSui, field.TypeString, value)
@@ -589,6 +614,18 @@ func (u *RouteAOrderUpsert) UpdateLifiTool() *RouteAOrderUpsert {
 // ClearLifiTool clears the value of the "lifi_tool" field.
 func (u *RouteAOrderUpsert) ClearLifiTool() *RouteAOrderUpsert {
 	u.SetNull(routeaorder.FieldLifiTool)
+	return u
+}
+
+// SetBridgeProvider sets the "bridge_provider" field.
+func (u *RouteAOrderUpsert) SetBridgeProvider(v string) *RouteAOrderUpsert {
+	u.Set(routeaorder.FieldBridgeProvider, v)
+	return u
+}
+
+// UpdateBridgeProvider sets the "bridge_provider" field to the value that was provided on create.
+func (u *RouteAOrderUpsert) UpdateBridgeProvider() *RouteAOrderUpsert {
+	u.SetExcluded(routeaorder.FieldBridgeProvider)
 	return u
 }
 
@@ -914,6 +951,20 @@ func (u *RouteAOrderUpsertOne) UpdateLifiTool() *RouteAOrderUpsertOne {
 func (u *RouteAOrderUpsertOne) ClearLifiTool() *RouteAOrderUpsertOne {
 	return u.Update(func(s *RouteAOrderUpsert) {
 		s.ClearLifiTool()
+	})
+}
+
+// SetBridgeProvider sets the "bridge_provider" field.
+func (u *RouteAOrderUpsertOne) SetBridgeProvider(v string) *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeProvider(v)
+	})
+}
+
+// UpdateBridgeProvider sets the "bridge_provider" field to the value that was provided on create.
+func (u *RouteAOrderUpsertOne) UpdateBridgeProvider() *RouteAOrderUpsertOne {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeProvider()
 	})
 }
 
@@ -1440,6 +1491,20 @@ func (u *RouteAOrderUpsertBulk) UpdateLifiTool() *RouteAOrderUpsertBulk {
 func (u *RouteAOrderUpsertBulk) ClearLifiTool() *RouteAOrderUpsertBulk {
 	return u.Update(func(s *RouteAOrderUpsert) {
 		s.ClearLifiTool()
+	})
+}
+
+// SetBridgeProvider sets the "bridge_provider" field.
+func (u *RouteAOrderUpsertBulk) SetBridgeProvider(v string) *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.SetBridgeProvider(v)
+	})
+}
+
+// UpdateBridgeProvider sets the "bridge_provider" field to the value that was provided on create.
+func (u *RouteAOrderUpsertBulk) UpdateBridgeProvider() *RouteAOrderUpsertBulk {
+	return u.Update(func(s *RouteAOrderUpsert) {
+		s.UpdateBridgeProvider()
 	})
 }
 

@@ -39,6 +39,13 @@ func (RouteAOrder) Fields() []ent.Field {
 
 		field.String("lifi_quote_id").Optional(),
 		field.String("lifi_tool").Optional(),
+		// Which bridge rail executed (or is executing) this order's
+		// Sui→Base leg. "lifi" = the normal LiFi-orchestrated path;
+		// "cctp" = the direct Circle CCTP fallback that kicks in when
+		// LiFi can't quote (services/route_a_cctp.go). The dispatcher
+		// branches its polling on this field, so existing rows (default
+		// "lifi") flow through exactly the code they always did.
+		field.String("bridge_provider").Default("lifi"),
 		field.String("bridge_tx_sui").Optional(),
 		// Destination-chain tx hash where LiFi delivered the bridged USDC.
 		// Chain-agnostic: holds a Base tx hash today; if we ever bridge
