@@ -10,6 +10,7 @@ import (
 
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
+	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -62,6 +63,50 @@ func cardView(card *ent.TappCard) gin.H {
 		"needs_resync":           card.NeedsResync,
 		"created_at":             card.CreatedAt.Format(tsLayout),
 	}
+}
+
+// GetCards lists all cards, newest first, paginated.
+// Optional filters: ?status=issued|claimed|live|revoked|locked, ?search= (card ID or owner email)
+// GET /v1/admin/cards
+func (c *CardOpsController) GetCards(ctx *gin.Context) {
+	page, offset, limit := u.Paginate(ctx)
+
+	q := storage.Client.TappCard.Query().WithUser()
+	if status := strings.TrimSpace(ctx.Query("status")); status != "" {
+		q = q.Where(tappcard.StatusEQ(tappcard.Status(status)))
+	}
+	if s := strings.TrimSpace(ctx.Query("search")); s != "" {
+		if uid, err := uuid.Parse(s); err == nil {
+			q = q.Where(tappcard.IDEQ(uid))
+		} else {
+			q = q.Where(tappcard.HasUserWith(userEnt.EmailContainsFold(s)))
+		}
+	}
+
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		logger.Errorf("admin GetCards: count: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to count cards", nil)
+		return
+	}
+	rows, err := q.Order(ent.Desc(tappcard.FieldCreatedAt)).Offset(offset).Limit(limit).All(ctx)
+	if err != nil {
+		logger.Errorf("admin GetCards: query: %v", err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to load cards", nil)
+		return
+	}
+
+	out := make([]gin.H, 0, len(rows))
+	for _, card := range rows {
+		out = append(out, cardView(card))
+	}
+
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
+		"total": total,
+		"page":  page,
+		"count": len(out),
+		"cards": out,
+	})
 }
 
 // GetCard returns one card's operational state.

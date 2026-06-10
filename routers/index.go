@@ -212,6 +212,7 @@ func cardsRoutes(route *gin.Engine) {
 	adminCards.Use(cards.AdminTokenMiddleware)
 	adminCards.POST(":id/recovery", cardsCtrl.AdminRecovery)
 	cardOpsCtrl := adminCtrl.NewCardOpsController()
+	adminCards.GET("", cardOpsCtrl.GetCards)
 	adminCards.GET(":id", cardOpsCtrl.GetCard)
 	adminCards.POST(":id/unlock", cardOpsCtrl.Unlock)
 	adminCards.POST(":id/status", cardOpsCtrl.SetStatus)
