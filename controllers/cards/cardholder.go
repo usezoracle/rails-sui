@@ -18,6 +18,7 @@
 package cards
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/block-vision/sui-go-sdk/models"
+	"github.com/block-vision/sui-go-sdk/sui"
+	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/tappcard"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
@@ -230,6 +234,7 @@ type cardSummaryResponse struct {
 	SpentTodaySubunit      uint64 `json:"spent_today_subunit"`
 	NeedsResync            bool   `json:"needs_resync"`
 	PinAttemptsRemaining   int    `json:"pin_attempts_remaining"`
+	OnChainBalance         string `json:"on_chain_balance"`
 }
 
 // Me returns the cardholder's single card summary. Used by the PWA
@@ -253,6 +258,7 @@ func (ctrl *Controller) Me(ctx *gin.Context) {
 		SpentTodaySubunit:      card.SpentTodaySubunit,
 		NeedsResync:            card.NeedsResync,
 		PinAttemptsRemaining:   card.PinAttemptsRemaining,
+		OnChainBalance:         "0",
 	}
 	if card.CapObjectID != nil {
 		resp.CapObjectID = *card.CapObjectID
@@ -260,6 +266,29 @@ func (ctrl *Controller) Me(ctx *gin.Context) {
 	if card.CoinType != nil {
 		resp.CoinType = *card.CoinType
 	}
+
+	if card.CapObjectID != nil && *card.CapObjectID != "" {
+		client := sui.NewSuiClient(config.OrderConfig().SuiRpcURL)
+		objResp, err := client.SuiGetObject(ctx, models.SuiGetObjectRequest{
+			ObjectId: *card.CapObjectID,
+			Options: models.SuiObjectDataOptions{
+				ShowContent: true,
+			},
+		})
+		if err == nil && objResp.Data != nil && objResp.Data.Content != nil && objResp.Data.Content.Fields != nil {
+			fields := objResp.Data.Content.Fields
+			if balField, ok := fields["balance"]; ok {
+				if balMap, ok := balField.(map[string]any); ok {
+					if val, ok := balMap["value"]; ok {
+						resp.OnChainBalance = fmt.Sprintf("%v", val)
+					}
+				}
+			}
+		} else if err != nil {
+			logger.Warnf("Me: failed to fetch on-chain card object: %v", err)
+		}
+	}
+
 	u.APIResponse(ctx, http.StatusOK, "success", "Card", resp)
 }
 
