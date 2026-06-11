@@ -10,6 +10,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/routers"
 	"github.com/usezoracle/rails-sui/services/baas"
+	"github.com/usezoracle/rails-sui/services/baas/fintava"
 	"github.com/usezoracle/rails-sui/services/baas/korapay"
 	"github.com/usezoracle/rails-sui/services/baas/mfb"
 	"github.com/usezoracle/rails-sui/storage"
@@ -100,6 +101,16 @@ func initBaaSRail() {
 			kConf.KorapayPayoutEmail, kConf.KorapayVBABankCode,
 		)))
 		logger.Infof("BaaS rail ready (provider=korapay)")
+	case "fintava":
+		fConf := config.BaaSConfig()
+		if fConf.FintavaAPIKey == "" {
+			logger.Infof("BaaS rail (fintava) not configured (FINTAVA_API_KEY empty); fiat payout routes disabled")
+			return
+		}
+		baas.SetDefault(fintava.NewAdapter(fintava.New(
+			fConf.FintavaAPIKey, fConf.FintavaWebhookSecret, fConf.FintavaBaseURL,
+		)))
+		logger.Infof("BaaS rail ready (provider=fintava)")
 	default:
 		logger.Fatalf("BaaS rail: unknown BAAS_PROVIDER %q", provider)
 	}

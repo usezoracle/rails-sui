@@ -126,6 +126,14 @@ type CreateSubAccountRequest struct {
 	IdentityID        string
 	OTP               string
 	CallbackURL       string
+
+	// Extended KYC — required by rails that open full customer wallets
+	// (Fintava); ignored by rails that only need a BVN (Korapay).
+	FirstName   string
+	LastName    string
+	DateOfBirth string // YYYY-MM-DD
+	Address     string
+	NIN         string
 }
 
 // WebhookEvent is the provider-neutral parse of an inbound transfer/credit

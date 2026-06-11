@@ -32,6 +32,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/lpledgerentry"
 	userEnt "github.com/usezoracle/rails-sui/ent/user"
 	"github.com/usezoracle/rails-sui/services/baas"
+	"github.com/usezoracle/rails-sui/services/baas/fintava"
 	"github.com/usezoracle/rails-sui/services/baas/korapay"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
@@ -55,23 +56,32 @@ const withdrawalRefPrefix = "lpwd-"
 type Controller struct {
 	kora       *korapay.Adapter // nil when KORAPAY_SECRET_KEY unset
 	koraClient *korapay.Client
+	fintava    *fintava.Adapter // nil when FINTAVA_API_KEY unset
 
 	banksMu    sync.Mutex
 	banksCache []gin.H
 	banksAt    time.Time
 }
 
-// NewController builds the controller from env config.
+// NewController builds the controller from env config. Both rails are
+// constructed when configured — deposits can arrive on either.
 func NewController() *Controller {
 	conf := config.BaaSConfig()
-	if conf.KorapaySecretKey == "" {
-		return &Controller{}
+	c := &Controller{}
+	if conf.KorapaySecretKey != "" {
+		client := korapay.New(
+			conf.KorapaySecretKey, conf.KorapayPublicKey, conf.KorapayBaseURL,
+			conf.KorapayPayoutEmail, conf.KorapayVBABankCode,
+		)
+		c.kora = korapay.NewAdapter(client)
+		c.koraClient = client
 	}
-	client := korapay.New(
-		conf.KorapaySecretKey, conf.KorapayPublicKey, conf.KorapayBaseURL,
-		conf.KorapayPayoutEmail, conf.KorapayVBABankCode,
-	)
-	return &Controller{kora: korapay.NewAdapter(client), koraClient: client}
+	if conf.FintavaAPIKey != "" {
+		c.fintava = fintava.NewAdapter(fintava.New(
+			conf.FintavaAPIKey, conf.FintavaWebhookSecret, conf.FintavaBaseURL,
+		))
+	}
+	return c
 }
 
 func (c *Controller) railReady(ctx *gin.Context) bool {
@@ -499,18 +509,38 @@ func releaseWithdrawal(ctx *gin.Context, entryID, acctID uuid.UUID, amount decim
 }
 
 // -----------------------------------------------------------------------------
-// POST /v1/korapay/webhook — deposits in, withdrawal finality
+// Rail webhooks — deposits in, withdrawal finality
 // -----------------------------------------------------------------------------
 
-// Webhook ingests Korapay events. Fails closed on bad signatures.
-//
-//	charge.success   + VBA account → idempotent deposit credit
-//	transfer.success / .failed     → finalize lpwd-* withdrawals
-//
-// Unknown references are acknowledged (200) and ignored — this same
-// endpoint will see non-LP payouts (e.g. Route C merchant transfers).
+// Webhook ingests Korapay events (POST /v1/korapay/webhook).
 func (c *Controller) Webhook(ctx *gin.Context) {
-	if c.kora == nil {
+	var p baas.Provider
+	if c.kora != nil {
+		p = c.kora
+	}
+	c.railWebhook(ctx, p, "x-korapay-signature", "korapay")
+}
+
+// FintavaWebhook ingests Fintava events (POST /v1/fintava/webhook).
+func (c *Controller) FintavaWebhook(ctx *gin.Context) {
+	var p baas.Provider
+	if c.fintava != nil {
+		p = c.fintava
+	}
+	c.railWebhook(ctx, p, "x-fintava-signature", "fintava")
+}
+
+// railWebhook is the shared, rail-agnostic webhook core. Fails closed
+// on bad signatures.
+//
+//	deposit events + account number → idempotent LP ledger credit
+//	transfer success/failed         → finalize lpwd-* withdrawals
+//
+// Unknown references are acknowledged (200) and ignored — these
+// endpoints also see non-LP payouts (Route B/C merchant transfers,
+// finalized by the dispatcher's pollers).
+func (c *Controller) railWebhook(ctx *gin.Context, provider baas.Provider, sigHeader, railName string) {
+	if provider == nil {
 		ctx.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"status": "unconfigured"})
 		return
 	}
@@ -519,20 +549,21 @@ func (c *Controller) Webhook(ctx *gin.Context) {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"status": "unreadable"})
 		return
 	}
-	if !c.kora.VerifyWebhook(body, ctx.GetHeader("x-korapay-signature")) {
-		logger.Warnf("korapay webhook: bad signature from %s", ctx.ClientIP())
+	if !provider.VerifyWebhook(body, ctx.GetHeader(sigHeader)) {
+		logger.Warnf("%s webhook: bad signature from %s", railName, ctx.ClientIP())
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"status": "bad signature"})
 		return
 	}
-	ev, err := c.kora.ParseWebhook(body)
+	ev, err := provider.ParseWebhook(body)
 	if err != nil {
-		logger.Errorf("korapay webhook: parse: %v", err)
+		logger.Errorf("%s webhook: parse: %v", railName, err)
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"status": "unparseable"})
 		return
 	}
 
 	switch {
-	case ev.Type == "charge.success" && ev.AccountNumber != "":
+	case (ev.Type == "charge.success" || ev.Type == "deposit") &&
+		ev.Status != baas.TransferFailed && ev.AccountNumber != "":
 		c.handleDeposit(ctx, ev)
 	case strings.HasPrefix(ev.PaymentReference, withdrawalRefPrefix):
 		c.handleWithdrawalFinality(ctx, ev)

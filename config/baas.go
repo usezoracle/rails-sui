@@ -37,6 +37,16 @@ type BaaSConfiguration struct {
 	KorapayBaseURL      string
 	KorapayPayoutEmail  string // receipts inbox attached to every disbursement
 	KorapayVBABankCode  string // "035" Wema live, "000" sandbox
+
+	// Fintava rail (fintava.readme.io). One bearer key per env; the
+	// webhook secret comes from their dashboard (HMAC-SHA512).
+	FintavaAPIKey        string
+	FintavaWebhookSecret string
+	FintavaBaseURL       string // default live; sandbox = https://dev.fintavapay.com/api/dev
+
+	// FloatRail picks which configured rail Routes B/C pay from:
+	// "korapay" (default) | "fintava" | "default" (= BAAS_PROVIDER).
+	FloatRail string
 }
 
 // BaaSConfig reads the BaaS provider settings from env.
@@ -51,6 +61,8 @@ func BaaSConfig() *BaaSConfiguration {
 
 	viper.SetDefault("KORAPAY_BASE_URL", "https://api.korapay.com/merchant")
 	viper.SetDefault("KORAPAY_VBA_BANK_CODE", "035")
+	viper.SetDefault("FINTAVA_BASE_URL", "https://live.fintavapay.com/api/dev")
+	viper.SetDefault("FLOAT_RAIL", "korapay")
 
 	return &BaaSConfiguration{
 		ClientID:           viper.GetString("SAFEHAVEN_CLIENT_ID"),
@@ -66,5 +78,10 @@ func BaaSConfig() *BaaSConfiguration {
 		KorapayBaseURL:     viper.GetString("KORAPAY_BASE_URL"),
 		KorapayPayoutEmail: viper.GetString("KORAPAY_PAYOUT_EMAIL"),
 		KorapayVBABankCode: viper.GetString("KORAPAY_VBA_BANK_CODE"),
+
+		FintavaAPIKey:        viper.GetString("FINTAVA_API_KEY"),
+		FintavaWebhookSecret: viper.GetString("FINTAVA_WEBHOOK_SECRET"),
+		FintavaBaseURL:       viper.GetString("FINTAVA_BASE_URL"),
+		FloatRail:            viper.GetString("FLOAT_RAIL"),
 	}
 }

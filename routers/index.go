@@ -75,6 +75,7 @@ func RegisterRoutes(route *gin.Engine) {
 	// verified inside); the rest require the user JWT.
 	lpCtrl := lp.NewController()
 	v1.POST("korapay/webhook", lpCtrl.Webhook)
+	v1.POST("fintava/webhook", lpCtrl.FintavaWebhook)
 	lpGroup := v1.Group("lp/")
 	lpGroup.Use(middleware.JWTMiddleware)
 	lpGroup.POST("onboard", lpCtrl.Onboard)

@@ -37,6 +37,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/services/baas"
+	"github.com/usezoracle/rails-sui/services/baas/fintava"
 	"github.com/usezoracle/rails-sui/services/baas/korapay"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/routeaevent"
@@ -391,17 +392,29 @@ func NewRouteADispatcher() *RouteADispatcher {
 		d.cctpIris = cctp.NewIris(d.cctpNet.IrisBaseURL)
 	}
 
-	// Route C float rail: Korapay when configured (the float IS the
-	// Korapay pooled balance; the reload VBA refills it on the same
-	// rail), else fall back to the default BaaS provider.
-	if bc := config.BaaSConfig(); bc.KorapaySecretKey != "" {
+	// Route B/C float rail, selected by FLOAT_RAIL: "korapay"
+	// (default), "fintava", or "default" (= whatever BAAS_PROVIDER
+	// registered). The Korapay client is kept alongside regardless —
+	// it resolves the Route C reload destination (the platform VBA),
+	// which lives on Korapay independent of which rail pays out.
+	bc := config.BaaSConfig()
+	if bc.KorapaySecretKey != "" {
 		kc := korapay.New(
 			bc.KorapaySecretKey, bc.KorapayPublicKey, bc.KorapayBaseURL,
 			bc.KorapayPayoutEmail, bc.KorapayVBABankCode,
 		)
-		d.treasuryRail = korapay.NewAdapter(kc)
 		d.koraVBA = kc
+		if strings.EqualFold(bc.FloatRail, "korapay") || bc.FloatRail == "" {
+			d.treasuryRail = korapay.NewAdapter(kc)
+		}
 	}
+	if strings.EqualFold(bc.FloatRail, "fintava") && bc.FintavaAPIKey != "" {
+		d.treasuryRail = fintava.NewAdapter(fintava.New(
+			bc.FintavaAPIKey, bc.FintavaWebhookSecret, bc.FintavaBaseURL,
+		))
+	}
+	// FloatRail "default" (or an unconfigured selection) leaves
+	// treasuryRail nil → floatRail() falls back to baas.Default().
 
 	// settlement client is cheap to construct (no network on init).
 	ttl := time.Duration(conf.SettlementPubkeyTTLSeconds) * time.Second
