@@ -335,3 +335,14 @@ func (c *Client) GetVirtualAccount(ctx context.Context, accountReference string)
 	}
 	return &out, nil
 }
+
+// SandboxCreditVBA simulates a customer deposit into a virtual account
+// (₦100–₦10,000,000). TEST MODE ONLY — the endpoint doesn't exist in
+// live; used by the smoke test and integration tests.
+func (c *Client) SandboxCreditVBA(ctx context.Context, accountNumber string, amount decimal.Decimal) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/virtual-bank-account/sandbox/credit", map[string]any{
+		"account_number": accountNumber,
+		"amount":         amount.InexactFloat64(),
+		"currency":       "NGN",
+	}, nil)
+}
