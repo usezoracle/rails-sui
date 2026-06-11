@@ -259,6 +259,14 @@ type RouteADispatcher struct {
 	// is independent of the BAAS_PROVIDER selection; tests substitute
 	// a fake.
 	treasuryRail baas.Provider
+
+	// koraVBA resolves the platform's float virtual account from
+	// Korapay (the source of truth — no env, no DB). Cached below.
+	koraVBA       *korapay.Client
+	floatAcctMu   sync.Mutex
+	floatAcct     *floatAccount
+	floatAcctAt   time.Time
+	lastFloatWarn time.Time
 }
 
 // activeRouteADispatcher lets API handlers (which never construct the
@@ -387,10 +395,12 @@ func NewRouteADispatcher() *RouteADispatcher {
 	// Korapay pooled balance; the reload VBA refills it on the same
 	// rail), else fall back to the default BaaS provider.
 	if bc := config.BaaSConfig(); bc.KorapaySecretKey != "" {
-		d.treasuryRail = korapay.NewAdapter(korapay.New(
+		kc := korapay.New(
 			bc.KorapaySecretKey, bc.KorapayPublicKey, bc.KorapayBaseURL,
 			bc.KorapayPayoutEmail, bc.KorapayVBABankCode,
-		))
+		)
+		d.treasuryRail = korapay.NewAdapter(kc)
+		d.koraVBA = kc
 	}
 
 	// settlement client is cheap to construct (no network on init).

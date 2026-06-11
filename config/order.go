@@ -44,15 +44,12 @@ type OrderConfiguration struct {
 	CCTPIrisURL         string // optional override of Circle's attestation host (tests/proxies)
 
 	// Route C — managed-float instant payouts (route_a_treasury.go).
-	// CardTapMode picks which rail card taps settle on: "lp" (today's
-	// direct Paycrest flow) or "treasury" (instant payout from float,
-	// Paycrest reloads us). The float fields describe OUR bank account:
-	// the BaaS payout debit source AND the reload recipient Paycrest
-	// pays back into.
-	CardTapMode                string
-	TreasuryFloatInstitution   string // bank code of the float account
-	TreasuryFloatAccountNumber string // float account number
-	TreasuryFloatAccountName   string // float account display name
+	// CardTapMode is the boot fallback for the runtime settle-mode
+	// switch (admin dashboard → Redis): "lp" or "treasury". The float
+	// account itself is NOT config — it's the platform's Korapay
+	// virtual account (reference "platform-float"), provisioned once
+	// from the admin console and resolved from Korapay at runtime.
+	CardTapMode string
 
 	// Shinami Gas Station — sponsors all aggregator-initiated Move
 	// calls (CreateOrder, SettleOrder, RefundOrder, DebitCard). When
@@ -138,9 +135,6 @@ func OrderConfig() *OrderConfiguration {
 		CCTPFallbackEnabled:              viper.GetBool("CCTP_FALLBACK_ENABLED"),
 		CCTPIrisURL:                      viper.GetString("CCTP_IRIS_URL"),
 		CardTapMode:                      viper.GetString("CARD_TAP_MODE"),
-		TreasuryFloatInstitution:         viper.GetString("TREASURY_FLOAT_INSTITUTION"),
-		TreasuryFloatAccountNumber:       viper.GetString("TREASURY_FLOAT_ACCOUNT_NUMBER"),
-		TreasuryFloatAccountName:         viper.GetString("TREASURY_FLOAT_ACCOUNT_NAME"),
 		ShinamiGasAPIKey:                 viper.GetString("SHINAMI_GAS_API_KEY"),
 		ShinamiGasBaseURL:                viper.GetString("SHINAMI_GAS_BASE_URL"),
 		BaseRpcURL:                       viper.GetString("BASE_RPC_URL"),

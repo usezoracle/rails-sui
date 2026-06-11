@@ -34,6 +34,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
 	"github.com/usezoracle/rails-sui/services/baas"
+	"github.com/usezoracle/rails-sui/services/baas/korapay"
 	"github.com/usezoracle/rails-sui/services/cctp"
 	"github.com/usezoracle/rails-sui/services/evm"
 	"github.com/usezoracle/rails-sui/services/lifi"
@@ -133,6 +134,20 @@ func TestRouteCLifecycleTreasuryToSettled(t *testing.T) {
 	}))
 	defer irisSrv.Close()
 
+	// Fake Korapay serving the platform float VBA lookup — the reload
+	// destination is resolved from the rail, not from env/DB.
+	koraSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/virtual-bank-account/"+PlatformFloatRef) {
+			t.Errorf("fake korapay: unexpected path %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": true, "message": "ok", "data": map[string]any{
+			"account_number": "9000000001", "account_name": "Tapp Float",
+			"bank_code": "035", "bank_name": "Wema Bank",
+			"account_reference": PlatformFloatRef, "account_status": "active", "currency": "NGN",
+		}})
+	}))
+	defer koraSrv.Close()
+
 	rsaKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	pubDER, _ := x509.MarshalPKIXPublicKey(&rsaKey.PublicKey)
 	pubPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
@@ -195,9 +210,6 @@ func TestRouteCLifecycleTreasuryToSettled(t *testing.T) {
 		BaseSignerKey:              evmSignerKey,
 		SettlementAPIURL:           setSrv.URL,
 		SettlementSenderAPIKeyID:   "route-c-test",
-		TreasuryFloatInstitution:   "TESTBANK",
-		TreasuryFloatAccountNumber: "9000000001",
-		TreasuryFloatAccountName:   "Tapp Float",
 	}
 	suiAPI := suisdk.NewSuiClient(suiSrv.URL)
 	suiClient, _ := suiAPI.(*suisdk.Client)
@@ -227,6 +239,7 @@ func TestRouteCLifecycleTreasuryToSettled(t *testing.T) {
 		burstWake:       make(chan struct{}, 1),
 		lifiPollAt:      map[int]time.Time{},
 		treasuryRail:    rail,
+		koraVBA:         korapay.New("sk_test_fake", "pk_test_fake", koraSrv.URL, "ops@usetapp.xyz", "000"),
 	}
 
 	for i := 0; i < 5; i++ {

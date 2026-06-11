@@ -41,6 +41,7 @@ import (
 	ethmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/shopspring/decimal"
 
+	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/routeaevent"
@@ -55,6 +56,45 @@ import (
 // treasuryRefPrefix namespaces Route C payout references on the BaaS
 // rail (webhook/poll routing + audit greppability).
 const treasuryRefPrefix = "rctp-"
+
+// PlatformFloatRef is the fixed Korapay account_reference of the
+// platform's own virtual account — the float reload destination.
+// Korapay is the source of truth (no env, no DB row): the account is
+// provisioned once via the admin console (POST
+// /v1/admin/treasury/float-account) and discovered here by reference.
+const PlatformFloatRef = "platform-float"
+
+// floatAccount is the resolved reload destination.
+type floatAccount struct {
+	bankCode      string
+	accountNumber string
+	accountName   string
+}
+
+// resolveFloatAccount fetches (and caches for an hour) the platform
+// VBA from Korapay. Returns an error until the account has been
+// provisioned — the reload loop waits, payouts are unaffected.
+func (d *RouteADispatcher) resolveFloatAccount(ctx context.Context) (*floatAccount, error) {
+	d.floatAcctMu.Lock()
+	defer d.floatAcctMu.Unlock()
+	if d.floatAcct != nil && time.Since(d.floatAcctAt) < time.Hour {
+		return d.floatAcct, nil
+	}
+	if d.koraVBA == nil {
+		return nil, fmt.Errorf("korapay not configured — cannot resolve the platform float account")
+	}
+	va, err := d.koraVBA.GetVirtualAccount(ctx, PlatformFloatRef)
+	if err != nil {
+		return nil, fmt.Errorf("platform float account %q not found on Korapay (provision it from the admin console): %w", PlatformFloatRef, err)
+	}
+	d.floatAcct = &floatAccount{
+		bankCode:      va.BankCode,
+		accountNumber: va.AccountNumber,
+		accountName:   va.AccountName,
+	}
+	d.floatAcctAt = time.Now()
+	return d.floatAcct, nil
+}
 
 // korapayMinPayoutNGN is Korapay's per-transfer minimum (verified on
 // sandbox). Orders below it fall back to the bridge path rather than
@@ -146,7 +186,7 @@ func (d *RouteADispatcher) dispatchTreasury(ctx context.Context, order *ent.Rout
 	}
 
 	transfer, terr := provider.Transfer(ctx, baas.TransferRequest{
-		DebitAccountNumber:  d.conf.TreasuryFloatAccountNumber, // rails that debit a named account use it; pooled rails ignore
+		DebitAccountNumber:  config.BaaSConfig().DebitAccountNumber, // named-float rails (SafeHaven) use it; pooled rails ignore
 		BeneficiaryBankCode: rcpt.Institution,
 		BeneficiaryAccount:  rcpt.AccountIdentifier,
 		Amount:              amountNGN,
@@ -208,10 +248,7 @@ func (d *RouteADispatcher) treasuryFloatBalance(ctx context.Context, provider ba
 	}
 	for _, a := range accounts {
 		if strings.EqualFold(a.Currency, "NGN") || a.Currency == "" {
-			// Named-float rails: prefer the configured debit account.
-			if d.conf.TreasuryFloatAccountNumber == "" || a.AccountNumber == d.conf.TreasuryFloatAccountNumber || a.AccountNumber == "" {
-				return a.Balance, nil
-			}
+			return a.Balance, nil
 		}
 	}
 	return decimal.Zero, fmt.Errorf("no NGN float account on rail %s", provider.Name())
@@ -308,9 +345,6 @@ func (d *RouteADispatcher) advanceFloatReload(ctx context.Context) error {
 	if d.evm == nil || d.settlement == nil {
 		return nil
 	}
-	if d.conf.TreasuryFloatAccountNumber == "" || d.conf.TreasuryFloatInstitution == "" {
-		return nil // reload destination not configured; float reloads manually
-	}
 
 	orders, err := db.Client.RouteAOrder.Query().
 		Where(
@@ -332,9 +366,31 @@ func (d *RouteADispatcher) advanceFloatReload(ctx context.Context) error {
 		return err
 	}
 
+	if len(orders) == 0 {
+		return nil
+	}
+
+	// Resolve the reload destination from Korapay (cached). Until the
+	// platform VBA is provisioned, reloads wait — warn occasionally,
+	// never block payouts.
+	acct, aerr := d.resolveFloatAccount(ctx)
+	if aerr != nil {
+		if time.Since(d.lastFloatWarn) > 10*time.Minute {
+			d.lastFloatWarn = time.Now()
+			logger.Warnf("⚠️ route-a: %d order(s) awaiting float reload: %v", len(orders), aerr)
+		}
+		// Still poll already-submitted reloads.
+		for _, order := range orders {
+			if order.GatewayOrderID != "" {
+				d.pollFloatReload(ctx, order)
+			}
+		}
+		return nil
+	}
+
 	for _, order := range orders {
 		if order.GatewayOrderID == "" {
-			d.submitFloatReload(ctx, order)
+			d.submitFloatReload(ctx, order, acct)
 			continue
 		}
 		d.pollFloatReload(ctx, order)
@@ -344,7 +400,7 @@ func (d *RouteADispatcher) advanceFloatReload(ctx context.Context) error {
 
 // submitFloatReload aims dispatchLP's machinery at the platform's own
 // bank account. Claim-first on the gateway_order_id emptiness.
-func (d *RouteADispatcher) submitFloatReload(ctx context.Context, order *ent.RouteAOrder) {
+func (d *RouteADispatcher) submitFloatReload(ctx context.Context, order *ent.RouteAOrder, acct *floatAccount) {
 	var err error
 	timer := TimeSampled(ctx, order.ID, StepFloatReload, ActorDispatcher)
 	defer timer.End(&err)
@@ -354,13 +410,11 @@ func (d *RouteADispatcher) submitFloatReload(ctx context.Context, order *ent.Rou
 		return
 	}
 
-	// THE choke point: recipient is the configured float account.
-	// Never derived from the order — a treasury reload cannot pay a
-	// merchant by construction.
+	// THE choke point: recipient is the Korapay-resolved platform
+	// float account. Never derived from the order — a treasury reload
+	// cannot pay a merchant by construction.
 	gatewayID, txHash, derr := d.createGatewayOrder(ctx, order,
-		d.conf.TreasuryFloatInstitution,
-		d.conf.TreasuryFloatAccountNumber,
-		d.conf.TreasuryFloatAccountName,
+		acct.bankCode, acct.accountNumber, acct.accountName,
 	)
 	if derr != nil {
 		err = derr

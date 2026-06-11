@@ -292,6 +292,8 @@ func cardsRoutes(route *gin.Engine) {
 
 	treasuryCtrl := adminCtrl.NewTreasuryController()
 	adminConsole.GET("treasury/overview", treasuryCtrl.GetOverview)
+	adminConsole.GET("treasury/float-account", treasuryCtrl.GetFloatAccount)
+	adminConsole.POST("treasury/float-account", treasuryCtrl.ProvisionFloatAccount)
 
 	auditCtrl := adminCtrl.NewAuditController()
 	adminConsole.GET("audit-logs", auditCtrl.GetAuditLogs)
