@@ -36,9 +36,16 @@ import (
 const DefaultBaseURL = "https://api.korapay.com/merchant"
 
 // Client is a thin HTTP wrapper over the Korapay merchant API.
+//
+// Key routing (verified against the sandbox 2026-06-11): the misc
+// endpoints (bank list, account resolve) authenticate with the PUBLIC
+// key; everything financial (balances, disburse, status, identity,
+// virtual accounts) requires the SECRET key — sending the secret to a
+// misc endpoint returns 401 "Invalid authentication token".
 type Client struct {
 	BaseURL    string
 	SecretKey  string
+	PublicKey  string
 	HTTPClient *http.Client
 
 	// PayoutCustomerEmail is attached to every disbursement (Korapay
@@ -50,8 +57,9 @@ type Client struct {
 	VBABankCode string
 }
 
-// New constructs a Client. secretKey is required; baseURL "" → prod.
-func New(secretKey, baseURL, payoutEmail, vbaBankCode string) *Client {
+// New constructs a Client. secretKey is required; publicKey is needed
+// for the misc endpoints (banks, resolve); baseURL "" → prod.
+func New(secretKey, publicKey, baseURL, payoutEmail, vbaBankCode string) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -61,6 +69,7 @@ func New(secretKey, baseURL, payoutEmail, vbaBankCode string) *Client {
 	return &Client{
 		BaseURL:             strings.TrimRight(baseURL, "/"),
 		SecretKey:           secretKey,
+		PublicKey:           publicKey,
 		HTTPClient:          &http.Client{Timeout: 30 * time.Second},
 		PayoutCustomerEmail: payoutEmail,
 		VBABankCode:         vbaBankCode,
@@ -93,6 +102,15 @@ func IsDuplicateReference(err error) bool {
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
+	return c.doWith(ctx, c.SecretKey, method, path, body, out)
+}
+
+// doPublic is do with the public key — misc endpoints only.
+func (c *Client) doPublic(ctx context.Context, method, path string, body any, out any) error {
+	return c.doWith(ctx, c.PublicKey, method, path, body, out)
+}
+
+func (c *Client) doWith(ctx context.Context, key, method, path string, body any, out any) error {
 	var rdr io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -105,7 +123,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.SecretKey)
+	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.HTTPClient.Do(req)
@@ -154,10 +172,10 @@ type Bank struct {
 	Country       string `json:"country"`
 }
 
-// ListBanks returns NGN beneficiary banks.
+// ListBanks returns NGN beneficiary banks. Public-key endpoint.
 func (c *Client) ListBanks(ctx context.Context) ([]Bank, error) {
 	var out []Bank
-	if err := c.do(ctx, http.MethodGet, "/api/v1/misc/banks?countryCode=NG", nil, &out); err != nil {
+	if err := c.doPublic(ctx, http.MethodGet, "/api/v1/misc/banks?countryCode=NG", nil, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -172,9 +190,10 @@ type Resolved struct {
 }
 
 // Resolve looks up the account name for (bankCode, accountNumber).
+// Public-key endpoint.
 func (c *Client) Resolve(ctx context.Context, bankCode, accountNumber string) (*Resolved, error) {
 	var out Resolved
-	err := c.do(ctx, http.MethodPost, "/api/v1/misc/banks/resolve", map[string]string{
+	err := c.doPublic(ctx, http.MethodPost, "/api/v1/misc/banks/resolve", map[string]string{
 		"bank":     bankCode,
 		"account":  accountNumber,
 		"currency": "NGN",

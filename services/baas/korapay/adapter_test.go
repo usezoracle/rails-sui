@@ -75,7 +75,7 @@ func fakeKorapay(t *testing.T) (*httptest.Server, map[string]int) {
 
 func newTestAdapter(t *testing.T) (*Adapter, map[string]int) {
 	srv, calls := fakeKorapay(t)
-	return NewAdapter(New(testSecret, srv.URL, "ops@usetapp.xyz", "035")), calls
+	return NewAdapter(New(testSecret, "pk_test_x", srv.URL, "ops@usetapp.xyz", "035")), calls
 }
 
 func TestBanksResolveBalance(t *testing.T) {

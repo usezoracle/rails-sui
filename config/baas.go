@@ -30,8 +30,10 @@ type BaaSConfiguration struct {
 	MaxTransferNGN decimal.Decimal
 
 	// Korapay rail (BAAS_PROVIDER=korapay). The secret key doubles as
-	// the webhook HMAC key — Korapay signs callbacks with it.
+	// the webhook HMAC key — Korapay signs callbacks with it. The
+	// public key authenticates the misc endpoints (banks, resolve).
 	KorapaySecretKey    string
+	KorapayPublicKey    string
 	KorapayBaseURL      string
 	KorapayPayoutEmail  string // receipts inbox attached to every disbursement
 	KorapayVBABankCode  string // "035" Wema live, "000" sandbox
@@ -60,6 +62,7 @@ func BaaSConfig() *BaaSConfiguration {
 		WebhookSecret:      viper.GetString("SAFEHAVEN_WEBHOOK_SECRET"),
 		MaxTransferNGN:     maxTransfer,
 		KorapaySecretKey:   viper.GetString("KORAPAY_SECRET_KEY"),
+		KorapayPublicKey:   viper.GetString("KORAPAY_PUBLIC_KEY"),
 		KorapayBaseURL:     viper.GetString("KORAPAY_BASE_URL"),
 		KorapayPayoutEmail: viper.GetString("KORAPAY_PAYOUT_EMAIL"),
 		KorapayVBABankCode: viper.GetString("KORAPAY_VBA_BANK_CODE"),

@@ -96,7 +96,7 @@ func initBaaSRail() {
 			return
 		}
 		baas.SetDefault(korapay.NewAdapter(korapay.New(
-			kConf.KorapaySecretKey, kConf.KorapayBaseURL,
+			kConf.KorapaySecretKey, kConf.KorapayPublicKey, kConf.KorapayBaseURL,
 			kConf.KorapayPayoutEmail, kConf.KorapayVBABankCode,
 		)))
 		logger.Infof("BaaS rail ready (provider=korapay)")
