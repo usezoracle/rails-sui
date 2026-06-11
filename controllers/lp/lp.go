@@ -18,6 +18,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -49,6 +51,10 @@ const withdrawalRefPrefix = "lpwd-"
 type Controller struct {
 	kora       *korapay.Adapter // nil when KORAPAY_SECRET_KEY unset
 	koraClient *korapay.Client
+
+	banksMu    sync.Mutex
+	banksCache []gin.H
+	banksAt    time.Time
 }
 
 // NewController builds the controller from env config.
@@ -241,6 +247,67 @@ func (c *Controller) GetLedger(ctx *gin.Context) {
 	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
 		"total": total, "page": page, "count": len(out),
 		"balance": acct.Balance.String(), "entries": out,
+	})
+}
+
+// -----------------------------------------------------------------------------
+// GET /v1/lp/banks · GET /v1/lp/resolve — beneficiary safety rails
+// -----------------------------------------------------------------------------
+
+// Banks lists NGN beneficiary banks (cached 1h — the list changes
+// rarely and the rail rate-limits).
+func (c *Controller) Banks(ctx *gin.Context) {
+	if !c.railReady(ctx) {
+		return
+	}
+	c.banksMu.Lock()
+	if time.Since(c.banksAt) < time.Hour && len(c.banksCache) > 0 {
+		cached := c.banksCache
+		c.banksMu.Unlock()
+		u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{"banks": cached})
+		return
+	}
+	c.banksMu.Unlock()
+
+	banks, err := c.kora.ListBanks(ctx)
+	if err != nil {
+		logger.Errorf("lp banks: %v", err)
+		u.APIResponse(ctx, http.StatusBadGateway, "error", "Could not load banks", nil)
+		return
+	}
+	out := make([]gin.H, 0, len(banks))
+	for _, b := range banks {
+		out = append(out, gin.H{"name": b.Name, "code": b.BankCode})
+	}
+	c.banksMu.Lock()
+	c.banksCache, c.banksAt = out, time.Now()
+	c.banksMu.Unlock()
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{"banks": out})
+}
+
+// Resolve confirms the beneficiary account name before a withdrawal —
+// the LP sees who they're paying before any money is reserved.
+func (c *Controller) Resolve(ctx *gin.Context) {
+	if !c.railReady(ctx) {
+		return
+	}
+	bank := strings.TrimSpace(ctx.Query("bank_code"))
+	acct := strings.TrimSpace(ctx.Query("account_number"))
+	if bank == "" || len(acct) != 10 {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"bank_code and a 10-digit account_number are required", nil)
+		return
+	}
+	ne, err := c.kora.NameEnquiry(ctx, bank, acct)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadGateway, "error",
+			"Could not resolve that account", map[string]any{"detail": err.Error()})
+		return
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
+		"account_name":   ne.AccountName,
+		"account_number": ne.AccountNumber,
+		"bank_code":      ne.BankCode,
 	})
 }
 

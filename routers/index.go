@@ -80,6 +80,8 @@ func RegisterRoutes(route *gin.Engine) {
 	lpGroup.POST("onboard", lpCtrl.Onboard)
 	lpGroup.GET("account", lpCtrl.GetAccount)
 	lpGroup.GET("ledger", lpCtrl.GetLedger)
+	lpGroup.GET("banks", lpCtrl.Banks)
+	lpGroup.GET("resolve", lpCtrl.Resolve)
 	lpGroup.POST("withdraw", lpCtrl.Withdraw)
 }
 
