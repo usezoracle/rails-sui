@@ -61,6 +61,8 @@ const (
 	StepEvmCreateOrder     EventStep = routeaevent.StepEvmCreateOrder
 	StepSettlementPoll     EventStep = routeaevent.StepSettlementPoll
 	StepSettlementTerminal EventStep = routeaevent.StepSettlementTerminal
+	StepTreasuryPayout     EventStep = routeaevent.StepTreasuryPayout
+	StepFloatReload        EventStep = routeaevent.StepFloatReload
 	StepRefundAttempt      EventStep = routeaevent.StepRefundAttempt
 	StepRefundDone         EventStep = routeaevent.StepRefundDone
 	StepManualOverride     EventStep = routeaevent.StepManualOverride

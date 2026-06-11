@@ -60,6 +60,9 @@ func (RouteAEvent) Fields() []ent.Field {
 			"evm_create_order",
 			"settlement_poll",
 			"settlement_terminal",
+			// Route C (managed float, services/route_a_treasury.go)
+			"treasury_payout",
+			"float_reload",
 			// Refund + operator override
 			"refund_attempt",
 			"refund_done",

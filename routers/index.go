@@ -273,6 +273,8 @@ func cardsRoutes(route *gin.Engine) {
 	adminConsole.GET("config/networks", cfgCtrl.GetNetworks)
 	adminConsole.GET("config/providers", cfgCtrl.GetProviders)
 	adminConsole.PATCH("config/providers/:id", cfgCtrl.UpdateProvider)
+	adminConsole.GET("config/settle-mode", cfgCtrl.GetSettleMode)
+	adminConsole.PUT("config/settle-mode", cfgCtrl.SetSettleMode)
 	adminConsole.GET("config/params", cfgCtrl.GetParams)
 
 	refundCtrl := adminCtrl.NewRefundController()

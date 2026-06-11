@@ -805,8 +805,16 @@ func persistTapCardPaymentOrder(
 	// aggregator wallet, so the dispatcher (advancePending checks the
 	// aggregator balance) bridges it and settles to the merchant's bank.
 	// Without this row the order is treated as Route B (LP matching).
+	// Settlement route: operator-controlled at runtime from the admin
+	// dashboard (services.CurrentSettleMode; CARD_TAP_MODE env is the
+	// fallback). "float" = Route C instant payout from the platform
+	// float; otherwise today's direct Paycrest→merchant flow.
+	tapMode := routeaorder.ModeLp
+	if svc.CurrentSettleMode(ctx.Request.Context()) == svc.SettleModeFloat {
+		tapMode = routeaorder.ModeTreasury
+	}
 	if _, err := tx.RouteAOrder.Create().
-		SetMode(routeaorder.ModeLp).
+		SetMode(tapMode).
 		SetBridgeStatus(routeaorder.BridgeStatusPending).
 		SetPaymentOrder(po).
 		Save(ctx); err != nil {

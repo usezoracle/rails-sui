@@ -10,6 +10,7 @@ import (
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
+	"github.com/usezoracle/rails-sui/services"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -255,4 +256,57 @@ func (c *ConfigController) GetParams(ctx *gin.Context) {
 		"refund_cancellation_count":            conf.RefundCancellationCount,
 		"base_chain_id":                        conf.BaseChainID,
 	})
+}
+
+// -----------------------------------------------------------------------------
+// Settlement route switch (Route A bridge / Route B LP network / Route C float)
+// -----------------------------------------------------------------------------
+
+// GetSettleMode returns the live settlement route for card-tap orders.
+//
+//	GET /v1/admin/config/settle-mode
+func (c *ConfigController) GetSettleMode(ctx *gin.Context) {
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
+		"mode": services.CurrentSettleMode(ctx),
+		"modes": []gin.H{
+			{"value": services.SettleModeBridge, "label": "Route A — Bridge (Paycrest LP pays merchant)", "available": true},
+			{"value": services.SettleModeFloat, "label": "Route C — Float (instant payout, Paycrest reloads)", "available": true},
+			{"value": services.SettleModeLPNetwork, "label": "Route B — Own LP network", "available": false},
+		},
+	})
+}
+
+type settleModeReq struct {
+	Mode string `json:"mode" binding:"required"`
+}
+
+// SetSettleMode flips the live settlement route. Takes effect on the
+// next order — no deploy, no restart. Audited.
+//
+//	PUT /v1/admin/config/settle-mode
+func (c *ConfigController) SetSettleMode(ctx *gin.Context) {
+	var req settleModeReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "mode is required", nil)
+		return
+	}
+	recognised, implemented := services.ValidSettleMode(req.Mode)
+	if !recognised {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"mode must be bridge | float | lp_network", nil)
+		return
+	}
+	if !implemented {
+		u.APIResponse(ctx, http.StatusConflict, "error",
+			"Route B (own LP network) settlement is not wired yet — deposits and withdrawals work, but order matching against LP float ships next",
+			gin.H{"code": "mode_not_implemented"})
+		return
+	}
+	prev := services.CurrentSettleMode(ctx)
+	if err := services.SetSettleMode(ctx, req.Mode); err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to persist mode", nil)
+		return
+	}
+	writeAudit(ctx, "config.settle_mode", req.Mode, map[string]any{"from": prev, "to": req.Mode})
+	u.APIResponse(ctx, http.StatusOK, "success", "settlement route updated", gin.H{"mode": req.Mode})
 }

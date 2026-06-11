@@ -106,6 +106,8 @@ const (
 	StepEvmCreateOrder     Step = "evm_create_order"
 	StepSettlementPoll     Step = "settlement_poll"
 	StepSettlementTerminal Step = "settlement_terminal"
+	StepTreasuryPayout     Step = "treasury_payout"
+	StepFloatReload        Step = "float_reload"
 	StepRefundAttempt      Step = "refund_attempt"
 	StepRefundDone         Step = "refund_done"
 	StepManualOverride     Step = "manual_override"
@@ -118,7 +120,7 @@ func (s Step) String() string {
 // StepValidator is a validator for the "step" field enum values. It is called by the builders before save.
 func StepValidator(s Step) error {
 	switch s {
-	case StepDepositCheck, StepDepositDetected, StepCreateOrder, StepOrderCreatedEvent, StepSelfSettle, StepAwaitingFunds, StepBridgeQuote, StepBridgeSubmit, StepBridgePoll, StepBridgeDone, StepBridgeUncertain, StepEvmApprove, StepEvmCreateOrder, StepSettlementPoll, StepSettlementTerminal, StepRefundAttempt, StepRefundDone, StepManualOverride:
+	case StepDepositCheck, StepDepositDetected, StepCreateOrder, StepOrderCreatedEvent, StepSelfSettle, StepAwaitingFunds, StepBridgeQuote, StepBridgeSubmit, StepBridgePoll, StepBridgeDone, StepBridgeUncertain, StepEvmApprove, StepEvmCreateOrder, StepSettlementPoll, StepSettlementTerminal, StepTreasuryPayout, StepFloatReload, StepRefundAttempt, StepRefundDone, StepManualOverride:
 		return nil
 	default:
 		return fmt.Errorf("routeaevent: invalid enum value for step field: %q", s)

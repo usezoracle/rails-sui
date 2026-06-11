@@ -466,6 +466,14 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 	if err := d.advanceDispatching(ctx); err != nil {
 		logger.Errorf("❌ route-a: advance dispatching: %v", err)
 	}
+	// Route C phases (services/route_a_treasury.go): confirm in-flight
+	// float payouts, then run the off-critical-path float reload.
+	if err := d.advanceTreasuryPayouts(ctx); err != nil {
+		logger.Errorf("❌ route-a: advance treasury payouts: %v", err)
+	}
+	if err := d.advanceFloatReload(ctx); err != nil {
+		logger.Errorf("❌ route-a: advance float reload: %v", err)
+	}
 	return nil
 }
 
@@ -1331,14 +1339,6 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 	return nil
 }
 
-// dispatchTreasury triggers a fiat payout to the merchant from our centralized
-// treasury via the BaaS partner. Requires BaaS partner selection +
-// integration in services/baas/. Returns ErrTreasuryDispatcherNotWired
-// until that lands.
-func (d *RouteADispatcher) dispatchTreasury(_ context.Context, _ *ent.RouteAOrder) error {
-	return ErrTreasuryDispatcherNotWired
-}
-
 // advanceDispatching polls settlement's /v1/orders/:chainId/:orderId for every
 // order in `dispatching` state and transitions on terminal status. Live
 // (non-terminal) status updates are persisted to settlement_status AND
@@ -1350,7 +1350,14 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 	}
 	orders, err := db.Client.RouteAOrder.
 		Query().
-		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching)).
+		Where(
+			routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching),
+			// Treasury orders in `dispatching` are mid float-PAYOUT;
+			// their gateway order (when set) is the float RELOAD, whose
+			// settlement must never drive the order's state. Route C
+			// has its own pollers (route_a_treasury.go).
+			routeaorder.ModeNEQ(routeaorder.ModeTreasury),
+		).
 		WithPaymentOrder(func(poq *ent.PaymentOrderQuery) {
 			poq.WithSenderProfile()
 		}).

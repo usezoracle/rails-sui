@@ -610,7 +610,7 @@ var (
 	// RouteAeventsColumns holds the columns for the "route_aevents" table.
 	RouteAeventsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "step", Type: field.TypeEnum, Enums: []string{"deposit_check", "deposit_detected", "create_order", "order_created_event", "self_settle", "awaiting_funds", "bridge_quote", "bridge_submit", "bridge_poll", "bridge_done", "bridge_uncertain", "evm_approve", "evm_create_order", "settlement_poll", "settlement_terminal", "refund_attempt", "refund_done", "manual_override"}},
+		{Name: "step", Type: field.TypeEnum, Enums: []string{"deposit_check", "deposit_detected", "create_order", "order_created_event", "self_settle", "awaiting_funds", "bridge_quote", "bridge_submit", "bridge_poll", "bridge_done", "bridge_uncertain", "evm_approve", "evm_create_order", "settlement_poll", "settlement_terminal", "treasury_payout", "float_reload", "refund_attempt", "refund_done", "manual_override"}},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"started", "succeeded", "failed", "skipped", "retrying"}},
 		{Name: "actor", Type: field.TypeEnum, Enums: []string{"watcher", "indexer", "dispatcher", "reconciler", "operator", "system"}},
 		{Name: "at", Type: field.TypeTime},
