@@ -613,11 +613,38 @@ func (s *OrderSui) DebitCard(
 	merchantRecipient string,
 	fiatReference []byte,
 ) (string, error) {
+	tx, err := s.buildDebitCardTx(ctx, capObjectID, coinType, amountSubunit, merchantRecipient, fiatReference)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, s.signer, s.signer.Address, tx)
+	if err != nil {
+		return "", fmt.Errorf("tapp_card debit: submit: %w", err)
+	}
+	if !isTxSuccess(resp) {
+		return "", fmt.Errorf("tapp_card debit: on-chain failure: digest=%s", resp.Digest)
+	}
+	return resp.Digest, nil
+}
+
+// buildDebitCardTx stages the tapp_card::debit PTB (inputs resolved,
+// MoveCall added) without sponsoring or submitting. Split from
+// DebitCard so debug tooling can inspect/sponsor the exact bytes the
+// production path produces.
+func (s *OrderSui) buildDebitCardTx(
+	ctx context.Context,
+	capObjectID string,
+	coinType string,
+	amountSubunit uint64,
+	merchantRecipient string,
+	fiatReference []byte,
+) (*transaction.Transaction, error) {
 	if s.signer == nil {
-		return "", ErrAggregatorNotConfigured
+		return nil, ErrAggregatorNotConfigured
 	}
 	if capObjectID == "" {
-		return "", fmt.Errorf("tapp_card: empty cap_object_id")
+		return nil, fmt.Errorf("tapp_card: empty cap_object_id")
 	}
 	// Empty recipient → default to the aggregator's own address. The
 	// off-chain BaaS pipeline then pays out NGN from the aggregator's
@@ -628,12 +655,12 @@ func (s *OrderSui) DebitCard(
 
 	coinTypeTag, err := parseCoinTypeTag(coinType)
 	if err != nil {
-		return "", fmt.Errorf("tapp_card: parse coin type: %w", err)
+		return nil, fmt.Errorf("tapp_card: parse coin type: %w", err)
 	}
 
 	tx, err := s.newAggregatorTx(ctx)
 	if err != nil {
-		return "", fmt.Errorf("tapp_card: prepare tx: %w", err)
+		return nil, fmt.Errorf("tapp_card: prepare tx: %w", err)
 	}
 
 	// Sui's Clock is the well-known shared object at 0x6 (see
@@ -642,15 +669,15 @@ func (s *OrderSui) DebitCard(
 
 	aggCapArg, err := objectArg(ctx, s.client, tx, s.aggregatorCapID, false)
 	if err != nil {
-		return "", fmt.Errorf("tapp_card: resolve aggregator cap: %w", err)
+		return nil, fmt.Errorf("tapp_card: resolve aggregator cap: %w", err)
 	}
 	capArg, err := objectArg(ctx, s.client, tx, capObjectID, true)
 	if err != nil {
-		return "", fmt.Errorf("tapp_card: resolve spending cap %s: %w", capObjectID, err)
+		return nil, fmt.Errorf("tapp_card: resolve spending cap %s: %w", capObjectID, err)
 	}
 	clockArg, err := objectArg(ctx, s.client, tx, clockObjectID, false)
 	if err != nil {
-		return "", fmt.Errorf("tapp_card: resolve clock: %w", err)
+		return nil, fmt.Errorf("tapp_card: resolve clock: %w", err)
 	}
 
 	tx.MoveCall(
@@ -667,15 +694,7 @@ func (s *OrderSui) DebitCard(
 			clockArg,
 		},
 	)
-
-	resp, err := submitSponsoredViaShinami(ctx, s.client, s.shinami, s.signer, s.signer.Address, tx)
-	if err != nil {
-		return "", fmt.Errorf("tapp_card debit: submit: %w", err)
-	}
-	if !isTxSuccess(resp) {
-		return "", fmt.Errorf("tapp_card debit: on-chain failure: digest=%s", resp.Digest)
-	}
-	return resp.Digest, nil
+	return tx, nil
 }
 
 // newAggregatorTx returns a transaction.Transaction with the
