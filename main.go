@@ -9,6 +9,7 @@ import (
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/routers"
+	"github.com/usezoracle/rails-sui/services"
 	"github.com/usezoracle/rails-sui/services/baas"
 	"github.com/usezoracle/rails-sui/services/baas/fintava"
 	"github.com/usezoracle/rails-sui/services/baas/korapay"
@@ -76,7 +77,14 @@ func main() {
 // knows a concrete vendor; everything else depends on the baas interface.
 func initBaaSRail() {
 	viper.SetDefault("BAAS_PROVIDER", "safehaven")
-	switch provider := viper.GetString("BAAS_PROVIDER"); provider {
+	provider := viper.GetString("BAAS_PROVIDER")
+	// Runtime override: the admin "Payment Rails" switch persists the
+	// operator's choice in Redis; it survives restarts and beats env.
+	if o := services.BaaSProviderOverride(); o != "" {
+		logger.Infof("BaaS rail: runtime override %q (admin config) supersedes env %q", o, provider)
+		provider = o
+	}
+	switch provider {
 	case "safehaven":
 		shConf := config.BaaSConfig()
 		switch shClient, err := mfb.NewClientFromCredentials(

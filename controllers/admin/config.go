@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
 	"github.com/usezoracle/rails-sui/services"
+	"github.com/usezoracle/rails-sui/services/baas"
 	"github.com/usezoracle/rails-sui/storage"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
@@ -309,4 +311,93 @@ func (c *ConfigController) SetSettleMode(ctx *gin.Context) {
 	}
 	writeAudit(ctx, "config.settle_mode", req.Mode, map[string]any{"from": prev, "to": req.Mode})
 	u.APIResponse(ctx, http.StatusOK, "success", "settlement route updated", gin.H{"mode": req.Mode})
+}
+
+// -----------------------------------------------------------------------------
+// Payment rails switch — default BaaS provider + Route B/C float rail
+// -----------------------------------------------------------------------------
+
+// GetRails returns the live rail configuration for the admin console.
+//
+//	GET /v1/admin/config/rails
+func (c *ConfigController) GetRails(ctx *gin.Context) {
+	current := "none"
+	if p := baas.Default(); p != nil {
+		current = p.Name()
+	}
+	u.APIResponse(ctx, http.StatusOK, "success", "ok", gin.H{
+		"baas_provider": current,
+		"float_rail":    services.CurrentFloatRail(),
+		"fintava_float_institution": services.FintavaFloatInstitution(),
+		"rails": []gin.H{
+			{"value": "fintava", "configured": services.RailConfigured("fintava"), "switchable": true},
+			{"value": "korapay", "configured": services.RailConfigured("korapay"), "switchable": true},
+			{"value": "safehaven", "configured": services.RailConfigured("safehaven"), "switchable": false, "note": "boot-only (BAAS_PROVIDER env)"},
+		},
+	})
+}
+
+type railsPatch struct {
+	BaaSProvider            *string `json:"baas_provider"`
+	FloatRail               *string `json:"float_rail"`
+	FintavaFloatInstitution *string `json:"fintava_float_institution"`
+}
+
+// SetRails switches the default BaaS provider and/or the Route B/C
+// float rail at runtime. Provider switches apply to the live process
+// immediately AND persist (Redis) across restarts. Audited.
+//
+//	PUT /v1/admin/config/rails
+func (c *ConfigController) SetRails(ctx *gin.Context) {
+	var req railsPatch
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "invalid body", nil)
+		return
+	}
+	applied := gin.H{}
+
+	if req.FloatRail != nil {
+		rail := strings.ToLower(strings.TrimSpace(*req.FloatRail))
+		if rail != "default" && !services.RailConfigured(rail) {
+			u.APIResponse(ctx, http.StatusBadRequest, "error",
+				"float_rail must be a configured rail (korapay|fintava) or 'default'", nil)
+			return
+		}
+		if err := services.SetFloatRail(ctx, rail); err != nil {
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to persist float rail", nil)
+			return
+		}
+		applied["float_rail"] = rail
+	}
+
+	if req.BaaSProvider != nil {
+		name := strings.ToLower(strings.TrimSpace(*req.BaaSProvider))
+		adapter, err := services.BuildRail(name)
+		if err != nil {
+			u.APIResponse(ctx, http.StatusBadRequest, "error", err.Error(), nil)
+			return
+		}
+		baas.SetDefault(adapter) // live, this process
+		if err := services.SetBaaSProvider(ctx, name); err != nil {
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "switched live but failed to persist", nil)
+			return
+		}
+		applied["baas_provider"] = name
+	}
+
+	if req.FintavaFloatInstitution != nil {
+		code := strings.TrimSpace(*req.FintavaFloatInstitution)
+		if err := services.SetFintavaFloatInstitution(ctx, code); err != nil {
+			u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to persist institution", nil)
+			return
+		}
+		applied["fintava_float_institution"] = code
+	}
+
+	if len(applied) == 0 {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "nothing to change", nil)
+		return
+	}
+	writeAudit(ctx, "config.rails", "payment-rails", applied)
+	u.APIResponse(ctx, http.StatusOK, "success", "rails updated", applied)
 }

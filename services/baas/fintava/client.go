@@ -173,26 +173,28 @@ func (c *Client) ListBanks(ctx context.Context) ([]Bank, error) {
 	return out, nil
 }
 
-// merchantBalance is the merchant wallet read, tolerant to naming.
-type merchantBalance struct {
-	Balance          flexDecimal `json:"balance"`
-	AvailableBalance flexDecimal `json:"availableBalance"`
-	LedgerBalance    flexDecimal `json:"ledgerBalance"`
-	AccountNumber    string      `json:"accountNumber"`
-	AccountName      string      `json:"accountName"`
-	Currency         string      `json:"currency"`
+// MerchantWallet is the merchant wallet read. Live-verified shape:
+//
+//	{"data":{"accountName":"octa hq","accountNumber":"0033988783",
+//	         "balance":{"bookedBalance":0,"availableBalance":0}}}
+//
+// The wallet has its own NUBAN — usable as the float reload
+// destination.
+type MerchantWallet struct {
+	AccountName   string `json:"accountName"`
+	AccountNumber string `json:"accountNumber"`
+	Balance       struct {
+		BookedBalance    flexDecimal `json:"bookedBalance"`
+		AvailableBalance flexDecimal `json:"availableBalance"`
+	} `json:"balance"`
 }
 
-func (m merchantBalance) Available() decimal.Decimal {
-	if !m.AvailableBalance.IsZero() {
-		return m.AvailableBalance.Decimal
-	}
-	return m.Balance.Decimal
-}
+func (m MerchantWallet) Available() decimal.Decimal { return m.Balance.AvailableBalance.Decimal }
+func (m MerchantWallet) Booked() decimal.Decimal    { return m.Balance.BookedBalance.Decimal }
 
 // MerchantBalance reads the pooled merchant wallet.
-func (c *Client) MerchantBalance(ctx context.Context) (*merchantBalance, error) {
-	var out merchantBalance
+func (c *Client) MerchantBalance(ctx context.Context) (*MerchantWallet, error) {
+	var out MerchantWallet
 	if err := c.do(ctx, http.MethodGet, "/merchant/balance", nil, &out); err != nil {
 		return nil, err
 	}

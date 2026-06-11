@@ -64,18 +64,14 @@ func (a *Adapter) ListAccounts(ctx context.Context, subAccounts bool) ([]baas.Ac
 	if err != nil {
 		return nil, err
 	}
-	cur := bal.Currency
-	if cur == "" {
-		cur = "NGN"
-	}
 	return []baas.Account{{
 		ID:            "merchant",
 		AccountNumber: bal.AccountNumber,
 		AccountName:   bal.AccountName,
 		Balance:       bal.Available(),
-		LedgerBalance: bal.LedgerBalance.Decimal,
+		LedgerBalance: bal.Booked(),
 		Type:          "merchant_wallet",
-		Currency:      cur,
+		Currency:      "NGN",
 		Status:        "active",
 	}}, nil
 }

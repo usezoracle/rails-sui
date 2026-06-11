@@ -71,29 +71,65 @@ type floatAccount struct {
 	accountName   string
 }
 
-// resolveFloatAccount fetches (and caches for an hour) the platform
-// VBA from Korapay. Returns an error until the account has been
-// provisioned — the reload loop waits, payouts are unaffected.
+// resolveFloatAccount resolves (and caches for an hour, per rail) the
+// reload destination of the CURRENT float rail — "Paycrest pays to
+// the float of the present config":
+//
+//	korapay → the platform VBA (reference "platform-float")
+//	fintava → the merchant wallet's own NUBAN (live-verified), with
+//	          the Paycrest institution code set via admin config
+//
+// Returns an error until resolvable — the reload loop waits, payouts
+// are unaffected.
 func (d *RouteADispatcher) resolveFloatAccount(ctx context.Context) (*floatAccount, error) {
+	rail := CurrentFloatRail()
 	d.floatAcctMu.Lock()
 	defer d.floatAcctMu.Unlock()
-	if d.floatAcct != nil && time.Since(d.floatAcctAt) < time.Hour {
+	if d.floatAcct != nil && d.floatAcctRail == rail && time.Since(d.floatAcctAt) < time.Hour {
 		return d.floatAcct, nil
 	}
-	if d.koraVBA == nil {
-		return nil, fmt.Errorf("korapay not configured — cannot resolve the platform float account")
+
+	var acct *floatAccount
+	switch rail {
+	case "fintava":
+		if d.fintavaClient == nil {
+			return nil, fmt.Errorf("fintava not configured — cannot resolve the float account")
+		}
+		institution := FintavaFloatInstitution()
+		if institution == "" {
+			return nil, fmt.Errorf("fintava float: set the Paycrest institution code of the merchant wallet's bank in admin config (Payment Rails)")
+		}
+		mw, err := d.fintavaClient.MerchantBalance(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("fintava merchant wallet: %w", err)
+		}
+		if mw.AccountNumber == "" {
+			return nil, fmt.Errorf("fintava merchant wallet has no account number")
+		}
+		acct = &floatAccount{
+			bankCode:      institution,
+			accountNumber: mw.AccountNumber,
+			accountName:   mw.AccountName,
+		}
+	default: // korapay (and the boot default)
+		if d.koraVBA == nil {
+			return nil, fmt.Errorf("korapay not configured — cannot resolve the platform float account")
+		}
+		va, err := d.koraVBA.GetVirtualAccount(ctx, PlatformFloatRef)
+		if err != nil {
+			return nil, fmt.Errorf("platform float account %q not found on Korapay (provision it from the admin console): %w", PlatformFloatRef, err)
+		}
+		acct = &floatAccount{
+			bankCode:      va.BankCode,
+			accountNumber: va.AccountNumber,
+			accountName:   va.AccountName,
+		}
 	}
-	va, err := d.koraVBA.GetVirtualAccount(ctx, PlatformFloatRef)
-	if err != nil {
-		return nil, fmt.Errorf("platform float account %q not found on Korapay (provision it from the admin console): %w", PlatformFloatRef, err)
-	}
-	d.floatAcct = &floatAccount{
-		bankCode:      va.BankCode,
-		accountNumber: va.AccountNumber,
-		accountName:   va.AccountName,
-	}
+
+	d.floatAcct = acct
+	d.floatAcctRail = rail
 	d.floatAcctAt = time.Now()
-	return d.floatAcct, nil
+	return acct, nil
 }
 
 // korapayMinPayoutNGN is Korapay's per-transfer minimum (verified on
@@ -101,11 +137,16 @@ func (d *RouteADispatcher) resolveFloatAccount(ctx context.Context) (*floatAccou
 // failing the rail forever.
 var korapayMinPayoutNGN = decimal.NewFromInt(1000)
 
-// floatRail picks the rail Route C pays from: the injected Korapay
-// adapter when configured, else the process default.
+// floatRail picks the rail Routes B/C pay from: a test-injected rail
+// wins; otherwise the runtime switch (admin dashboard, FLOAT_RAIL env
+// fallback) selects among the configured rails; "default" or an
+// unconfigured choice falls back to baas.Default().
 func (d *RouteADispatcher) floatRail() baas.Provider {
 	if d.treasuryRail != nil {
 		return d.treasuryRail
+	}
+	if p := d.rails[CurrentFloatRail()]; p != nil {
+		return p
 	}
 	return baas.Default()
 }

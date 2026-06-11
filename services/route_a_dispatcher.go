@@ -254,17 +254,19 @@ type RouteADispatcher struct {
 	lifiPollMu sync.Mutex
 	lifiPollAt map[int]time.Time
 
-	// treasuryRail is the BaaS provider Route C pays merchants from —
-	// Korapay (built from KORAPAY_* config) when configured, else
-	// whatever baas.Default() is. Injected directly so the float rail
-	// is independent of the BAAS_PROVIDER selection; tests substitute
-	// a fake.
+	// treasuryRail, when set, pins the Route B/C payout rail — used by
+	// tests to inject a fake. In production it is nil and floatRail()
+	// resolves from `rails` via the runtime switch.
 	treasuryRail baas.Provider
+	// rails holds every configured live-switchable rail by name.
+	rails map[string]baas.Provider
 
-	// koraVBA resolves the platform's float virtual account from
-	// Korapay (the source of truth — no env, no DB). Cached below.
+	// Rail-specific clients for reload-destination resolution: the
+	// Korapay platform VBA, or the Fintava merchant wallet NUBAN.
 	koraVBA       *korapay.Client
+	fintavaClient *fintava.Client
 	floatAcctMu   sync.Mutex
+	floatAcctRail string
 	floatAcct     *floatAccount
 	floatAcctAt   time.Time
 	lastFloatWarn time.Time
@@ -392,29 +394,26 @@ func NewRouteADispatcher() *RouteADispatcher {
 		d.cctpIris = cctp.NewIris(d.cctpNet.IrisBaseURL)
 	}
 
-	// Route B/C float rail, selected by FLOAT_RAIL: "korapay"
-	// (default), "fintava", or "default" (= whatever BAAS_PROVIDER
-	// registered). The Korapay client is kept alongside regardless —
-	// it resolves the Route C reload destination (the platform VBA),
-	// which lives on Korapay independent of which rail pays out.
+	// Route B/C float rails: every configured rail is built at boot;
+	// WHICH one pays is resolved per call from the runtime switch
+	// (admin dashboard → Redis, FLOAT_RAIL env fallback) — see
+	// floatRail() in route_a_treasury.go. The raw clients are kept for
+	// rail-specific reload-destination resolution.
 	bc := config.BaaSConfig()
+	d.rails = map[string]baas.Provider{}
 	if bc.KorapaySecretKey != "" {
 		kc := korapay.New(
 			bc.KorapaySecretKey, bc.KorapayPublicKey, bc.KorapayBaseURL,
 			bc.KorapayPayoutEmail, bc.KorapayVBABankCode,
 		)
 		d.koraVBA = kc
-		if strings.EqualFold(bc.FloatRail, "korapay") || bc.FloatRail == "" {
-			d.treasuryRail = korapay.NewAdapter(kc)
-		}
+		d.rails["korapay"] = korapay.NewAdapter(kc)
 	}
-	if strings.EqualFold(bc.FloatRail, "fintava") && bc.FintavaAPIKey != "" {
-		d.treasuryRail = fintava.NewAdapter(fintava.New(
-			bc.FintavaAPIKey, bc.FintavaWebhookSecret, bc.FintavaBaseURL,
-		))
+	if bc.FintavaAPIKey != "" {
+		fc := fintava.New(bc.FintavaAPIKey, bc.FintavaWebhookSecret, bc.FintavaBaseURL)
+		d.fintavaClient = fc
+		d.rails["fintava"] = fintava.NewAdapter(fc)
 	}
-	// FloatRail "default" (or an unconfigured selection) leaves
-	// treasuryRail nil → floatRail() falls back to baas.Default().
 
 	// settlement client is cheap to construct (no network on init).
 	ttl := time.Duration(conf.SettlementPubkeyTTLSeconds) * time.Second

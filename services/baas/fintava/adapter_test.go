@@ -145,8 +145,10 @@ func TestListAccountsMerchantWallet(t *testing.T) {
 		if r.URL.Path != "/merchant/balance" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"status": true, "data": map[string]any{
-			"availableBalance": "150000.50", "currency": "NGN",
+		// Live-verified shape: nested balance object + wallet NUBAN.
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": 200, "message": "successful", "data": map[string]any{
+			"accountName": "octa hq", "accountNumber": "0033988783",
+			"balance": map[string]any{"bookedBalance": 150000.50, "availableBalance": 150000.50},
 		}})
 	}))
 	defer srv.Close()
@@ -157,5 +159,8 @@ func TestListAccountsMerchantWallet(t *testing.T) {
 	}
 	if len(accts) != 1 || !accts[0].Balance.Equal(decimal.RequireFromString("150000.50")) || accts[0].Currency != "NGN" {
 		t.Fatalf("accounts = %+v", accts)
+	}
+	if accts[0].AccountNumber != "0033988783" {
+		t.Fatalf("wallet NUBAN = %q (the reload destination)", accts[0].AccountNumber)
 	}
 }
