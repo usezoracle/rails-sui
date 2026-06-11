@@ -57,6 +57,20 @@ type CreateOrderResult struct {
 	GasUsed uint64
 }
 
+// SubmittedError wraps failures that happened AFTER a state-changing
+// tx was accepted by the node — the tx may still mine, so the caller
+// must NOT retry the submit (double-payout risk); park the order for
+// verification instead.
+type SubmittedError struct {
+	TxHash common.Hash
+	Err    error
+}
+
+func (e *SubmittedError) Error() string {
+	return fmt.Sprintf("evm: tx %s submitted but unconfirmed: %v", e.TxHash.Hex(), e.Err)
+}
+func (e *SubmittedError) Unwrap() error { return e.Err }
+
 // CreateOrder submits a createOrder tx and waits for it to mine. On
 // success, parses the OrderCreated event log and returns the bytes32
 // orderId. Errors out on revert / tx-not-found / log-missing.
@@ -91,16 +105,20 @@ func (g *Gateway) CreateOrder(ctx context.Context, p CreateOrderParams) (*Create
 		p.MessageHash,
 	)
 	if err != nil {
+		// Not accepted by the node — definitely not on-chain; callers
+		// may safely retry / revert their claim.
 		return nil, fmt.Errorf("gateway: createOrder submit: %w", err)
 	}
+	// From here the tx IS in the mempool: any failure is ambiguous (it
+	// may still mine) — wrap so callers never double-submit.
 	rcpt, err := g.c.waitMined(ctx, tx)
 	if err != nil {
-		return nil, err
+		return nil, &SubmittedError{TxHash: tx.Hash(), Err: err}
 	}
 
 	orderID, err := parseOrderCreated(rcpt)
 	if err != nil {
-		return nil, err
+		return nil, &SubmittedError{TxHash: tx.Hash(), Err: err}
 	}
 	return &CreateOrderResult{
 		TxHash:  tx.Hash(),

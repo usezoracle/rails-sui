@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -99,6 +100,18 @@ const (
 	// the minutes an order is in flight; anything bigger is a quoting
 	// bug that should surface, not be papered over.
 	maxDispatchShortfallBPS = 200
+
+	// stuckClaimAlertAfter is how long an order may sit claimed
+	// (bridging without a digest / dispatching without a gateway id)
+	// before the sweep starts shouting. Normal claims resolve within
+	// seconds; anything past this is a crash or ambiguous submit that
+	// needs a human + an explorer.
+	stuckClaimAlertAfter = 10 * time.Minute
+
+	// minLifiPollGap throttles LiFi /status polls per order. Burst
+	// mode ticks every 3s, which is friendlier than LiFi's rate
+	// limits appreciate; Circle (CCTP) has no such sensitivity.
+	minLifiPollGap = 10 * time.Second
 )
 
 // bridgeStaleTimeouts is how long an order can stay in 'bridging' with
@@ -122,6 +135,49 @@ func bridgeStaleTimeoutFor(tool string) time.Duration {
 		return d
 	}
 	return bridgeStaleTimeouts[""]
+}
+
+// claimForBridging CAS-claims a pending/awaiting_funds order into
+// `bridging` (no tx digest yet) BEFORE the funds-moving submit. The
+// claim is the double-submit lock: even two writers racing the same
+// order resolve to exactly one winner, because only one UPDATE can
+// match the from-state. Returns false when another writer already
+// claimed it.
+func (d *RouteADispatcher) claimForBridging(ctx context.Context, order *ent.RouteAOrder, provider, tool string) (bool, error) {
+	_, err := order.Update().
+		Where(routeaorder.BridgeStatusIn(
+			routeaorder.BridgeStatusPending,
+			routeaorder.BridgeStatusAwaitingFunds,
+		)).
+		SetBridgeProvider(provider).
+		SetLifiTool(tool).
+		SetBridgeStatus(routeaorder.BridgeStatusBridging).
+		Save(ctx)
+	if err != nil {
+		if isStaleTransition(err) {
+			logStaleTransition(order.ID, "bridging (claim)")
+			return false, nil
+		}
+		return false, fmt.Errorf("claim for bridging: %w", err)
+	}
+	return true, nil
+}
+
+// revertBridgingClaim returns a claimed order to `pending` after a
+// submit failure that is KNOWN to have left no tx on-chain. The
+// BridgeTxSui-is-empty guard makes it impossible to revert an order
+// whose tx hash was already persisted.
+func (d *RouteADispatcher) revertBridgingClaim(ctx context.Context, orderID int) {
+	if _, err := db.Client.RouteAOrder.Update().
+		Where(
+			routeaorder.IDEQ(orderID),
+			routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging),
+			routeaorder.Or(routeaorder.BridgeTxSuiIsNil(), routeaorder.BridgeTxSuiEQ("")),
+		).
+		SetBridgeStatus(routeaorder.BridgeStatusPending).
+		Save(ctx); err != nil {
+		logger.Errorf("❌ route-a: revert bridging claim for %d: %v", orderID, err)
+	}
 }
 
 // isStaleTransition reports whether a guarded status update didn't
@@ -189,6 +245,11 @@ type RouteADispatcher struct {
 	burstMu    sync.Mutex
 	burstUntil time.Time
 	burstWake  chan struct{}
+
+	// lifiPollAt rate-limits LiFi /status calls per order (see
+	// minLifiPollGap) — burst ticks are faster than LiFi likes.
+	lifiPollMu sync.Mutex
+	lifiPollAt map[int]time.Time
 }
 
 // activeRouteADispatcher lets API handlers (which never construct the
@@ -299,6 +360,7 @@ func NewRouteADispatcher() *RouteADispatcher {
 		quoteFailCounts: make(map[int]int),
 		instanceID:      uuid.NewString(),
 		burstWake:       make(chan struct{}, 1),
+		lifiPollAt:      make(map[int]time.Time),
 	}
 	go d.runBurstLoop()
 	activeRouteADispatcher.Store(d)
@@ -376,6 +438,15 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 		return nil
 	}
 	defer d.tickMu.Unlock()
+	// A panic anywhere in a tick must never take down the process —
+	// this loop runs ~20×/min in burst mode and shares the process
+	// with the API. Orders are crash-safe by design (CAS + claim-first
+	// + reconciliation), so swallowing one tick is always recoverable.
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("❌ route-a: tick PANIC recovered: %v\n%s", r, debug.Stack())
+		}
+	}()
 	if !d.acquireLease(ctx) {
 		logger.Infof("🤝 route-a: another dispatcher instance holds the lease — skipping tick")
 		return nil
@@ -609,6 +680,17 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 		return fmt.Errorf("quote returned no transactionRequest.data — LiFi may not route this pair")
 	}
 
+	// CLAIM before the funds-moving submit: bridging with no digest.
+	// One CAS winner per order — racing writers and crash-replays can
+	// never double-submit this bridge.
+	claimed, err := d.claimForBridging(ctx, order, routeAProviderLiFi, quote.Tool)
+	if err != nil {
+		return err
+	}
+	if !claimed {
+		return nil
+	}
+
 	// Sign + submit the source-chain tx. For Sui (MVM) the Data field is a
 	// base64-encoded TransactionData; SignTransaction wraps it in the Sui
 	// intent prefix and Ed25519-signs.
@@ -618,6 +700,7 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 	// the right scope so the resulting signature actually verifies.
 	signed, err := d.signer.SignMessage(quote.TransactionRequest.Data, suiconst.TransactionDataIntentScope)
 	if err != nil {
+		d.revertBridgingClaim(ctx, order.ID) // nothing submitted — safe
 		return fmt.Errorf("sign bridge tx: %w", err)
 	}
 	resp, err := d.suiClient.SuiExecuteTransactionBlock(ctx, suimodels.SuiExecuteTransactionBlockRequest{
@@ -626,27 +709,23 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 		Options:     suimodels.SuiTransactionBlockOptions{ShowEffects: true},
 		RequestType: "WaitForLocalExecution",
 	})
-	if err != nil {
-		return fmt.Errorf("submit bridge tx: %w", err)
-	}
-	if resp.Digest == "" {
-		return fmt.Errorf("bridge tx submission returned empty digest")
+	if err != nil || resp.Digest == "" {
+		// Ambiguous — the signed tx may still land. Leave the order
+		// claimed (bridging, no digest): re-submitting would risk a
+		// double bridge; advanceBridging surfaces stuck claims loudly.
+		logger.Errorf("❌ route-a: order %d LiFi bridge submit ambiguous (parked in bridging, no digest): err=%v digest=%q",
+			order.ID, err, resp.Digest)
+		return fmt.Errorf("submit bridge tx (ambiguous; order parked): %w", err)
 	}
 
 	if _, err := order.Update().
-		Where(routeaorder.BridgeStatusIn(
-			routeaorder.BridgeStatusPending,
-			routeaorder.BridgeStatusAwaitingFunds,
-		)).
+		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
 		SetLifiQuoteID(quote.ID).
-		SetLifiTool(quote.Tool).
-		// Explicit even though it's the column default: an order that
-		// fell back CCTP→LiFi must flip so polling follows LiFi /status.
-		SetBridgeProvider(routeAProviderLiFi).
 		SetBridgeTxSui(resp.Digest).
-		SetBridgeStatus(routeaorder.BridgeStatusBridging).
 		Save(ctx); err != nil {
-		return fmt.Errorf("persist bridging state: %w", err)
+		logger.Errorf("❌ route-a: order %d bridged via LiFi (tx=%s) but digest persist failed: %v — sweep will surface",
+			order.ID, resp.Digest, err)
+		return fmt.Errorf("persist bridge digest: %w", err)
 	}
 	timer.With("lifi_quote_id", quote.ID).
 		With("lifi_tool", quote.Tool).
@@ -672,6 +751,15 @@ func (d *RouteADispatcher) advanceBridging(ctx context.Context) error {
 
 	for _, order := range orders {
 		if order.BridgeTxSui == "" {
+			// Claimed but no digest persisted — either a submit is in
+			// flight right now, or a crash/ambiguous submit parked it.
+			// Old claims need a human (the tx may or may not exist
+			// on-chain; only Suiscan can say).
+			if time.Since(order.UpdatedAt) > stuckClaimAlertAfter {
+				logger.Errorf("🚨 route-a: order %d stuck in bridging with NO digest for %s — "+
+					"verify the aggregator's recent Sui txs and either set bridge_tx_sui or revert to pending",
+					order.ID, time.Since(order.UpdatedAt).Round(time.Minute))
+			}
 			continue
 		}
 		if order.BridgeProvider == routeAProviderCCTP {
@@ -695,6 +783,16 @@ func (d *RouteADispatcher) advanceBridging(ctx context.Context) error {
 // Every poll writes a `bridge_poll` event so the timeline shows
 // exactly how long each upstream call took and what status came back.
 func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAOrder) {
+	// Burst ticks run every 3s; don't hammer LiFi's /status faster
+	// than minLifiPollGap per order.
+	d.lifiPollMu.Lock()
+	if last, ok := d.lifiPollAt[order.ID]; ok && time.Since(last) < minLifiPollGap {
+		d.lifiPollMu.Unlock()
+		return
+	}
+	d.lifiPollAt[order.ID] = time.Now()
+	d.lifiPollMu.Unlock()
+
 	var err error
 	timer := TimePollSampled(ctx, order.ID, StepBridgePoll, ActorDispatcher).
 		With("bridge_tx_sui", order.BridgeTxSui).
@@ -1158,6 +1256,22 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		return fmt.Errorf("approve USDC: %w", approveErr)
 	}
 
+	// CLAIM before the funds-moving submit: dispatching with no
+	// gateway order id yet. One CAS winner — racing writers can never
+	// double-createOrder (= double payout). advanceDispatching skips
+	// rows with an empty gateway id, and surfaces them loudly once
+	// they're old enough to be a stuck claim.
+	if _, cerr := order.Update().
+		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridged)).
+		SetBridgeStatus(routeaorder.BridgeStatusDispatching).
+		Save(ctx); cerr != nil {
+		if isStaleTransition(cerr) {
+			logStaleTransition(order.ID, "dispatching (claim)")
+			return nil
+		}
+		return fmt.Errorf("claim for dispatching: %w", cerr)
+	}
+
 	// Submit createOrder + wait for receipt + parse orderId.
 	result, cerr := d.evm.Gateway().CreateOrder(ctx, evm.CreateOrderParams{
 		Token:              d.evm.Config().USDCAddr,
@@ -1169,22 +1283,44 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		MessageHash:        messageHash,
 	})
 	if cerr != nil {
+		var submitted *evm.SubmittedError
+		if errors.As(cerr, &submitted) {
+			// The tx is in the mempool and may mine — leave the claim
+			// in place (re-running would double-pay) and record where
+			// to look. The stuck-claim sweep keeps this visible.
+			if _, uerr := order.Update().
+				Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching)).
+				SetFailureReason(fmt.Sprintf("createOrder submitted but unconfirmed (tx %s) — verify on Basescan before any retry", submitted.TxHash.Hex())).
+				Save(ctx); uerr != nil {
+				logger.Errorf("❌ route-a: persist ambiguous-dispatch marker for %d: %v", order.ID, uerr)
+			}
+			logger.Errorf("❌ route-a: order %d createOrder ambiguous (parked in dispatching): %v", order.ID, cerr)
+			return fmt.Errorf("createOrder (ambiguous; order parked): %w", cerr)
+		}
+		// Known-not-submitted — return the claim and retry next tick.
+		if _, uerr := order.Update().
+			Where(
+				routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching),
+				routeaorder.Or(routeaorder.GatewayOrderIDIsNil(), routeaorder.GatewayOrderIDEQ("")),
+			).
+			SetBridgeStatus(routeaorder.BridgeStatusBridged).
+			Save(ctx); uerr != nil {
+			logger.Errorf("❌ route-a: revert dispatch claim for %d: %v", order.ID, uerr)
+		}
 		return fmt.Errorf("createOrder: %w", cerr)
 	}
 
 	orderID := strings.ToLower(result.OrderID.Hex())
 	if _, perr := order.Update().
-		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridged)).
+		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching)).
 		SetGatewayOrderID(orderID).
 		SetGatewayChainID(uint64(d.conf.BaseChainID)).
 		SetSenderFeeSubunit(senderFeeDec).
 		SetBridgeTxDest(result.TxHash.Hex()).
-		SetBridgeStatus(routeaorder.BridgeStatusDispatching).
 		Save(ctx); perr != nil {
-		// createOrder IS on-chain at this point — a stale-transition
-		// skip here means another writer raced us post-submit; surface
-		// loudly either way, ops resolves with the gateway order id.
-		return fmt.Errorf("persist dispatching (gateway order %s already on-chain!): %w", orderID, perr)
+		// createOrder IS on-chain at this point — surface loudly; ops
+		// resolves with the gateway order id.
+		return fmt.Errorf("persist gateway order id (order %s already on-chain!): %w", orderID, perr)
 	}
 	logger.Infof("✅ route-a: createOrder submitted order=%d orderId=%s tx=%s gas=%d",
 		order.ID, orderID, result.TxHash.Hex(), result.GasUsed)
@@ -1225,6 +1361,14 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 
 	for _, order := range orders {
 		if order.GatewayOrderID == "" || order.GatewayChainID == 0 {
+			// Claimed for dispatch but no gateway id — see the
+			// equivalent bridging sweep; an old claim means an
+			// ambiguous createOrder that needs Basescan verification.
+			if time.Since(order.UpdatedAt) > stuckClaimAlertAfter {
+				logger.Errorf("🚨 route-a: order %d stuck in dispatching with NO gateway id for %s — "+
+					"verify the aggregator's recent Base txs (failure_reason may hold the tx hash)",
+					order.ID, time.Since(order.UpdatedAt).Round(time.Minute))
+			}
 			continue
 		}
 		info, err := d.settlement.FetchOrderStatus(ctx, int64(order.GatewayChainID), order.GatewayOrderID)

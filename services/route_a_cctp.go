@@ -260,33 +260,45 @@ func (d *RouteADispatcher) startCCTPBridge(ctx context.Context, order *ent.Route
 
 	recipient := ethcommon.HexToAddress(d.conf.BaseAggregatorAddress)
 
+	// CLAIM before the funds-moving submit: bridging with no digest.
+	// One CAS winner per order — racing writers and crash-replays can
+	// never double-burn. ("cctp" in lifi_tool reuses the per-tool stale
+	// window + admin display.)
+	claimed, err := d.claimForBridging(ctx, order, routeAProviderCCTP, "cctp")
+	if err != nil {
+		return err
+	}
+	if !claimed {
+		return nil
+	}
+
 	digest, err := cctp.SubmitBurn(ctx, d.suiClient, d.signer, cctp.BurnRequest{
 		Net:            d.cctpNet,
 		AmountSubunits: amountSubunits,
 		MintRecipient:  recipient,
 	})
 	if err != nil {
+		var ambiguous *cctp.AmbiguousSubmitError
+		if errors.As(err, &ambiguous) {
+			// The burn may still land on-chain. Leave the order claimed
+			// (bridging, no digest) — advanceBridging surfaces stuck
+			// claims loudly; never re-submit into ambiguity.
+			logger.Errorf("❌ route-a: order %d CCTP burn submit ambiguous (parked in bridging, no digest): %v",
+				order.ID, err)
+			return fmt.Errorf("cctp burn (ambiguous; order parked): %w", err)
+		}
+		// Known-not-on-chain (build failure, Move abort) — safe retry.
+		d.revertBridgingClaim(ctx, order.ID)
 		return fmt.Errorf("cctp burn: %w", err)
 	}
 
 	if _, perr := order.Update().
-		Where(routeaorder.BridgeStatusIn(
-			routeaorder.BridgeStatusPending,
-			routeaorder.BridgeStatusAwaitingFunds,
-		)).
-		SetBridgeProvider(routeAProviderCCTP).
-		SetLifiTool("cctp"). // reuses the per-tool stale window + admin display
+		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
 		SetBridgeTxSui(digest).
-		SetBridgeStatus(routeaorder.BridgeStatusBridging).
 		Save(ctx); perr != nil {
-		// Burn is on-chain but the row still says pending — the next
-		// tick would double-bridge. Surface loudly; ops resolves with
-		// the digest (same persist-after-submit exposure the LiFi path
-		// has always had, no wider).
-		logger.Errorf("❌ route-a: CCTP burn submitted (tx=%s) but persist failed for %d: %v — "+
-			"manual intervention needed to avoid double-bridge", digest, order.ID, perr)
-		err = fmt.Errorf("persist cctp bridging state: %w", perr)
-		return err
+		logger.Errorf("❌ route-a: CCTP burn submitted (tx=%s) but digest persist failed for %d: %v — sweep will surface",
+			digest, order.ID, perr)
+		return fmt.Errorf("persist cctp burn digest: %w", perr)
 	}
 	timer.With("bridge_tx_sui", digest).
 		With("amount_subunits", amountSubunits).

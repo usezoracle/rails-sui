@@ -156,16 +156,32 @@ func SubmitBurn(ctx context.Context, client *suisdk.Client, signer *suisigner.Si
 		RequestType: "WaitForLocalExecution",
 	})
 	if err != nil {
-		return "", fmt.Errorf("cctp: submit burn tx: %w", err)
+		// The signed tx reached (or may have reached) the node before
+		// the error — it can still execute. Ambiguous: caller must not
+		// re-submit funds-moving work for this order.
+		return "", &AmbiguousSubmitError{Err: fmt.Errorf("cctp: submit burn tx: %w", err)}
 	}
 	if resp.Digest == "" {
-		return "", fmt.Errorf("cctp: burn tx returned empty digest")
+		return "", &AmbiguousSubmitError{Err: fmt.Errorf("cctp: burn tx submission returned empty digest")}
 	}
 	if s := resp.Effects.Status.Status; s != "" && s != "success" {
+		// On-chain but the Move call aborted — no funds moved; callers
+		// may safely retry.
 		return resp.Digest, fmt.Errorf("cctp: burn tx %s failed on-chain: %s", resp.Digest, resp.Effects.Status.Error)
 	}
 	return resp.Digest, nil
 }
+
+// AmbiguousSubmitError wraps burn-submission failures where the signed
+// tx may or may not land on-chain (transport error after send, missing
+// digest in the response). The order must stay claimed; re-submitting
+// would risk a double burn.
+type AmbiguousSubmitError struct{ Err error }
+
+func (e *AmbiguousSubmitError) Error() string {
+	return fmt.Sprintf("%v (ambiguous: tx may still land on-chain)", e.Err)
+}
+func (e *AmbiguousSubmitError) Unwrap() error { return e.Err }
 
 // selectCoins picks USDC coin objects (largest first would minimize
 // inputs, but the RPC already returns a stable order; we take in order

@@ -51,6 +51,13 @@ const (
 	// Per `docs/tapp-card-spec.md`: per-tap (PIN gate) ₦2k, step-up
 	// gate ₦15k, daily ₦40k. Stored as subunit on the card row;
 	// fall back to these if the card has zeroes (pre-link state).
+	// cardCollectionBufferBPS is charged on top of each card debit:
+	// 50 bps for the platform sender fee + 50 bps drift headroom. At
+	// the post-burst pipeline latency (~90s) drift is single-digit
+	// bps, so this comfortably covers both without stranding margin
+	// risk on the ops float.
+	cardCollectionBufferBPS = 100
+
 	defaultPerTapNGNKobo  = 200_000   // ₦2,000.00
 	defaultStepUpNGNKobo  = 1_500_000 // ₦15,000.00
 	defaultDailyNGNKobo   = 4_000_000 // ₦40,000.00
@@ -389,6 +396,14 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 			return
 		}
 		debitUsdcSubunit := usdcSubunitFromNGN(amount, ngn.MarketRate)
+		// Collection buffer: debit slightly more than the bare NGN
+		// target so the platform's sender fee (0.5%) and quote→dispatch
+		// rate drift never come out of the ops float. Mirrors the
+		// QR/deposit flow, where the quote already builds the fee into
+		// the user's rate. The excess accrues to the Sui aggregator as
+		// platform margin; the dispatch-side drift absorption
+		// (route_a_dispatcher.go) is its economic counterpart on Base.
+		debitUsdcSubunit = debitUsdcSubunit * (10_000 + cardCollectionBufferBPS) / 10_000
 		if svcSui, ok := orderSvc.NewOrderSui().(*orderSvc.OrderSui); ok {
 			digest, err := svcSui.DebitCard(
 				ctx.Request.Context(),
