@@ -257,6 +257,12 @@ func cardsRoutes(route *gin.Engine) {
 	adminConsole.GET("funding/balances", fundCtrl.GetBalances)
 	adminConsole.POST("funding/transfer", fundCtrl.Transfer)
 
+	// Route B liquidity providers — visibility + suspend/reactivate.
+	lpOpsCtrl := adminCtrl.NewLpOpsController()
+	adminConsole.GET("lps", lpOpsCtrl.GetLPs)
+	adminConsole.GET("lps/:id", lpOpsCtrl.GetLP)
+	adminConsole.POST("lps/:id/status", lpOpsCtrl.SetStatus)
+
 	cfgCtrl := adminCtrl.NewConfigController()
 	adminConsole.GET("config/currencies", cfgCtrl.GetCurrencies)
 	adminConsole.PATCH("config/currencies/:id", cfgCtrl.UpdateCurrency)

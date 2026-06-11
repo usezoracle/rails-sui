@@ -267,6 +267,11 @@ func (c *Controller) Withdraw(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if acct.Status != lpaccount.StatusActive {
+		u.APIResponse(ctx, http.StatusForbidden, "error",
+			"Account is suspended — contact support", map[string]any{"code": "lp_suspended"})
+		return
+	}
 	var req withdrawRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		u.APIResponse(ctx, http.StatusBadRequest, "error",
