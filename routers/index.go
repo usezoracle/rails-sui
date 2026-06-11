@@ -218,6 +218,7 @@ func cardsRoutes(route *gin.Engine) {
 	adminCards.GET(":id", cardOpsCtrl.GetCard)
 	adminCards.POST(":id/unlock", cardOpsCtrl.Unlock)
 	adminCards.POST(":id/status", cardOpsCtrl.SetStatus)
+	adminCards.POST(":id/resync", cardOpsCtrl.Resync)
 
 	// Admin: Route A operator console. Phase 1 ships read-only event
 	// timeline. Phase 6 will add retry/refund/force-state writers.

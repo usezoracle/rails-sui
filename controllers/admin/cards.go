@@ -205,6 +205,43 @@ func (c *CardOpsController) Unlock(ctx *gin.Context) {
 	u.APIResponse(ctx, http.StatusOK, "success", "card unlocked", cardView(ctx, fresh))
 }
 
+// Resync flags a card for token resynchronization. Use when the
+// physical card's NFC token fell out of sync with the server (the
+// merchant-side token write failed — holder skipped the "tap once
+// more" step) and taps are failing with token mismatches. Sets
+// needs_resync so the cardholder PWA prompts the holder to rewrite
+// the canonical token (ResyncComplete clears it), and resets the
+// token-mismatch counter so the card doesn't lock itself while it
+// waits. Refuses revoked cards.
+//
+//	POST /v1/admin/cards/:id/resync
+func (c *CardOpsController) Resync(ctx *gin.Context) {
+	card, ok := c.load(ctx)
+	if !ok {
+		return
+	}
+	if card.Status == tappcard.StatusRevoked {
+		u.APIResponse(ctx, http.StatusConflict, "error", "card is revoked — cannot resync", nil)
+		return
+	}
+	_, err := card.Update().
+		SetNeedsResync(true).
+		SetTokenMismatchCount(0).
+		Save(ctx)
+	if err != nil {
+		logger.Errorf("admin card resync %s: %v", card.ID, err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to flag card for resync", nil)
+		return
+	}
+	writeAudit(ctx, "card.resync", card.ID.String(), map[string]any{
+		"previous_needs_resync":   card.NeedsResync,
+		"previous_mismatch_count": card.TokenMismatchCount,
+	})
+	fresh, _ := c.load(ctx)
+	u.APIResponse(ctx, http.StatusOK, "success",
+		"card flagged for resync — the holder will be prompted in the Tapp app", cardView(ctx, fresh))
+}
+
 type cardStatusReq struct {
 	Status string `json:"status" binding:"required"` // revoked | locked
 	Reason string `json:"reason"`
