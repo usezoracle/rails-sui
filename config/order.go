@@ -43,13 +43,7 @@ type OrderConfiguration struct {
 	CCTPFallbackEnabled bool   // kill switch; default true
 	CCTPIrisURL         string // optional override of Circle's attestation host (tests/proxies)
 
-	// Route C — managed-float instant payouts (route_a_treasury.go).
-	// CardTapMode is the boot fallback for the runtime settle-mode
-	// switch (admin dashboard → Redis): "lp" or "treasury". The float
-	// account itself is NOT config — it's the platform's Korapay
-	// virtual account (reference "platform-float"), provisioned once
-	// from the admin console and resolved from Korapay at runtime.
-	CardTapMode string
+
 
 	// Shinami Gas Station — sponsors all aggregator-initiated Move
 	// calls (CreateOrder, SettleOrder, RefundOrder, DebitCard). When
@@ -93,7 +87,6 @@ func OrderConfig() *OrderConfiguration {
 	viper.SetDefault("SUI_RPC_URL", "https://fullnode.testnet.sui.io:443")
 	viper.SetDefault("LIFI_BASE_URL", "https://li.quest/v1")
 	viper.SetDefault("CCTP_FALLBACK_ENABLED", true)
-	viper.SetDefault("CARD_TAP_MODE", "lp") // flip to "treasury" to enable Route C instant payouts
 	viper.SetDefault("BASE_RPC_URL", "https://sepolia.base.org")                       // Sepolia default; mainnet = https://mainnet.base.org
 	viper.SetDefault("BASE_CHAIN_ID", 84532)                                           // Base Sepolia; mainnet = 8453
 	viper.SetDefault("BASE_SENDER_FEE_BPS", 50)                                        // 0.5% sender fee
@@ -134,7 +127,6 @@ func OrderConfig() *OrderConfiguration {
 		LiFiAPIKey:                       viper.GetString("LIFI_API_KEY"),
 		CCTPFallbackEnabled:              viper.GetBool("CCTP_FALLBACK_ENABLED"),
 		CCTPIrisURL:                      viper.GetString("CCTP_IRIS_URL"),
-		CardTapMode:                      viper.GetString("CARD_TAP_MODE"),
 		ShinamiGasAPIKey:                 viper.GetString("SHINAMI_GAS_API_KEY"),
 		ShinamiGasBaseURL:                viper.GetString("SHINAMI_GAS_BASE_URL"),
 		BaseRpcURL:                       viper.GetString("BASE_RPC_URL"),

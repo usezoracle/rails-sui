@@ -7,9 +7,8 @@
 //	lp_network → Route B: our own LP network (selection rejected until
 //	             the matching engine is wired to Route-A orders)
 //
-// Stored in Redis so it flips instantly across instances without a
-// deploy; falls back to the CARD_TAP_MODE env when Redis is empty or
-// down (fail-safe to whatever ops configured at boot).
+// Stored in Redis — the admin dashboard is the single authority; the
+// in-code default (bridge) only applies before the first switch.
 package services
 
 import (
@@ -17,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/usezoracle/rails-sui/config"
 	db "github.com/usezoracle/rails-sui/storage"
 )
 
@@ -40,8 +38,8 @@ func ValidSettleMode(m string) (recognised, implemented bool) {
 	}
 }
 
-// CurrentSettleMode returns the operator-selected mode, falling back
-// to the CARD_TAP_MODE env mapping when unset/unavailable.
+// CurrentSettleMode returns the operator-selected mode; bridge until
+// the dashboard says otherwise.
 func CurrentSettleMode(ctx context.Context) string {
 	if rdb := db.RedisClient; rdb != nil {
 		cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -49,9 +47,6 @@ func CurrentSettleMode(ctx context.Context) string {
 		if v, err := rdb.Get(cctx, settleModeKey).Result(); err == nil && v != "" {
 			return v
 		}
-	}
-	if strings.EqualFold(config.OrderConfig().CardTapMode, "treasury") {
-		return SettleModeFloat
 	}
 	return SettleModeBridge
 }

@@ -1,7 +1,6 @@
-// rail_switch.go — runtime selection of the NGN payment rails,
-// operator-controlled from the admin dashboard (same Redis-backed
-// pattern as the settle-mode switch; env values are the boot
-// fallback).
+// rail_switch.go — runtime selection of the NGN payment rails. The
+// admin dashboard (Payment Rails card) is the single authority; the
+// choices persist in Redis and survive restarts. No envs involved.
 //
 // Two independent knobs:
 //   - float rail: which configured rail Routes B & C pay from (and,
@@ -53,12 +52,10 @@ func redisSet(ctx context.Context, key, val string) error {
 }
 
 // CurrentFloatRail returns the operator-selected float rail:
-// "korapay" | "fintava" | "default". Falls back to FLOAT_RAIL env.
+// "korapay" | "fintava" | "default". The admin dashboard is the only
+// authority; before the first switch, the in-code default applies.
 func CurrentFloatRail() string {
 	if v := redisGet(floatRailKey); v != "" {
-		return v
-	}
-	if v := strings.ToLower(strings.TrimSpace(config.BaaSConfig().FloatRail)); v != "" {
 		return v
 	}
 	return "korapay"
@@ -69,8 +66,8 @@ func SetFloatRail(ctx context.Context, rail string) error {
 	return redisSet(ctx, floatRailKey, strings.ToLower(strings.TrimSpace(rail)))
 }
 
-// BaaSProviderOverride returns the runtime default-provider override
-// ("" when the env BAAS_PROVIDER stands). Read at boot by main.go.
+// BaaSProviderOverride returns the operator-selected default provider
+// ("" before the first switch). Read at boot by main.go.
 func BaaSProviderOverride() string { return redisGet(baasProviderKey) }
 
 // SetBaaSProvider persists the override; the caller applies

@@ -76,13 +76,12 @@ func main() {
 // process-wide baas.Default(). The composition root is the only place that
 // knows a concrete vendor; everything else depends on the baas interface.
 func initBaaSRail() {
-	viper.SetDefault("BAAS_PROVIDER", "safehaven")
-	provider := viper.GetString("BAAS_PROVIDER")
-	// Runtime override: the admin "Payment Rails" switch persists the
-	// operator's choice in Redis; it survives restarts and beats env.
-	if o := services.BaaSProviderOverride(); o != "" {
-		logger.Infof("BaaS rail: runtime override %q (admin config) supersedes env %q", o, provider)
-		provider = o
+	// The default provider is an ADMIN decision (Payment Rails card →
+	// Redis), not an env. Before the first switch, safehaven (the
+	// original rail) stands so legacy deploys behave unchanged.
+	provider := services.BaaSProviderOverride()
+	if provider == "" {
+		provider = "safehaven"
 	}
 	switch provider {
 	case "safehaven":
@@ -120,6 +119,6 @@ func initBaaSRail() {
 		)))
 		logger.Infof("BaaS rail ready (provider=fintava)")
 	default:
-		logger.Fatalf("BaaS rail: unknown BAAS_PROVIDER %q", provider)
+		logger.Fatalf("BaaS rail: unknown provider %q (admin config)", provider)
 	}
 }
