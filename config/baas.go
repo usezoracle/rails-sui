@@ -28,6 +28,13 @@ type BaaSConfiguration struct {
 	// MaxTransferNGN caps a single admin payout to guard against fat-finger /
 	// stolen-token catastrophe. Zero means unlimited (not recommended in prod).
 	MaxTransferNGN decimal.Decimal
+
+	// Korapay rail (BAAS_PROVIDER=korapay). The secret key doubles as
+	// the webhook HMAC key — Korapay signs callbacks with it.
+	KorapaySecretKey    string
+	KorapayBaseURL      string
+	KorapayPayoutEmail  string // receipts inbox attached to every disbursement
+	KorapayVBABankCode  string // "035" Wema live, "000" sandbox
 }
 
 // BaaSConfig reads the BaaS provider settings from env.
@@ -40,6 +47,9 @@ func BaaSConfig() *BaaSConfiguration {
 		maxTransfer = decimal.NewFromInt(1_000_000)
 	}
 
+	viper.SetDefault("KORAPAY_BASE_URL", "https://api.korapay.com/merchant")
+	viper.SetDefault("KORAPAY_VBA_BANK_CODE", "035")
+
 	return &BaaSConfiguration{
 		ClientID:           viper.GetString("SAFEHAVEN_CLIENT_ID"),
 		PrivateKeyPEM:      viper.GetString("SAFEHAVEN_PRIVATE_KEY"),
@@ -49,5 +59,9 @@ func BaaSConfig() *BaaSConfiguration {
 		DebitAccountNumber: viper.GetString("SAFEHAVEN_DEBIT_ACCOUNT_NUMBER"),
 		WebhookSecret:      viper.GetString("SAFEHAVEN_WEBHOOK_SECRET"),
 		MaxTransferNGN:     maxTransfer,
+		KorapaySecretKey:   viper.GetString("KORAPAY_SECRET_KEY"),
+		KorapayBaseURL:     viper.GetString("KORAPAY_BASE_URL"),
+		KorapayPayoutEmail: viper.GetString("KORAPAY_PAYOUT_EMAIL"),
+		KorapayVBABankCode: viper.GetString("KORAPAY_VBA_BANK_CODE"),
 	}
 }

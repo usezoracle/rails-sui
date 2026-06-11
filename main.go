@@ -10,6 +10,7 @@ import (
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/routers"
 	"github.com/usezoracle/rails-sui/services/baas"
+	"github.com/usezoracle/rails-sui/services/baas/korapay"
 	"github.com/usezoracle/rails-sui/services/baas/mfb"
 	"github.com/usezoracle/rails-sui/storage"
 	"github.com/usezoracle/rails-sui/tasks"
@@ -88,6 +89,17 @@ func initBaaSRail() {
 			baas.SetDefault(mfb.NewAdapter(shClient, shConf.WebhookSecret))
 			logger.Infof("BaaS rail ready (provider=mfb)")
 		}
+	case "korapay":
+		kConf := config.BaaSConfig()
+		if kConf.KorapaySecretKey == "" {
+			logger.Infof("BaaS rail (korapay) not configured (KORAPAY_SECRET_KEY empty); fiat payout routes disabled")
+			return
+		}
+		baas.SetDefault(korapay.NewAdapter(korapay.New(
+			kConf.KorapaySecretKey, kConf.KorapayBaseURL,
+			kConf.KorapayPayoutEmail, kConf.KorapayVBABankCode,
+		)))
+		logger.Infof("BaaS rail ready (provider=korapay)")
 	default:
 		logger.Fatalf("BaaS rail: unknown BAAS_PROVIDER %q", provider)
 	}
