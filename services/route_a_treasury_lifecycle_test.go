@@ -102,6 +102,8 @@ func TestRouteCLifecycleTreasuryToSettled(t *testing.T) {
 	rail := &fakeBaas{balance: decimal.NewFromInt(1_000_000)}
 	baas.SetDefault(rail)
 	defer baas.SetDefault(nil)
+	// The dispatcher will also get rail injected as treasuryRail below
+	// — Route C must never touch a real Korapay config in tests.
 
 	suiSeed := make([]byte, 32)
 	for i := range suiSeed {
@@ -196,7 +198,6 @@ func TestRouteCLifecycleTreasuryToSettled(t *testing.T) {
 		TreasuryFloatInstitution:   "TESTBANK",
 		TreasuryFloatAccountNumber: "9000000001",
 		TreasuryFloatAccountName:   "Tapp Float",
-		TreasuryMinFloatNGN:        decimal.NewFromInt(10_000),
 	}
 	suiAPI := suisdk.NewSuiClient(suiSrv.URL)
 	suiClient, _ := suiAPI.(*suisdk.Client)
@@ -225,6 +226,7 @@ func TestRouteCLifecycleTreasuryToSettled(t *testing.T) {
 		instanceID:      "route-c-test",
 		burstWake:       make(chan struct{}, 1),
 		lifiPollAt:      map[int]time.Time{},
+		treasuryRail:    rail,
 	}
 
 	for i := 0; i < 5; i++ {

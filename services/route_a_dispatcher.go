@@ -36,6 +36,8 @@ import (
 
 	"github.com/usezoracle/rails-sui/config"
 	"github.com/usezoracle/rails-sui/ent"
+	"github.com/usezoracle/rails-sui/services/baas"
+	"github.com/usezoracle/rails-sui/services/baas/korapay"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
 	"github.com/usezoracle/rails-sui/ent/routeaevent"
 	"github.com/usezoracle/rails-sui/ent/routeaorder"
@@ -250,6 +252,13 @@ type RouteADispatcher struct {
 	// minLifiPollGap) — burst ticks are faster than LiFi likes.
 	lifiPollMu sync.Mutex
 	lifiPollAt map[int]time.Time
+
+	// treasuryRail is the BaaS provider Route C pays merchants from —
+	// Korapay (built from KORAPAY_* config) when configured, else
+	// whatever baas.Default() is. Injected directly so the float rail
+	// is independent of the BAAS_PROVIDER selection; tests substitute
+	// a fake.
+	treasuryRail baas.Provider
 }
 
 // activeRouteADispatcher lets API handlers (which never construct the
@@ -372,6 +381,16 @@ func NewRouteADispatcher() *RouteADispatcher {
 		d.cctpNet = net.WithIrisURL(conf.CCTPIrisURL)
 		d.cctpNetOK = true
 		d.cctpIris = cctp.NewIris(d.cctpNet.IrisBaseURL)
+	}
+
+	// Route C float rail: Korapay when configured (the float IS the
+	// Korapay pooled balance; the reload VBA refills it on the same
+	// rail), else fall back to the default BaaS provider.
+	if bc := config.BaaSConfig(); bc.KorapaySecretKey != "" {
+		d.treasuryRail = korapay.NewAdapter(korapay.New(
+			bc.KorapaySecretKey, bc.KorapayPublicKey, bc.KorapayBaseURL,
+			bc.KorapayPayoutEmail, bc.KorapayVBABankCode,
+		))
 	}
 
 	// settlement client is cheap to construct (no network on init).

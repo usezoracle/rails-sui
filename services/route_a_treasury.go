@@ -56,10 +56,24 @@ import (
 // rail (webhook/poll routing + audit greppability).
 const treasuryRefPrefix = "rctp-"
 
+// korapayMinPayoutNGN is Korapay's per-transfer minimum (verified on
+// sandbox). Orders below it fall back to the bridge path rather than
+// failing the rail forever.
+var korapayMinPayoutNGN = decimal.NewFromInt(1000)
+
+// floatRail picks the rail Route C pays from: the injected Korapay
+// adapter when configured, else the process default.
+func (d *RouteADispatcher) floatRail() baas.Provider {
+	if d.treasuryRail != nil {
+		return d.treasuryRail
+	}
+	return baas.Default()
+}
+
 // dispatchTreasury pays the merchant from the platform float and kicks
 // the reload. Called from advanceBridged for mode=treasury orders.
 func (d *RouteADispatcher) dispatchTreasury(ctx context.Context, order *ent.RouteAOrder) (err error) {
-	provider := baas.Default()
+	provider := d.floatRail()
 	if provider == nil {
 		return ErrTreasuryDispatcherNotWired
 	}
@@ -80,27 +94,25 @@ func (d *RouteADispatcher) dispatchTreasury(ctx context.Context, order *ent.Rout
 		With("provider", provider.Name())
 	defer timer.End(&err)
 
-	// FLOAT GATE: can the float cover this payout plus the safety
-	// buffer? If not, fall back to the lp path (direct Paycrest →
-	// merchant) rather than queueing behind an empty float.
+	// Rail minimum: Korapay refuses transfers under ₦1,000 — those
+	// orders settle via the bridge path instead.
+	if provider.Name() == "korapay" && amountNGN.LessThan(korapayMinPayoutNGN) {
+		d.fallbackToLp(ctx, order, "below_rail_minimum", amountNGN.String())
+		timer.With("fallback", "lp_below_minimum")
+		return nil
+	}
+
+	// FLOAT GATE: can the float cover this exact payout? If not, fall
+	// back to the lp path (direct Paycrest → merchant) rather than
+	// queueing behind an empty float.
 	floatBal, err := d.treasuryFloatBalance(ctx, provider)
 	if err != nil {
 		return fmt.Errorf("float balance: %w", err)
 	}
-	if floatBal.LessThan(amountNGN.Add(d.conf.TreasuryMinFloatNGN)) {
-		logger.Warnf("⚠️ route-a: order %d float too low (₦%s < ₦%s+buffer) — falling back to lp",
+	if floatBal.LessThan(amountNGN) {
+		logger.Warnf("⚠️ route-a: order %d float too low (₦%s < ₦%s) — falling back to lp",
 			order.ID, floatBal, amountNGN)
-		if _, uerr := order.Update().
-			Where(
-				routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridged),
-				routeaorder.ModeEQ(routeaorder.ModeTreasury),
-			).
-			SetMode(routeaorder.ModeLp).
-			Save(ctx); uerr != nil && !isStaleTransition(uerr) {
-			return fmt.Errorf("fallback to lp: %w", uerr)
-		}
-		LogOnce(ctx, order.ID, StepTreasuryPayout, StatusSkipped, ActorDispatcher,
-			map[string]any{"reason": "insufficient_float", "float": floatBal.String()}, "", "")
+		d.fallbackToLp(ctx, order, "insufficient_float", floatBal.String())
 		timer.With("fallback", "lp")
 		return nil // dispatchLP picks it up next tick
 	}
@@ -171,6 +183,23 @@ func (d *RouteADispatcher) dispatchTreasury(ctx context.Context, order *ent.Rout
 	return nil
 }
 
+// fallbackToLp flips a bridged treasury order onto the lp path (CAS),
+// recording why.
+func (d *RouteADispatcher) fallbackToLp(ctx context.Context, order *ent.RouteAOrder, reason, detail string) {
+	if _, uerr := order.Update().
+		Where(
+			routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridged),
+			routeaorder.ModeEQ(routeaorder.ModeTreasury),
+		).
+		SetMode(routeaorder.ModeLp).
+		Save(ctx); uerr != nil && !isStaleTransition(uerr) {
+		logger.Errorf("❌ route-a: fallback to lp for %d: %v", order.ID, uerr)
+		return
+	}
+	LogOnce(ctx, order.ID, StepTreasuryPayout, StatusSkipped, ActorDispatcher,
+		map[string]any{"reason": reason, "detail": detail}, "", "")
+}
+
 // treasuryFloatBalance reads the platform's spendable NGN on the rail.
 func (d *RouteADispatcher) treasuryFloatBalance(ctx context.Context, provider baas.Provider) (decimal.Decimal, error) {
 	accounts, err := provider.ListAccounts(ctx, false)
@@ -192,7 +221,7 @@ func (d *RouteADispatcher) treasuryFloatBalance(ctx context.Context, provider ba
 // rail by reference; success → settled (merchant paid — fire SSE),
 // terminal failure → release back to bridged for a fresh attempt.
 func (d *RouteADispatcher) advanceTreasuryPayouts(ctx context.Context) error {
-	provider := baas.Default()
+	provider := d.floatRail()
 	if provider == nil {
 		return nil
 	}

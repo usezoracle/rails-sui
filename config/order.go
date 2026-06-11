@@ -50,10 +50,9 @@ type OrderConfiguration struct {
 	// the BaaS payout debit source AND the reload recipient Paycrest
 	// pays back into.
 	CardTapMode                string
-	TreasuryFloatInstitution   string          // bank code of the float account
-	TreasuryFloatAccountNumber string          // float account number
-	TreasuryFloatAccountName   string          // float account display name
-	TreasuryMinFloatNGN        decimal.Decimal // buffer below which treasury falls back to lp
+	TreasuryFloatInstitution   string // bank code of the float account
+	TreasuryFloatAccountNumber string // float account number
+	TreasuryFloatAccountName   string // float account display name
 
 	// Shinami Gas Station — sponsors all aggregator-initiated Move
 	// calls (CreateOrder, SettleOrder, RefundOrder, DebitCard). When
@@ -98,7 +97,6 @@ func OrderConfig() *OrderConfiguration {
 	viper.SetDefault("LIFI_BASE_URL", "https://li.quest/v1")
 	viper.SetDefault("CCTP_FALLBACK_ENABLED", true)
 	viper.SetDefault("CARD_TAP_MODE", "lp") // flip to "treasury" to enable Route C instant payouts
-	viper.SetDefault("TREASURY_MIN_FLOAT_NGN", "50000")
 	viper.SetDefault("BASE_RPC_URL", "https://sepolia.base.org")                       // Sepolia default; mainnet = https://mainnet.base.org
 	viper.SetDefault("BASE_CHAIN_ID", 84532)                                           // Base Sepolia; mainnet = 8453
 	viper.SetDefault("BASE_SENDER_FEE_BPS", 50)                                        // 0.5% sender fee
@@ -143,7 +141,6 @@ func OrderConfig() *OrderConfiguration {
 		TreasuryFloatInstitution:         viper.GetString("TREASURY_FLOAT_INSTITUTION"),
 		TreasuryFloatAccountNumber:       viper.GetString("TREASURY_FLOAT_ACCOUNT_NUMBER"),
 		TreasuryFloatAccountName:         viper.GetString("TREASURY_FLOAT_ACCOUNT_NAME"),
-		TreasuryMinFloatNGN:              mustDecimal(viper.GetString("TREASURY_MIN_FLOAT_NGN"), 50_000),
 		ShinamiGasAPIKey:                 viper.GetString("SHINAMI_GAS_API_KEY"),
 		ShinamiGasBaseURL:                viper.GetString("SHINAMI_GAS_BASE_URL"),
 		BaseRpcURL:                       viper.GetString("BASE_RPC_URL"),
@@ -160,16 +157,6 @@ func OrderConfig() *OrderConfiguration {
 		SettlementSenderAPIKeyID:         viper.GetString("SETTLEMENT_SENDER_API_KEY_ID"),
 		SettlementPollInterval:           time.Duration(viper.GetInt("SETTLEMENT_POLL_INTERVAL_SECONDS")) * time.Second,
 	}
-}
-
-// mustDecimal parses a decimal env value, falling back to a default
-// rather than panicking on malformed input.
-func mustDecimal(s string, fallback int64) decimal.Decimal {
-	d, err := decimal.NewFromString(s)
-	if err != nil {
-		return decimal.NewFromInt(fallback)
-	}
-	return d
 }
 
 func init() {
