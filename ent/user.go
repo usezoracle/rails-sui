@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/ent/user"
@@ -50,6 +51,8 @@ type UserEdges struct {
 	SenderProfile *SenderProfile `json:"sender_profile,omitempty"`
 	// ProviderProfile holds the value of the provider_profile edge.
 	ProviderProfile *ProviderProfile `json:"provider_profile,omitempty"`
+	// LpAccount holds the value of the lp_account edge.
+	LpAccount *LpAccount `json:"lp_account,omitempty"`
 	// VerificationToken holds the value of the verification_token edge.
 	VerificationToken []*VerificationToken `json:"verification_token,omitempty"`
 	// RefreshTokens holds the value of the refresh_tokens edge.
@@ -58,7 +61,7 @@ type UserEdges struct {
 	TappCards []*TappCard `json:"tapp_cards,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // SenderProfileOrErr returns the SenderProfile value or an error if the edge
@@ -83,10 +86,21 @@ func (e UserEdges) ProviderProfileOrErr() (*ProviderProfile, error) {
 	return nil, &NotLoadedError{edge: "provider_profile"}
 }
 
+// LpAccountOrErr returns the LpAccount value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) LpAccountOrErr() (*LpAccount, error) {
+	if e.LpAccount != nil {
+		return e.LpAccount, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: lpaccount.Label}
+	}
+	return nil, &NotLoadedError{edge: "lp_account"}
+}
+
 // VerificationTokenOrErr returns the VerificationToken value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) VerificationTokenOrErr() ([]*VerificationToken, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.VerificationToken, nil
 	}
 	return nil, &NotLoadedError{edge: "verification_token"}
@@ -95,7 +109,7 @@ func (e UserEdges) VerificationTokenOrErr() ([]*VerificationToken, error) {
 // RefreshTokensOrErr returns the RefreshTokens value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) RefreshTokensOrErr() ([]*RefreshToken, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.RefreshTokens, nil
 	}
 	return nil, &NotLoadedError{edge: "refresh_tokens"}
@@ -104,7 +118,7 @@ func (e UserEdges) RefreshTokensOrErr() ([]*RefreshToken, error) {
 // TappCardsOrErr returns the TappCards value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) TappCardsOrErr() ([]*TappCard, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.TappCards, nil
 	}
 	return nil, &NotLoadedError{edge: "tapp_cards"}
@@ -219,6 +233,11 @@ func (u *User) QuerySenderProfile() *SenderProfileQuery {
 // QueryProviderProfile queries the "provider_profile" edge of the User entity.
 func (u *User) QueryProviderProfile() *ProviderProfileQuery {
 	return NewUserClient(u.config).QueryProviderProfile(u)
+}
+
+// QueryLpAccount queries the "lp_account" edge of the User entity.
+func (u *User) QueryLpAccount() *LpAccountQuery {
+	return NewUserClient(u.config).QueryLpAccount(u)
 }
 
 // QueryVerificationToken queries the "verification_token" edge of the User entity.

@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/refreshtoken"
@@ -31,6 +32,7 @@ type UserQuery struct {
 	predicates            []predicate.User
 	withSenderProfile     *SenderProfileQuery
 	withProviderProfile   *ProviderProfileQuery
+	withLpAccount         *LpAccountQuery
 	withVerificationToken *VerificationTokenQuery
 	withRefreshTokens     *RefreshTokenQuery
 	withTappCards         *TappCardQuery
@@ -107,6 +109,28 @@ func (uq *UserQuery) QueryProviderProfile() *ProviderProfileQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(providerprofile.Table, providerprofile.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, user.ProviderProfileTable, user.ProviderProfileColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryLpAccount chains the current query on the "lp_account" edge.
+func (uq *UserQuery) QueryLpAccount() *LpAccountQuery {
+	query := (&LpAccountClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(lpaccount.Table, lpaccount.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.LpAccountTable, user.LpAccountColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -374,6 +398,7 @@ func (uq *UserQuery) Clone() *UserQuery {
 		predicates:            append([]predicate.User{}, uq.predicates...),
 		withSenderProfile:     uq.withSenderProfile.Clone(),
 		withProviderProfile:   uq.withProviderProfile.Clone(),
+		withLpAccount:         uq.withLpAccount.Clone(),
 		withVerificationToken: uq.withVerificationToken.Clone(),
 		withRefreshTokens:     uq.withRefreshTokens.Clone(),
 		withTappCards:         uq.withTappCards.Clone(),
@@ -402,6 +427,17 @@ func (uq *UserQuery) WithProviderProfile(opts ...func(*ProviderProfileQuery)) *U
 		opt(query)
 	}
 	uq.withProviderProfile = query
+	return uq
+}
+
+// WithLpAccount tells the query-builder to eager-load the nodes that are connected to
+// the "lp_account" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithLpAccount(opts ...func(*LpAccountQuery)) *UserQuery {
+	query := (&LpAccountClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withLpAccount = query
 	return uq
 }
 
@@ -516,9 +552,10 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = uq.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			uq.withSenderProfile != nil,
 			uq.withProviderProfile != nil,
+			uq.withLpAccount != nil,
 			uq.withVerificationToken != nil,
 			uq.withRefreshTokens != nil,
 			uq.withTappCards != nil,
@@ -551,6 +588,12 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	if query := uq.withProviderProfile; query != nil {
 		if err := uq.loadProviderProfile(ctx, query, nodes, nil,
 			func(n *User, e *ProviderProfile) { n.Edges.ProviderProfile = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withLpAccount; query != nil {
+		if err := uq.loadLpAccount(ctx, query, nodes, nil,
+			func(n *User, e *LpAccount) { n.Edges.LpAccount = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -629,6 +672,34 @@ func (uq *UserQuery) loadProviderProfile(ctx context.Context, query *ProviderPro
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "user_provider_profile" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadLpAccount(ctx context.Context, query *LpAccountQuery, nodes []*User, init func(*User), assign func(*User, *LpAccount)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	query.withFKs = true
+	query.Where(predicate.LpAccount(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.LpAccountColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.user_lp_account
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "user_lp_account" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_lp_account" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

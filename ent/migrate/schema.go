@@ -238,6 +238,64 @@ var (
 			},
 		},
 	}
+	// LpAccountsColumns holds the columns for the "lp_accounts" table.
+	LpAccountsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "name", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString},
+		{Name: "bvn_last4", Type: field.TypeString, Size: 4},
+		{Name: "account_reference", Type: field.TypeString, Unique: true},
+		{Name: "account_number", Type: field.TypeString},
+		{Name: "bank_name", Type: field.TypeString},
+		{Name: "bank_code", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "suspended"}, Default: "active"},
+		{Name: "balance", Type: field.TypeFloat64},
+		{Name: "user_lp_account", Type: field.TypeUUID, Unique: true},
+	}
+	// LpAccountsTable holds the schema information for the "lp_accounts" table.
+	LpAccountsTable = &schema.Table{
+		Name:       "lp_accounts",
+		Columns:    LpAccountsColumns,
+		PrimaryKey: []*schema.Column{LpAccountsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "lp_accounts_users_lp_account",
+				Columns:    []*schema.Column{LpAccountsColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
+	// LpLedgerEntriesColumns holds the columns for the "lp_ledger_entries" table.
+	LpLedgerEntriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "entry_type", Type: field.TypeEnum, Enums: []string{"deposit", "withdrawal", "adjustment"}},
+		{Name: "amount", Type: field.TypeFloat64},
+		{Name: "currency", Type: field.TypeString, Default: "NGN"},
+		{Name: "provider_ref", Type: field.TypeString, Unique: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "confirmed", "failed"}},
+		{Name: "raw_status", Type: field.TypeString, Nullable: true},
+		{Name: "note", Type: field.TypeString, Nullable: true},
+		{Name: "lp_account_ledger_entries", Type: field.TypeUUID},
+	}
+	// LpLedgerEntriesTable holds the schema information for the "lp_ledger_entries" table.
+	LpLedgerEntriesTable = &schema.Table{
+		Name:       "lp_ledger_entries",
+		Columns:    LpLedgerEntriesColumns,
+		PrimaryKey: []*schema.Column{LpLedgerEntriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "lp_ledger_entries_lp_accounts_ledger_entries",
+				Columns:    []*schema.Column{LpLedgerEntriesColumns[10]},
+				RefColumns: []*schema.Column{LpAccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// MerchantBankAccountsColumns holds the columns for the "merchant_bank_accounts" table.
 	MerchantBankAccountsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -929,6 +987,8 @@ var (
 		InstitutionsTable,
 		LockOrderFulfillmentsTable,
 		LockPaymentOrdersTable,
+		LpAccountsTable,
+		LpLedgerEntriesTable,
 		MerchantBankAccountsTable,
 		NetworksTable,
 		PaymentOrdersTable,
@@ -964,6 +1024,8 @@ func init() {
 	LockPaymentOrdersTable.ForeignKeys[0].RefTable = ProviderProfilesTable
 	LockPaymentOrdersTable.ForeignKeys[1].RefTable = ProvisionBucketsTable
 	LockPaymentOrdersTable.ForeignKeys[2].RefTable = TokensTable
+	LpAccountsTable.ForeignKeys[0].RefTable = UsersTable
+	LpLedgerEntriesTable.ForeignKeys[0].RefTable = LpAccountsTable
 	MerchantBankAccountsTable.ForeignKeys[0].RefTable = SenderProfilesTable
 	PaymentOrdersTable.ForeignKeys[0].RefTable = APIKeysTable
 	PaymentOrdersTable.ForeignKeys[1].RefTable = SenderProfilesTable

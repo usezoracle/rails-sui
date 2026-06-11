@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/refreshtoken"
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
@@ -165,6 +166,25 @@ func (uc *UserCreate) SetNillableProviderProfileID(id *string) *UserCreate {
 // SetProviderProfile sets the "provider_profile" edge to the ProviderProfile entity.
 func (uc *UserCreate) SetProviderProfile(p *ProviderProfile) *UserCreate {
 	return uc.SetProviderProfileID(p.ID)
+}
+
+// SetLpAccountID sets the "lp_account" edge to the LpAccount entity by ID.
+func (uc *UserCreate) SetLpAccountID(id uuid.UUID) *UserCreate {
+	uc.mutation.SetLpAccountID(id)
+	return uc
+}
+
+// SetNillableLpAccountID sets the "lp_account" edge to the LpAccount entity by ID if the given value is not nil.
+func (uc *UserCreate) SetNillableLpAccountID(id *uuid.UUID) *UserCreate {
+	if id != nil {
+		uc = uc.SetLpAccountID(*id)
+	}
+	return uc
+}
+
+// SetLpAccount sets the "lp_account" edge to the LpAccount entity.
+func (uc *UserCreate) SetLpAccount(l *LpAccount) *UserCreate {
+	return uc.SetLpAccountID(l.ID)
 }
 
 // AddVerificationTokenIDs adds the "verification_token" edge to the VerificationToken entity by IDs.
@@ -417,6 +437,22 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(providerprofile.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.LpAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.LpAccountTable,
+			Columns: []string{user.LpAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lpaccount.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

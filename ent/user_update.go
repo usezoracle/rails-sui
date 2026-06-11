@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
 	"github.com/usezoracle/rails-sui/ent/predicate"
 	"github.com/usezoracle/rails-sui/ent/providerprofile"
 	"github.com/usezoracle/rails-sui/ent/refreshtoken"
@@ -176,6 +177,25 @@ func (uu *UserUpdate) SetProviderProfile(p *ProviderProfile) *UserUpdate {
 	return uu.SetProviderProfileID(p.ID)
 }
 
+// SetLpAccountID sets the "lp_account" edge to the LpAccount entity by ID.
+func (uu *UserUpdate) SetLpAccountID(id uuid.UUID) *UserUpdate {
+	uu.mutation.SetLpAccountID(id)
+	return uu
+}
+
+// SetNillableLpAccountID sets the "lp_account" edge to the LpAccount entity by ID if the given value is not nil.
+func (uu *UserUpdate) SetNillableLpAccountID(id *uuid.UUID) *UserUpdate {
+	if id != nil {
+		uu = uu.SetLpAccountID(*id)
+	}
+	return uu
+}
+
+// SetLpAccount sets the "lp_account" edge to the LpAccount entity.
+func (uu *UserUpdate) SetLpAccount(l *LpAccount) *UserUpdate {
+	return uu.SetLpAccountID(l.ID)
+}
+
 // AddVerificationTokenIDs adds the "verification_token" edge to the VerificationToken entity by IDs.
 func (uu *UserUpdate) AddVerificationTokenIDs(ids ...uuid.UUID) *UserUpdate {
 	uu.mutation.AddVerificationTokenIDs(ids...)
@@ -235,6 +255,12 @@ func (uu *UserUpdate) ClearSenderProfile() *UserUpdate {
 // ClearProviderProfile clears the "provider_profile" edge to the ProviderProfile entity.
 func (uu *UserUpdate) ClearProviderProfile() *UserUpdate {
 	uu.mutation.ClearProviderProfile()
+	return uu
+}
+
+// ClearLpAccount clears the "lp_account" edge to the LpAccount entity.
+func (uu *UserUpdate) ClearLpAccount() *UserUpdate {
+	uu.mutation.ClearLpAccount()
 	return uu
 }
 
@@ -445,6 +471,35 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(providerprofile.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.LpAccountCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.LpAccountTable,
+			Columns: []string{user.LpAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lpaccount.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.LpAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.LpAccountTable,
+			Columns: []string{user.LpAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lpaccount.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -749,6 +804,25 @@ func (uuo *UserUpdateOne) SetProviderProfile(p *ProviderProfile) *UserUpdateOne 
 	return uuo.SetProviderProfileID(p.ID)
 }
 
+// SetLpAccountID sets the "lp_account" edge to the LpAccount entity by ID.
+func (uuo *UserUpdateOne) SetLpAccountID(id uuid.UUID) *UserUpdateOne {
+	uuo.mutation.SetLpAccountID(id)
+	return uuo
+}
+
+// SetNillableLpAccountID sets the "lp_account" edge to the LpAccount entity by ID if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableLpAccountID(id *uuid.UUID) *UserUpdateOne {
+	if id != nil {
+		uuo = uuo.SetLpAccountID(*id)
+	}
+	return uuo
+}
+
+// SetLpAccount sets the "lp_account" edge to the LpAccount entity.
+func (uuo *UserUpdateOne) SetLpAccount(l *LpAccount) *UserUpdateOne {
+	return uuo.SetLpAccountID(l.ID)
+}
+
 // AddVerificationTokenIDs adds the "verification_token" edge to the VerificationToken entity by IDs.
 func (uuo *UserUpdateOne) AddVerificationTokenIDs(ids ...uuid.UUID) *UserUpdateOne {
 	uuo.mutation.AddVerificationTokenIDs(ids...)
@@ -808,6 +882,12 @@ func (uuo *UserUpdateOne) ClearSenderProfile() *UserUpdateOne {
 // ClearProviderProfile clears the "provider_profile" edge to the ProviderProfile entity.
 func (uuo *UserUpdateOne) ClearProviderProfile() *UserUpdateOne {
 	uuo.mutation.ClearProviderProfile()
+	return uuo
+}
+
+// ClearLpAccount clears the "lp_account" edge to the LpAccount entity.
+func (uuo *UserUpdateOne) ClearLpAccount() *UserUpdateOne {
+	uuo.mutation.ClearLpAccount()
 	return uuo
 }
 
@@ -1048,6 +1128,35 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(providerprofile.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.LpAccountCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.LpAccountTable,
+			Columns: []string{user.LpAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lpaccount.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.LpAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.LpAccountTable,
+			Columns: []string{user.LpAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(lpaccount.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

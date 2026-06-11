@@ -572,6 +572,29 @@ func HasProviderProfileWith(preds ...predicate.ProviderProfile) predicate.User {
 	})
 }
 
+// HasLpAccount applies the HasEdge predicate on the "lp_account" edge.
+func HasLpAccount() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, LpAccountTable, LpAccountColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasLpAccountWith applies the HasEdge predicate on the "lp_account" edge with a given conditions (other predicates).
+func HasLpAccountWith(preds ...predicate.LpAccount) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newLpAccountStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasVerificationToken applies the HasEdge predicate on the "verification_token" edge.
 func HasVerificationToken() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

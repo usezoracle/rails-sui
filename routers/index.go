@@ -9,6 +9,7 @@ import (
 	"github.com/usezoracle/rails-sui/controllers/accounts"
 	adminCtrl "github.com/usezoracle/rails-sui/controllers/admin"
 	"github.com/usezoracle/rails-sui/controllers/cards"
+	"github.com/usezoracle/rails-sui/controllers/lp"
 	"github.com/usezoracle/rails-sui/controllers/provider"
 	"github.com/usezoracle/rails-sui/controllers/sender"
 	"github.com/usezoracle/rails-sui/routers/middleware"
@@ -68,6 +69,18 @@ func RegisterRoutes(route *gin.Engine) {
 	// the BaaS provider (BaaS) transfer/credit callbacks
 	v1.POST("safehaven/webhook", ctrl.BaaSWebhook)
 
+	// Liquidity-provider surface (Route B): onboarding, ledger,
+	// withdrawals + the Korapay callbacks that drive deposits and
+	// withdrawal finality. Webhook is unauthenticated (signature-
+	// verified inside); the rest require the user JWT.
+	lpCtrl := lp.NewController()
+	v1.POST("korapay/webhook", lpCtrl.Webhook)
+	lpGroup := v1.Group("lp/")
+	lpGroup.Use(middleware.JWTMiddleware)
+	lpGroup.POST("onboard", lpCtrl.Onboard)
+	lpGroup.GET("account", lpCtrl.GetAccount)
+	lpGroup.GET("ledger", lpCtrl.GetLedger)
+	lpGroup.POST("withdraw", lpCtrl.Withdraw)
 }
 
 func authRoutes(route *gin.Engine) {

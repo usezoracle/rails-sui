@@ -105,6 +105,30 @@ func (f LockPaymentOrderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LockPaymentOrderMutation", m)
 }
 
+// The LpAccountFunc type is an adapter to allow the use of ordinary
+// function as LpAccount mutator.
+type LpAccountFunc func(context.Context, *ent.LpAccountMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LpAccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LpAccountMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LpAccountMutation", m)
+}
+
+// The LpLedgerEntryFunc type is an adapter to allow the use of ordinary
+// function as LpLedgerEntry mutator.
+type LpLedgerEntryFunc func(context.Context, *ent.LpLedgerEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LpLedgerEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LpLedgerEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LpLedgerEntryMutation", m)
+}
+
 // The MerchantBankAccountFunc type is an adapter to allow the use of ordinary
 // function as MerchantBankAccount mutator.
 type MerchantBankAccountFunc func(context.Context, *ent.MerchantBankAccountMutation) (ent.Value, error)

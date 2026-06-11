@@ -14,6 +14,8 @@ import (
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
+	"github.com/usezoracle/rails-sui/ent/lpledgerentry"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
@@ -206,6 +208,52 @@ func init() {
 	lockpaymentorderDescID := lockpaymentorderFields[0].Descriptor()
 	// lockpaymentorder.DefaultID holds the default value on creation for the id field.
 	lockpaymentorder.DefaultID = lockpaymentorderDescID.Default.(func() uuid.UUID)
+	lpaccountMixin := schema.LpAccount{}.Mixin()
+	lpaccountMixinFields0 := lpaccountMixin[0].Fields()
+	_ = lpaccountMixinFields0
+	lpaccountFields := schema.LpAccount{}.Fields()
+	_ = lpaccountFields
+	// lpaccountDescCreatedAt is the schema descriptor for created_at field.
+	lpaccountDescCreatedAt := lpaccountMixinFields0[0].Descriptor()
+	// lpaccount.DefaultCreatedAt holds the default value on creation for the created_at field.
+	lpaccount.DefaultCreatedAt = lpaccountDescCreatedAt.Default.(func() time.Time)
+	// lpaccountDescUpdatedAt is the schema descriptor for updated_at field.
+	lpaccountDescUpdatedAt := lpaccountMixinFields0[1].Descriptor()
+	// lpaccount.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	lpaccount.DefaultUpdatedAt = lpaccountDescUpdatedAt.Default.(func() time.Time)
+	// lpaccount.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	lpaccount.UpdateDefaultUpdatedAt = lpaccountDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// lpaccountDescBvnLast4 is the schema descriptor for bvn_last4 field.
+	lpaccountDescBvnLast4 := lpaccountFields[3].Descriptor()
+	// lpaccount.BvnLast4Validator is a validator for the "bvn_last4" field. It is called by the builders before save.
+	lpaccount.BvnLast4Validator = lpaccountDescBvnLast4.Validators[0].(func(string) error)
+	// lpaccountDescID is the schema descriptor for id field.
+	lpaccountDescID := lpaccountFields[0].Descriptor()
+	// lpaccount.DefaultID holds the default value on creation for the id field.
+	lpaccount.DefaultID = lpaccountDescID.Default.(func() uuid.UUID)
+	lpledgerentryMixin := schema.LpLedgerEntry{}.Mixin()
+	lpledgerentryMixinFields0 := lpledgerentryMixin[0].Fields()
+	_ = lpledgerentryMixinFields0
+	lpledgerentryFields := schema.LpLedgerEntry{}.Fields()
+	_ = lpledgerentryFields
+	// lpledgerentryDescCreatedAt is the schema descriptor for created_at field.
+	lpledgerentryDescCreatedAt := lpledgerentryMixinFields0[0].Descriptor()
+	// lpledgerentry.DefaultCreatedAt holds the default value on creation for the created_at field.
+	lpledgerentry.DefaultCreatedAt = lpledgerentryDescCreatedAt.Default.(func() time.Time)
+	// lpledgerentryDescUpdatedAt is the schema descriptor for updated_at field.
+	lpledgerentryDescUpdatedAt := lpledgerentryMixinFields0[1].Descriptor()
+	// lpledgerentry.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	lpledgerentry.DefaultUpdatedAt = lpledgerentryDescUpdatedAt.Default.(func() time.Time)
+	// lpledgerentry.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	lpledgerentry.UpdateDefaultUpdatedAt = lpledgerentryDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// lpledgerentryDescCurrency is the schema descriptor for currency field.
+	lpledgerentryDescCurrency := lpledgerentryFields[3].Descriptor()
+	// lpledgerentry.DefaultCurrency holds the default value on creation for the currency field.
+	lpledgerentry.DefaultCurrency = lpledgerentryDescCurrency.Default.(string)
+	// lpledgerentryDescID is the schema descriptor for id field.
+	lpledgerentryDescID := lpledgerentryFields[0].Descriptor()
+	// lpledgerentry.DefaultID holds the default value on creation for the id field.
+	lpledgerentry.DefaultID = lpledgerentryDescID.Default.(func() uuid.UUID)
 	merchantbankaccountMixin := schema.MerchantBankAccount{}.Mixin()
 	merchantbankaccountMixinFields0 := merchantbankaccountMixin[0].Fields()
 	_ = merchantbankaccountMixinFields0

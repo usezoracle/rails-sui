@@ -20,6 +20,8 @@ import (
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
+	"github.com/usezoracle/rails-sui/ent/lpledgerentry"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
@@ -109,6 +111,8 @@ func checkColumn(table, column string) error {
 			institution.Table:                 institution.ValidColumn,
 			lockorderfulfillment.Table:        lockorderfulfillment.ValidColumn,
 			lockpaymentorder.Table:            lockpaymentorder.ValidColumn,
+			lpaccount.Table:                   lpaccount.ValidColumn,
+			lpledgerentry.Table:               lpledgerentry.ValidColumn,
 			merchantbankaccount.Table:         merchantbankaccount.ValidColumn,
 			network.Table:                     network.ValidColumn,
 			paymentorder.Table:                paymentorder.ValidColumn,

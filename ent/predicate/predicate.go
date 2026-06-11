@@ -30,6 +30,12 @@ type LockOrderFulfillment func(*sql.Selector)
 // LockPaymentOrder is the predicate function for lockpaymentorder builders.
 type LockPaymentOrder func(*sql.Selector)
 
+// LpAccount is the predicate function for lpaccount builders.
+type LpAccount func(*sql.Selector)
+
+// LpLedgerEntry is the predicate function for lpledgerentry builders.
+type LpLedgerEntry func(*sql.Selector)
+
 // MerchantBankAccount is the predicate function for merchantbankaccount builders.
 type MerchantBankAccount func(*sql.Selector)
 

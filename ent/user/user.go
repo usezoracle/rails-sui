@@ -38,6 +38,8 @@ const (
 	EdgeSenderProfile = "sender_profile"
 	// EdgeProviderProfile holds the string denoting the provider_profile edge name in mutations.
 	EdgeProviderProfile = "provider_profile"
+	// EdgeLpAccount holds the string denoting the lp_account edge name in mutations.
+	EdgeLpAccount = "lp_account"
 	// EdgeVerificationToken holds the string denoting the verification_token edge name in mutations.
 	EdgeVerificationToken = "verification_token"
 	// EdgeRefreshTokens holds the string denoting the refresh_tokens edge name in mutations.
@@ -60,6 +62,13 @@ const (
 	ProviderProfileInverseTable = "provider_profiles"
 	// ProviderProfileColumn is the table column denoting the provider_profile relation/edge.
 	ProviderProfileColumn = "user_provider_profile"
+	// LpAccountTable is the table that holds the lp_account relation/edge.
+	LpAccountTable = "lp_accounts"
+	// LpAccountInverseTable is the table name for the LpAccount entity.
+	// It exists in this package in order to avoid circular dependency with the "lpaccount" package.
+	LpAccountInverseTable = "lp_accounts"
+	// LpAccountColumn is the table column denoting the lp_account relation/edge.
+	LpAccountColumn = "user_lp_account"
 	// VerificationTokenTable is the table that holds the verification_token relation/edge.
 	VerificationTokenTable = "verification_tokens"
 	// VerificationTokenInverseTable is the table name for the VerificationToken entity.
@@ -199,6 +208,13 @@ func ByProviderProfileField(field string, opts ...sql.OrderTermOption) OrderOpti
 	}
 }
 
+// ByLpAccountField orders the results by lp_account field.
+func ByLpAccountField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newLpAccountStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByVerificationTokenCount orders the results by verification_token count.
 func ByVerificationTokenCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -252,6 +268,13 @@ func newProviderProfileStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProviderProfileInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, ProviderProfileTable, ProviderProfileColumn),
+	)
+}
+func newLpAccountStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(LpAccountInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, LpAccountTable, LpAccountColumn),
 	)
 }
 func newVerificationTokenStep() *sqlgraph.Step {

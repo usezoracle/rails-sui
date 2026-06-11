@@ -53,6 +53,9 @@ func (User) Edges() []ent.Edge {
 		edge.To("provider_profile", ProviderProfile.Type).
 			Unique().
 			Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("lp_account", LpAccount.Type).
+			Unique().
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("verification_token", VerificationToken.Type).
 			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("refresh_tokens", RefreshToken.Type).

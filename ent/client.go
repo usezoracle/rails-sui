@@ -24,6 +24,8 @@ import (
 	"github.com/usezoracle/rails-sui/ent/institution"
 	"github.com/usezoracle/rails-sui/ent/lockorderfulfillment"
 	"github.com/usezoracle/rails-sui/ent/lockpaymentorder"
+	"github.com/usezoracle/rails-sui/ent/lpaccount"
+	"github.com/usezoracle/rails-sui/ent/lpledgerentry"
 	"github.com/usezoracle/rails-sui/ent/merchantbankaccount"
 	"github.com/usezoracle/rails-sui/ent/network"
 	"github.com/usezoracle/rails-sui/ent/paymentorder"
@@ -68,6 +70,10 @@ type Client struct {
 	LockOrderFulfillment *LockOrderFulfillmentClient
 	// LockPaymentOrder is the client for interacting with the LockPaymentOrder builders.
 	LockPaymentOrder *LockPaymentOrderClient
+	// LpAccount is the client for interacting with the LpAccount builders.
+	LpAccount *LpAccountClient
+	// LpLedgerEntry is the client for interacting with the LpLedgerEntry builders.
+	LpLedgerEntry *LpLedgerEntryClient
 	// MerchantBankAccount is the client for interacting with the MerchantBankAccount builders.
 	MerchantBankAccount *MerchantBankAccountClient
 	// Network is the client for interacting with the Network builders.
@@ -129,6 +135,8 @@ func (c *Client) init() {
 	c.Institution = NewInstitutionClient(c.config)
 	c.LockOrderFulfillment = NewLockOrderFulfillmentClient(c.config)
 	c.LockPaymentOrder = NewLockPaymentOrderClient(c.config)
+	c.LpAccount = NewLpAccountClient(c.config)
+	c.LpLedgerEntry = NewLpLedgerEntryClient(c.config)
 	c.MerchantBankAccount = NewMerchantBankAccountClient(c.config)
 	c.Network = NewNetworkClient(c.config)
 	c.PaymentOrder = NewPaymentOrderClient(c.config)
@@ -250,6 +258,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Institution:                 NewInstitutionClient(cfg),
 		LockOrderFulfillment:        NewLockOrderFulfillmentClient(cfg),
 		LockPaymentOrder:            NewLockPaymentOrderClient(cfg),
+		LpAccount:                   NewLpAccountClient(cfg),
+		LpLedgerEntry:               NewLpLedgerEntryClient(cfg),
 		MerchantBankAccount:         NewMerchantBankAccountClient(cfg),
 		Network:                     NewNetworkClient(cfg),
 		PaymentOrder:                NewPaymentOrderClient(cfg),
@@ -298,6 +308,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Institution:                 NewInstitutionClient(cfg),
 		LockOrderFulfillment:        NewLockOrderFulfillmentClient(cfg),
 		LockPaymentOrder:            NewLockPaymentOrderClient(cfg),
+		LpAccount:                   NewLpAccountClient(cfg),
+		LpLedgerEntry:               NewLpLedgerEntryClient(cfg),
 		MerchantBankAccount:         NewMerchantBankAccountClient(cfg),
 		Network:                     NewNetworkClient(cfg),
 		PaymentOrder:                NewPaymentOrderClient(cfg),
@@ -350,12 +362,12 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.AdminAuditLog, c.CardServerNonce, c.FiatCurrency,
 		c.IdentityVerificationRequest, c.Institution, c.LockOrderFulfillment,
-		c.LockPaymentOrder, c.MerchantBankAccount, c.Network, c.PaymentOrder,
-		c.PaymentOrderRecipient, c.ProviderOrderToken, c.ProviderProfile,
-		c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress, c.RefreshToken,
-		c.RouteAEvent, c.RouteAOrder, c.SenderOrderToken, c.SenderProfile,
-		c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog, c.User,
-		c.VerificationToken, c.WebhookRetryAttempt,
+		c.LockPaymentOrder, c.LpAccount, c.LpLedgerEntry, c.MerchantBankAccount,
+		c.Network, c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
+		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
+		c.RefreshToken, c.RouteAEvent, c.RouteAOrder, c.SenderOrderToken,
+		c.SenderProfile, c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog,
+		c.User, c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Use(hooks...)
 	}
@@ -367,12 +379,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.AdminAuditLog, c.CardServerNonce, c.FiatCurrency,
 		c.IdentityVerificationRequest, c.Institution, c.LockOrderFulfillment,
-		c.LockPaymentOrder, c.MerchantBankAccount, c.Network, c.PaymentOrder,
-		c.PaymentOrderRecipient, c.ProviderOrderToken, c.ProviderProfile,
-		c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress, c.RefreshToken,
-		c.RouteAEvent, c.RouteAOrder, c.SenderOrderToken, c.SenderProfile,
-		c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog, c.User,
-		c.VerificationToken, c.WebhookRetryAttempt,
+		c.LockPaymentOrder, c.LpAccount, c.LpLedgerEntry, c.MerchantBankAccount,
+		c.Network, c.PaymentOrder, c.PaymentOrderRecipient, c.ProviderOrderToken,
+		c.ProviderProfile, c.ProviderRating, c.ProvisionBucket, c.ReceiveAddress,
+		c.RefreshToken, c.RouteAEvent, c.RouteAOrder, c.SenderOrderToken,
+		c.SenderProfile, c.SuiReceiveAddress, c.TappCard, c.Token, c.TransactionLog,
+		c.User, c.VerificationToken, c.WebhookRetryAttempt,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -397,6 +409,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.LockOrderFulfillment.mutate(ctx, m)
 	case *LockPaymentOrderMutation:
 		return c.LockPaymentOrder.mutate(ctx, m)
+	case *LpAccountMutation:
+		return c.LpAccount.mutate(ctx, m)
+	case *LpLedgerEntryMutation:
+		return c.LpLedgerEntry.mutate(ctx, m)
 	case *MerchantBankAccountMutation:
 		return c.MerchantBankAccount.mutate(ctx, m)
 	case *NetworkMutation:
@@ -1745,6 +1761,320 @@ func (c *LockPaymentOrderClient) mutate(ctx context.Context, m *LockPaymentOrder
 		return (&LockPaymentOrderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown LockPaymentOrder mutation op: %q", m.Op())
+	}
+}
+
+// LpAccountClient is a client for the LpAccount schema.
+type LpAccountClient struct {
+	config
+}
+
+// NewLpAccountClient returns a client for the LpAccount from the given config.
+func NewLpAccountClient(c config) *LpAccountClient {
+	return &LpAccountClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `lpaccount.Hooks(f(g(h())))`.
+func (c *LpAccountClient) Use(hooks ...Hook) {
+	c.hooks.LpAccount = append(c.hooks.LpAccount, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `lpaccount.Intercept(f(g(h())))`.
+func (c *LpAccountClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LpAccount = append(c.inters.LpAccount, interceptors...)
+}
+
+// Create returns a builder for creating a LpAccount entity.
+func (c *LpAccountClient) Create() *LpAccountCreate {
+	mutation := newLpAccountMutation(c.config, OpCreate)
+	return &LpAccountCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LpAccount entities.
+func (c *LpAccountClient) CreateBulk(builders ...*LpAccountCreate) *LpAccountCreateBulk {
+	return &LpAccountCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LpAccountClient) MapCreateBulk(slice any, setFunc func(*LpAccountCreate, int)) *LpAccountCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LpAccountCreateBulk{err: fmt.Errorf("calling to LpAccountClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LpAccountCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LpAccountCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LpAccount.
+func (c *LpAccountClient) Update() *LpAccountUpdate {
+	mutation := newLpAccountMutation(c.config, OpUpdate)
+	return &LpAccountUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LpAccountClient) UpdateOne(la *LpAccount) *LpAccountUpdateOne {
+	mutation := newLpAccountMutation(c.config, OpUpdateOne, withLpAccount(la))
+	return &LpAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LpAccountClient) UpdateOneID(id uuid.UUID) *LpAccountUpdateOne {
+	mutation := newLpAccountMutation(c.config, OpUpdateOne, withLpAccountID(id))
+	return &LpAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LpAccount.
+func (c *LpAccountClient) Delete() *LpAccountDelete {
+	mutation := newLpAccountMutation(c.config, OpDelete)
+	return &LpAccountDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LpAccountClient) DeleteOne(la *LpAccount) *LpAccountDeleteOne {
+	return c.DeleteOneID(la.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LpAccountClient) DeleteOneID(id uuid.UUID) *LpAccountDeleteOne {
+	builder := c.Delete().Where(lpaccount.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LpAccountDeleteOne{builder}
+}
+
+// Query returns a query builder for LpAccount.
+func (c *LpAccountClient) Query() *LpAccountQuery {
+	return &LpAccountQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLpAccount},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LpAccount entity by its id.
+func (c *LpAccountClient) Get(ctx context.Context, id uuid.UUID) (*LpAccount, error) {
+	return c.Query().Where(lpaccount.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LpAccountClient) GetX(ctx context.Context, id uuid.UUID) *LpAccount {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a LpAccount.
+func (c *LpAccountClient) QueryUser(la *LpAccount) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := la.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lpaccount.Table, lpaccount.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, lpaccount.UserTable, lpaccount.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(la.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryLedgerEntries queries the ledger_entries edge of a LpAccount.
+func (c *LpAccountClient) QueryLedgerEntries(la *LpAccount) *LpLedgerEntryQuery {
+	query := (&LpLedgerEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := la.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lpaccount.Table, lpaccount.FieldID, id),
+			sqlgraph.To(lpledgerentry.Table, lpledgerentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, lpaccount.LedgerEntriesTable, lpaccount.LedgerEntriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(la.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LpAccountClient) Hooks() []Hook {
+	return c.hooks.LpAccount
+}
+
+// Interceptors returns the client interceptors.
+func (c *LpAccountClient) Interceptors() []Interceptor {
+	return c.inters.LpAccount
+}
+
+func (c *LpAccountClient) mutate(ctx context.Context, m *LpAccountMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LpAccountCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LpAccountUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LpAccountUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LpAccountDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LpAccount mutation op: %q", m.Op())
+	}
+}
+
+// LpLedgerEntryClient is a client for the LpLedgerEntry schema.
+type LpLedgerEntryClient struct {
+	config
+}
+
+// NewLpLedgerEntryClient returns a client for the LpLedgerEntry from the given config.
+func NewLpLedgerEntryClient(c config) *LpLedgerEntryClient {
+	return &LpLedgerEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `lpledgerentry.Hooks(f(g(h())))`.
+func (c *LpLedgerEntryClient) Use(hooks ...Hook) {
+	c.hooks.LpLedgerEntry = append(c.hooks.LpLedgerEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `lpledgerentry.Intercept(f(g(h())))`.
+func (c *LpLedgerEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LpLedgerEntry = append(c.inters.LpLedgerEntry, interceptors...)
+}
+
+// Create returns a builder for creating a LpLedgerEntry entity.
+func (c *LpLedgerEntryClient) Create() *LpLedgerEntryCreate {
+	mutation := newLpLedgerEntryMutation(c.config, OpCreate)
+	return &LpLedgerEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LpLedgerEntry entities.
+func (c *LpLedgerEntryClient) CreateBulk(builders ...*LpLedgerEntryCreate) *LpLedgerEntryCreateBulk {
+	return &LpLedgerEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LpLedgerEntryClient) MapCreateBulk(slice any, setFunc func(*LpLedgerEntryCreate, int)) *LpLedgerEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LpLedgerEntryCreateBulk{err: fmt.Errorf("calling to LpLedgerEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LpLedgerEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LpLedgerEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LpLedgerEntry.
+func (c *LpLedgerEntryClient) Update() *LpLedgerEntryUpdate {
+	mutation := newLpLedgerEntryMutation(c.config, OpUpdate)
+	return &LpLedgerEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LpLedgerEntryClient) UpdateOne(lle *LpLedgerEntry) *LpLedgerEntryUpdateOne {
+	mutation := newLpLedgerEntryMutation(c.config, OpUpdateOne, withLpLedgerEntry(lle))
+	return &LpLedgerEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LpLedgerEntryClient) UpdateOneID(id uuid.UUID) *LpLedgerEntryUpdateOne {
+	mutation := newLpLedgerEntryMutation(c.config, OpUpdateOne, withLpLedgerEntryID(id))
+	return &LpLedgerEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LpLedgerEntry.
+func (c *LpLedgerEntryClient) Delete() *LpLedgerEntryDelete {
+	mutation := newLpLedgerEntryMutation(c.config, OpDelete)
+	return &LpLedgerEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LpLedgerEntryClient) DeleteOne(lle *LpLedgerEntry) *LpLedgerEntryDeleteOne {
+	return c.DeleteOneID(lle.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LpLedgerEntryClient) DeleteOneID(id uuid.UUID) *LpLedgerEntryDeleteOne {
+	builder := c.Delete().Where(lpledgerentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LpLedgerEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for LpLedgerEntry.
+func (c *LpLedgerEntryClient) Query() *LpLedgerEntryQuery {
+	return &LpLedgerEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLpLedgerEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LpLedgerEntry entity by its id.
+func (c *LpLedgerEntryClient) Get(ctx context.Context, id uuid.UUID) (*LpLedgerEntry, error) {
+	return c.Query().Where(lpledgerentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LpLedgerEntryClient) GetX(ctx context.Context, id uuid.UUID) *LpLedgerEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryLpAccount queries the lp_account edge of a LpLedgerEntry.
+func (c *LpLedgerEntryClient) QueryLpAccount(lle *LpLedgerEntry) *LpAccountQuery {
+	query := (&LpAccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := lle.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(lpledgerentry.Table, lpledgerentry.FieldID, id),
+			sqlgraph.To(lpaccount.Table, lpaccount.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, lpledgerentry.LpAccountTable, lpledgerentry.LpAccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(lle.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *LpLedgerEntryClient) Hooks() []Hook {
+	return c.hooks.LpLedgerEntry
+}
+
+// Interceptors returns the client interceptors.
+func (c *LpLedgerEntryClient) Interceptors() []Interceptor {
+	return c.inters.LpLedgerEntry
+}
+
+func (c *LpLedgerEntryClient) mutate(ctx context.Context, m *LpLedgerEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LpLedgerEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LpLedgerEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LpLedgerEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LpLedgerEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LpLedgerEntry mutation op: %q", m.Op())
 	}
 }
 
@@ -4954,6 +5284,22 @@ func (c *UserClient) QueryProviderProfile(u *User) *ProviderProfileQuery {
 	return query
 }
 
+// QueryLpAccount queries the lp_account edge of a User.
+func (c *UserClient) QueryLpAccount(u *User) *LpAccountQuery {
+	query := (&LpAccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(lpaccount.Table, lpaccount.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.LpAccountTable, user.LpAccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryVerificationToken queries the verification_token edge of a User.
 func (c *UserClient) QueryVerificationToken(u *User) *VerificationTokenQuery {
 	query := (&VerificationTokenClient{config: c.config}).Query()
@@ -5315,19 +5661,20 @@ type (
 	hooks struct {
 		APIKey, AdminAuditLog, CardServerNonce, FiatCurrency,
 		IdentityVerificationRequest, Institution, LockOrderFulfillment,
-		LockPaymentOrder, MerchantBankAccount, Network, PaymentOrder,
-		PaymentOrderRecipient, ProviderOrderToken, ProviderProfile, ProviderRating,
-		ProvisionBucket, ReceiveAddress, RefreshToken, RouteAEvent, RouteAOrder,
-		SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard, Token,
-		TransactionLog, User, VerificationToken, WebhookRetryAttempt []ent.Hook
+		LockPaymentOrder, LpAccount, LpLedgerEntry, MerchantBankAccount, Network,
+		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
+		ProviderRating, ProvisionBucket, ReceiveAddress, RefreshToken, RouteAEvent,
+		RouteAOrder, SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard,
+		Token, TransactionLog, User, VerificationToken, WebhookRetryAttempt []ent.Hook
 	}
 	inters struct {
 		APIKey, AdminAuditLog, CardServerNonce, FiatCurrency,
 		IdentityVerificationRequest, Institution, LockOrderFulfillment,
-		LockPaymentOrder, MerchantBankAccount, Network, PaymentOrder,
-		PaymentOrderRecipient, ProviderOrderToken, ProviderProfile, ProviderRating,
-		ProvisionBucket, ReceiveAddress, RefreshToken, RouteAEvent, RouteAOrder,
-		SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard, Token,
-		TransactionLog, User, VerificationToken, WebhookRetryAttempt []ent.Interceptor
+		LockPaymentOrder, LpAccount, LpLedgerEntry, MerchantBankAccount, Network,
+		PaymentOrder, PaymentOrderRecipient, ProviderOrderToken, ProviderProfile,
+		ProviderRating, ProvisionBucket, ReceiveAddress, RefreshToken, RouteAEvent,
+		RouteAOrder, SenderOrderToken, SenderProfile, SuiReceiveAddress, TappCard,
+		Token, TransactionLog, User, VerificationToken,
+		WebhookRetryAttempt []ent.Interceptor
 	}
 )
