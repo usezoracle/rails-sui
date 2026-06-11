@@ -857,11 +857,15 @@ func StartCronJobs() {
 		logger.Infof("StartCronJobs: SUI_GATEWAY_PACKAGE_ID empty — skipping deposit watcher")
 	}
 
-	// Route A dispatcher — every minute, advances RouteAOrder rows through
-	// pending → bridging → bridged → dispatching → settled via LiFi +
-	// settlement Gateway. See docs/route-a-settlement.md.
+	// Route A dispatcher — every 10 seconds, advances RouteAOrder rows
+	// through pending → bridging → bridged → dispatching → settled.
+	// A tick with no actionable orders is five cheap DB queries, so the
+	// short interval costs nothing idle but collapses the per-hop wait
+	// (burn → attest → mint → dispatch each used to idle up to 60s at
+	// a tick boundary; now ≤10s). Tick itself skips when a previous
+	// run is still in flight and holds the cross-instance Redis lease.
 	routeAD := services.NewRouteADispatcher()
-	if _, err := scheduler.Cron("*/1 * * * *").Do(func() {
+	if _, err := scheduler.Every(10).Seconds().Do(func() {
 		if err := routeAD.Tick(context.Background()); err != nil {
 			logger.Errorf("StartCronJobs: route-a dispatcher: %v", err)
 		}

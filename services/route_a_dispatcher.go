@@ -28,6 +28,7 @@ import (
 	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	suisdk "github.com/block-vision/sui-go-sdk/sui"
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	ethmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
@@ -170,6 +171,12 @@ type RouteADispatcher struct {
 	// 2026-06-11 incident: a stale local dev server raced the Railway
 	// dispatcher and clobbered an in-flight order's state).
 	instanceID string
+
+	// tickMu makes ticks non-overlapping within this process: at a
+	// 10-second cadence a slow tick (waitMined on Base can take
+	// longer) would otherwise stack concurrent runs that double-
+	// process the same orders before any CAS guard can apply.
+	tickMu sync.Mutex
 }
 
 // Dispatcher singleton lease. Whoever holds the Redis key ticks;
@@ -298,6 +305,11 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 	if d.signer == nil {
 		return errors.New("route-a dispatcher: SUI_AGGREGATOR_PRIVATE_KEY not configured")
 	}
+	// Previous tick still running → skip; the next 10s tick catches up.
+	if !d.tickMu.TryLock() {
+		return nil
+	}
+	defer d.tickMu.Unlock()
 	if !d.acquireLease(ctx) {
 		logger.Infof("🤝 route-a: another dispatcher instance holds the lease — skipping tick")
 		return nil
@@ -434,7 +446,7 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 // yet — that's the case ErrAwaitingDepositAtAggregator covers, which
 // satisfies SkipSentinel and is recorded as `skipped`).
 func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrder) (err error) {
-	timer := Time(ctx, order.ID, StepBridgeSubmit, ActorDispatcher)
+	timer := TimeSampled(ctx, order.ID, StepBridgeSubmit, ActorDispatcher)
 	defer timer.End(&err)
 
 	if order.Edges.PaymentOrder == nil {
@@ -617,7 +629,7 @@ func (d *RouteADispatcher) advanceBridging(ctx context.Context) error {
 // exactly how long each upstream call took and what status came back.
 func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAOrder) {
 	var err error
-	timer := Time(ctx, order.ID, StepBridgePoll, ActorDispatcher).
+	timer := TimePollSampled(ctx, order.ID, StepBridgePoll, ActorDispatcher).
 		With("bridge_tx_sui", order.BridgeTxSui).
 		With("lifi_tool", order.LifiTool)
 	defer timer.End(&err)
@@ -653,6 +665,7 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 				err = uerr
 				return
 			}
+			timer.Milestone()
 			logger.Infof("🤔 route-a: order %d → bridge_uncertain (tool=%s stale_after=%s)",
 				order.ID, order.LifiTool, staleAfter)
 			LogOnce(ctx, order.ID, StepBridgeUncertain, StatusStarted, ActorDispatcher,
@@ -674,6 +687,7 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 
 	switch status.Status {
 	case "DONE":
+		timer.Milestone()
 		update := order.Update().
 			Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
 			SetBridgeStatus(routeaorder.BridgeStatusBridged)
@@ -707,6 +721,7 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			}, "", "")
 
 	case "FAILED":
+		timer.Milestone()
 		reason := status.SubstatusMsg
 		if reason == "" {
 			reason = status.Substatus
@@ -766,7 +781,7 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 		}
 
 		var loopErr error
-		timer := Time(ctx, order.ID, StepBridgeUncertain, ActorDispatcher).
+		timer := TimePollSampled(ctx, order.ID, StepBridgeUncertain, ActorDispatcher).
 			With("bridge_tx_sui", order.BridgeTxSui).
 			With("lifi_tool", order.LifiTool).
 			With("age", time.Since(order.UpdatedAt).String())
@@ -783,7 +798,7 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 			switch status.Status {
 			case "DONE":
 				if d.markBridgedFromStatus(ctx, order, status) {
-					timer.With("recovered_via", "lifi_late_done")
+					timer.Milestone().With("recovered_via", "lifi_late_done")
 					timer.End(&loopErr)
 					continue
 				}
@@ -803,7 +818,7 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 						logger.Errorf("❌ route-a: persist late FAILED for %d: %v", order.ID, uerr)
 					}
 				}
-				timer.With("recovered_via", "lifi_late_failed")
+				timer.Milestone().With("recovered_via", "lifi_late_failed")
 				timer.End(&loopErr)
 				continue
 			}
@@ -833,7 +848,7 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 					logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
 				}
 			}
-			timer.With("recovered_via", "window_expired_to_failed")
+			timer.Milestone().With("recovered_via", "window_expired_to_failed")
 		}
 		timer.End(&loopErr)
 	}
@@ -933,7 +948,7 @@ func (d *RouteADispatcher) advanceBridged(ctx context.Context) error {
 // order in `bridged` for the next tick to retry. Hard failures (config
 // missing, invalid recipient) mark the order failed and surface to ops.
 func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrder) (err error) {
-	timer := Time(ctx, order.ID, StepEvmCreateOrder, ActorDispatcher).
+	timer := TimeSampled(ctx, order.ID, StepEvmCreateOrder, ActorDispatcher).
 		With("base_chain_id", d.conf.BaseChainID)
 	defer timer.End(&err)
 
@@ -1053,12 +1068,22 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		With("sender_fee_subunit", senderFee.String()).
 		With("rate_scaled", rate.String())
 
+	// Allowance: grant the Gateway a one-time max approval instead of
+	// re-approving per order — our own settlement contract, and each
+	// approve tx costs a receipt wait (~5-10s) on the hot path. The
+	// allowance check makes this a free no-op on every dispatch after
+	// the first.
 	approveErr := func() (aerr error) {
+		var current *big.Int
+		current, aerr = d.evm.USDC().Allowance(ctx, d.evm.From(), d.evm.Config().GatewayAddr)
+		if aerr != nil || current.Cmp(total) >= 0 {
+			return
+		}
 		atimer := Time(ctx, order.ID, StepEvmApprove, ActorDispatcher).
-			With("approve_total", total.String()).
+			With("approve_total", "max").
 			With("spender", d.evm.Config().GatewayAddr.Hex())
 		defer atimer.End(&aerr)
-		_, aerr = d.evm.USDC().Approve(ctx, d.evm.Config().GatewayAddr, total)
+		_, aerr = d.evm.USDC().Approve(ctx, d.evm.Config().GatewayAddr, ethmath.MaxBig256)
 		return
 	}()
 	if approveErr != nil {

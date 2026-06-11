@@ -23,6 +23,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -146,6 +148,86 @@ type Timer struct {
 	startedAt     time.Time
 	correlationID string
 	payload       map[string]any
+
+	// Sampling state (TimeSampled / TimePollSampled). A lazy timer
+	// wrote no `started` row and suppresses its terminal row unless
+	// forced (Milestone), or — for submit-style steps — the attempt
+	// succeeded. Keeps hot 10-second retry loops from writing
+	// thousands of identical rows (the 2026-06-11 order produced a
+	// 1,000+ step timeline overnight).
+	lazy      bool
+	force     bool
+	pollStyle bool
+}
+
+// attemptCounters tracks consecutive attempts per (order, step) for
+// sampling. Reset when a submit-style step succeeds (the loop exits).
+var (
+	attemptCountersMu sync.Mutex
+	attemptCounters   = map[string]int{}
+)
+
+func nextAttempt(orderID int, step EventStep) int {
+	key := fmt.Sprintf("%d/%s", orderID, step)
+	attemptCountersMu.Lock()
+	defer attemptCountersMu.Unlock()
+	attemptCounters[key]++
+	return attemptCounters[key]
+}
+
+func resetAttempts(orderID int, step EventStep) {
+	key := fmt.Sprintf("%d/%s", orderID, step)
+	attemptCountersMu.Lock()
+	defer attemptCountersMu.Unlock()
+	delete(attemptCounters, key)
+}
+
+// TimeSampled is Time() for submit-style retry loops (bridge_submit,
+// evm_create_order): attempts 1–3 and every 10th are fully recorded;
+// the rest record only if they succeed. A success always writes (and
+// resets the counter) — the moment an order finally bridges or
+// dispatches must never be invisible.
+func TimeSampled(ctx context.Context, orderID int, step EventStep, actor EventActor) *Timer {
+	n := nextAttempt(orderID, step)
+	if n <= 3 || n%10 == 0 {
+		t := Time(ctx, orderID, step, actor)
+		t.payload["attempt"] = n
+		return t
+	}
+	return &Timer{
+		ctx: ctx, orderID: orderID, step: step, actor: actor,
+		startedAt: time.Now(), correlationID: uuid.NewString(),
+		payload: map[string]any{"attempt": n}, lazy: true,
+	}
+}
+
+// TimePollSampled is Time() for poll-style loops (bridge_poll,
+// bridge_uncertain): most polls are boring ("still pending") and are
+// suppressed; a heartbeat row lands every 30th attempt (~5 min at the
+// 10s tick), and call sites mark state-changing polls with
+// Milestone() to force the write.
+func TimePollSampled(ctx context.Context, orderID int, step EventStep, actor EventActor) *Timer {
+	n := nextAttempt(orderID, step)
+	if n <= 1 || n%30 == 0 {
+		t := Time(ctx, orderID, step, actor)
+		t.payload["attempt"] = n
+		t.pollStyle = true
+		return t
+	}
+	return &Timer{
+		ctx: ctx, orderID: orderID, step: step, actor: actor,
+		startedAt: time.Now(), correlationID: uuid.NewString(),
+		payload: map[string]any{"attempt": n}, lazy: true, pollStyle: true,
+	}
+}
+
+// Milestone marks this attempt as state-changing — its row is written
+// even if sampling would have suppressed it.
+func (t *Timer) Milestone() *Timer {
+	if t != nil {
+		t.force = true
+	}
+	return t
 }
 
 // Time writes a `started` row immediately and returns a Timer.
@@ -201,6 +283,17 @@ func (t *Timer) End(err *error) {
 		default:
 			status = StatusFailed
 			msg = (*err).Error()
+		}
+	}
+
+	// Submit-style sampled steps: success ends the retry loop — reset
+	// the attempt counter and always record it.
+	if !t.pollStyle && status == StatusSucceeded {
+		resetAttempts(t.orderID, t.step)
+	}
+	if t.lazy && !t.force {
+		if t.pollStyle || status != StatusSucceeded {
+			return // suppressed boring/repeat attempt
 		}
 	}
 	t.payload["duration_ms"] = time.Since(t.startedAt).Milliseconds()

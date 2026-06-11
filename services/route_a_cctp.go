@@ -215,7 +215,7 @@ func (d *RouteADispatcher) startCCTPBridge(ctx context.Context, order *ent.Route
 		return fmt.Errorf("source coin %s is not native Sui USDC — CCTP can't bridge it", tok.ContractAddress)
 	}
 
-	timer := Time(ctx, order.ID, StepBridgeSubmit, ActorDispatcher).
+	timer := TimeSampled(ctx, order.ID, StepBridgeSubmit, ActorDispatcher).
 		With("provider", routeAProviderCCTP)
 	if lifiFailures > 0 {
 		timer.With("lifi_failures_before_fallback", lifiFailures)
@@ -304,7 +304,7 @@ func (d *RouteADispatcher) startCCTPBridge(ctx context.Context, order *ent.Route
 //	burn digest → Iris message+attestation → receiveMessage on Base → bridged
 func (d *RouteADispatcher) pollOneCCTP(ctx context.Context, order *ent.RouteAOrder) {
 	var err error
-	timer := Time(ctx, order.ID, StepBridgePoll, ActorDispatcher).
+	timer := TimePollSampled(ctx, order.ID, StepBridgePoll, ActorDispatcher).
 		With("provider", routeAProviderCCTP).
 		With("bridge_tx_sui", order.BridgeTxSui)
 	defer timer.End(&err)
@@ -337,7 +337,7 @@ func (d *RouteADispatcher) pollOneCCTP(ctx context.Context, order *ent.RouteAOrd
 				return
 			}
 			logger.Infof("🤔 route-a: order %d → bridge_uncertain (cctp, stale_after=%s)", order.ID, staleAfter)
-			timer.With("transitioned", "bridge_uncertain")
+			timer.Milestone().With("transitioned", "bridge_uncertain")
 		}
 		return
 	case ierr != nil:
@@ -354,6 +354,10 @@ func (d *RouteADispatcher) pollOneCCTP(ctx context.Context, order *ent.RouteAOrd
 // finishCCTPMint validates the attested message, submits (or skips, if
 // already mined) the Base receiveMessage, and marks the order bridged.
 func (d *RouteADispatcher) finishCCTPMint(ctx context.Context, order *ent.RouteAOrder, att *cctp.AttestedMessage, timer *Timer) error {
+	// The attestation arrived — this poll is state-changing by
+	// definition; record it even when sampling would suppress.
+	timer.Milestone()
+
 	msg, err := cctp.ParseBurnMessage(att.Message)
 	if err != nil {
 		return err
@@ -430,7 +434,7 @@ func (d *RouteADispatcher) finishCCTPMint(ctx context.Context, order *ent.RouteA
 // and fail only after the same 24h window the LiFi path uses.
 func (d *RouteADispatcher) recoverUncertainCCTP(ctx context.Context, order *ent.RouteAOrder) {
 	var err error
-	timer := Time(ctx, order.ID, StepBridgeUncertain, ActorDispatcher).
+	timer := TimePollSampled(ctx, order.ID, StepBridgeUncertain, ActorDispatcher).
 		With("provider", routeAProviderCCTP).
 		With("bridge_tx_sui", order.BridgeTxSui).
 		With("age", time.Since(order.UpdatedAt).String())
@@ -439,7 +443,7 @@ func (d *RouteADispatcher) recoverUncertainCCTP(ctx context.Context, order *ent.
 	att, ierr := d.cctpIris.MessageFor(ctx, d.cctpNet.SuiDomain, order.BridgeTxSui)
 	if ierr == nil {
 		if err = d.finishCCTPMint(ctx, order, att, timer); err == nil {
-			timer.With("recovered_via", "late_attestation")
+			timer.Milestone().With("recovered_via", "late_attestation")
 			return
 		}
 		logger.Errorf("❌ route-a: late cctp mint for %d: %v", order.ID, err)
@@ -461,7 +465,7 @@ func (d *RouteADispatcher) recoverUncertainCCTP(ctx context.Context, order *ent.
 				logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
 			}
 		}
-		timer.With("recovered_via", "window_expired_to_failed")
+		timer.Milestone().With("recovered_via", "window_expired_to_failed")
 	}
 }
 
