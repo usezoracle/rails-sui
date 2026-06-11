@@ -384,6 +384,9 @@ func (w *SuiDepositWatcher) reconcileForwardedRouteA(ctx context.Context) error 
 				"forward_tx":       addr.ForwardTxDigest,
 			},
 			"", addr.ForwardTxDigest)
+		// Funds just landed at the aggregator — burst the dispatcher so
+		// the bridge starts within seconds instead of at the next tick.
+		KickRouteA()
 	}
 	return nil
 }

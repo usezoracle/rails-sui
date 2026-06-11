@@ -291,8 +291,8 @@ func (d *RouteADispatcher) startCCTPBridge(ctx context.Context, order *ent.Route
 	timer.With("bridge_tx_sui", digest).
 		With("amount_subunits", amountSubunits).
 		With("mint_recipient", recipient.Hex())
-	logger.Infof("✅ route-a: CCTP fallback bridge initiated order=%d tx=%s (after %d LiFi quote failures)",
-		order.ID, digest, lifiFailures)
+	logger.Infof("✅ route-a: CCTP bridge initiated order=%d tx=%s", order.ID, digest)
+	d.ExtendBurst() // chase the attestation without tick waits
 	return nil
 }
 
@@ -419,6 +419,7 @@ func (d *RouteADispatcher) finishCCTPMint(ctx context.Context, order *ent.RouteA
 		With("cctp_nonce", msg.Nonce)
 	logger.Infof("✅ route-a: CCTP bridge DONE order=%d amount=%s USDC dest_tx=%s",
 		order.ID, bridgedAmount.String(), destTxHash)
+	d.ExtendBurst() // dispatch on the next burst tick, not the next cron
 	LogOnce(ctx, order.ID, StepBridgeDone, StatusSucceeded, ActorDispatcher,
 		map[string]any{
 			"provider":       routeAProviderCCTP,

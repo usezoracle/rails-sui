@@ -423,6 +423,10 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 			} else {
 				logger.Errorf("TapCardDebit: locate route-a order for self_settle event: %v", qerr)
 			}
+			// Wake the dispatcher now — the funds are at the
+			// aggregator; burst mode bridges within seconds instead
+			// of waiting for the next cron tick.
+			svc.KickRouteA()
 		} else {
 			logger.Warnf("TapCardDebit: aggregator service not initialized — proceeding with stub digest")
 		}

@@ -447,6 +447,9 @@ func (s *SuiEventIndexer) handleRouteAIfApplicable(ctx context.Context, evt *typ
 			"forward_tx":       evt.TxDigest,
 		},
 		"", evt.TxDigest)
+	// Funds just landed at the aggregator — burst the dispatcher so the
+	// bridge starts within seconds instead of at the next cron tick.
+	KickRouteA()
 
 	// Stamp the PaymentOrder so we can correlate later and surface state.
 	if _, err := po.Update().SetGatewayID(evt.OrderID).SetTxHash(evt.TxDigest).Save(ctx); err != nil {

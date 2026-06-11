@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	suiconst "github.com/block-vision/sui-go-sdk/constant"
@@ -177,6 +178,68 @@ type RouteADispatcher struct {
 	// longer) would otherwise stack concurrent runs that double-
 	// process the same orders before any CAS guard can apply.
 	tickMu sync.Mutex
+
+	// Burst mode: when an order makes progress (tap debited, burn
+	// landed, mint done, dispatch submitted) the dispatcher ticks
+	// every burstTickInterval until burstUntil, so the pipeline
+	// chains hop-to-hop without waiting for the cron boundary. Every
+	// successful advance extends the window, so a single in-flight
+	// order is chased continuously from tap to settled; the 10s cron
+	// remains the crash-recovery backstop.
+	burstMu    sync.Mutex
+	burstUntil time.Time
+	burstWake  chan struct{}
+}
+
+// activeRouteADispatcher lets API handlers (which never construct the
+// dispatcher) nudge the worker's instance. Nil in API-only processes
+// (DISABLE_BACKGROUND_JOBS) — KickRouteA degrades to a no-op there and
+// the lease-holding worker's cron picks the order up within 10s.
+var activeRouteADispatcher atomic.Pointer[RouteADispatcher]
+
+const (
+	burstWindow       = 90 * time.Second
+	burstTickInterval = 3 * time.Second
+)
+
+// KickRouteA asks the in-process dispatcher (if any) to start/extend
+// burst ticking. Called after events that create dispatcher work:
+// card debits, deposit self-settles.
+func KickRouteA() {
+	if d := activeRouteADispatcher.Load(); d != nil {
+		d.ExtendBurst()
+	}
+}
+
+// ExtendBurst (re)opens the burst window and wakes the burst loop.
+func (d *RouteADispatcher) ExtendBurst() {
+	d.burstMu.Lock()
+	d.burstUntil = time.Now().Add(burstWindow)
+	d.burstMu.Unlock()
+	select {
+	case d.burstWake <- struct{}{}:
+	default: // loop already awake
+	}
+}
+
+// runBurstLoop ticks every burstTickInterval while the burst window is
+// open. Tick itself is lease-guarded, CAS-guarded, and non-overlapping,
+// so burst ticks compose safely with the cron's.
+func (d *RouteADispatcher) runBurstLoop() {
+	for range d.burstWake {
+		for {
+			d.burstMu.Lock()
+			until := d.burstUntil
+			d.burstMu.Unlock()
+			if time.Now().After(until) {
+				break
+			}
+			if err := d.Tick(context.Background()); err != nil {
+				logger.Errorf("❌ route-a: burst tick: %v", err)
+			}
+			time.Sleep(burstTickInterval)
+		}
+	}
 }
 
 // Dispatcher singleton lease. Whoever holds the Redis key ticks;
@@ -235,7 +298,10 @@ func NewRouteADispatcher() *RouteADispatcher {
 		lifi:            lifi.New(conf.LiFiAPIKey),
 		quoteFailCounts: make(map[int]int),
 		instanceID:      uuid.NewString(),
+		burstWake:       make(chan struct{}, 1),
 	}
+	go d.runBurstLoop()
+	activeRouteADispatcher.Store(d)
 
 	// CCTP fallback wiring — constants resolved from the destination
 	// chain id; nothing else in the dispatcher changes when this is
@@ -588,6 +654,7 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 		With("estimated_to_amount", quote.Estimate.ToAmount).
 		With("estimated_to_amount_min", quote.Estimate.ToAmountMin)
 	logger.Infof("✅ route-a: bridge initiated order=%d tool=%s tx=%s", order.ID, quote.Tool, resp.Digest)
+	d.ExtendBurst() // chase this order through polling without tick waits
 	return nil
 }
 
@@ -713,6 +780,7 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			return
 		}
 		logger.Infof("✅ route-a: bridge DONE order=%d", order.ID)
+		d.ExtendBurst() // dispatch on the next burst tick, not the next cron
 		// Distinct `bridge_done` row so the timeline shows the
 		// completion moment cleanly (the poll row is just the call).
 		LogOnce(ctx, order.ID, StepBridgeDone, StatusSucceeded, ActorDispatcher,
@@ -1120,6 +1188,7 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 	}
 	logger.Infof("✅ route-a: createOrder submitted order=%d orderId=%s tx=%s gas=%d",
 		order.ID, orderID, result.TxHash.Hex(), result.GasUsed)
+	d.ExtendBurst() // keep chasing through settlement polling
 	timer.With("gateway_order_id", orderID).
 		With("evm_tx_hash", result.TxHash.Hex()).
 		With("gas_used", result.GasUsed)
