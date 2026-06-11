@@ -111,6 +111,20 @@ func (lac *LpAccountCreate) SetNillableStatus(l *lpaccount.Status) *LpAccountCre
 	return lac
 }
 
+// SetSuiUsdcAddress sets the "sui_usdc_address" field.
+func (lac *LpAccountCreate) SetSuiUsdcAddress(s string) *LpAccountCreate {
+	lac.mutation.SetSuiUsdcAddress(s)
+	return lac
+}
+
+// SetNillableSuiUsdcAddress sets the "sui_usdc_address" field if the given value is not nil.
+func (lac *LpAccountCreate) SetNillableSuiUsdcAddress(s *string) *LpAccountCreate {
+	if s != nil {
+		lac.SetSuiUsdcAddress(*s)
+	}
+	return lac
+}
+
 // SetBalance sets the "balance" field.
 func (lac *LpAccountCreate) SetBalance(d decimal.Decimal) *LpAccountCreate {
 	lac.mutation.SetBalance(d)
@@ -334,6 +348,10 @@ func (lac *LpAccountCreate) createSpec() (*LpAccount, *sqlgraph.CreateSpec) {
 		_spec.SetField(lpaccount.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
 	}
+	if value, ok := lac.mutation.SuiUsdcAddress(); ok {
+		_spec.SetField(lpaccount.FieldSuiUsdcAddress, field.TypeString, value)
+		_node.SuiUsdcAddress = value
+	}
 	if value, ok := lac.mutation.Balance(); ok {
 		_spec.SetField(lpaccount.FieldBalance, field.TypeFloat64, value)
 		_node.Balance = value
@@ -531,6 +549,24 @@ func (u *LpAccountUpsert) UpdateStatus() *LpAccountUpsert {
 	return u
 }
 
+// SetSuiUsdcAddress sets the "sui_usdc_address" field.
+func (u *LpAccountUpsert) SetSuiUsdcAddress(v string) *LpAccountUpsert {
+	u.Set(lpaccount.FieldSuiUsdcAddress, v)
+	return u
+}
+
+// UpdateSuiUsdcAddress sets the "sui_usdc_address" field to the value that was provided on create.
+func (u *LpAccountUpsert) UpdateSuiUsdcAddress() *LpAccountUpsert {
+	u.SetExcluded(lpaccount.FieldSuiUsdcAddress)
+	return u
+}
+
+// ClearSuiUsdcAddress clears the value of the "sui_usdc_address" field.
+func (u *LpAccountUpsert) ClearSuiUsdcAddress() *LpAccountUpsert {
+	u.SetNull(lpaccount.FieldSuiUsdcAddress)
+	return u
+}
+
 // SetBalance sets the "balance" field.
 func (u *LpAccountUpsert) SetBalance(v decimal.Decimal) *LpAccountUpsert {
 	u.Set(lpaccount.FieldBalance, v)
@@ -723,6 +759,27 @@ func (u *LpAccountUpsertOne) SetStatus(v lpaccount.Status) *LpAccountUpsertOne {
 func (u *LpAccountUpsertOne) UpdateStatus() *LpAccountUpsertOne {
 	return u.Update(func(s *LpAccountUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetSuiUsdcAddress sets the "sui_usdc_address" field.
+func (u *LpAccountUpsertOne) SetSuiUsdcAddress(v string) *LpAccountUpsertOne {
+	return u.Update(func(s *LpAccountUpsert) {
+		s.SetSuiUsdcAddress(v)
+	})
+}
+
+// UpdateSuiUsdcAddress sets the "sui_usdc_address" field to the value that was provided on create.
+func (u *LpAccountUpsertOne) UpdateSuiUsdcAddress() *LpAccountUpsertOne {
+	return u.Update(func(s *LpAccountUpsert) {
+		s.UpdateSuiUsdcAddress()
+	})
+}
+
+// ClearSuiUsdcAddress clears the value of the "sui_usdc_address" field.
+func (u *LpAccountUpsertOne) ClearSuiUsdcAddress() *LpAccountUpsertOne {
+	return u.Update(func(s *LpAccountUpsert) {
+		s.ClearSuiUsdcAddress()
 	})
 }
 
@@ -1088,6 +1145,27 @@ func (u *LpAccountUpsertBulk) SetStatus(v lpaccount.Status) *LpAccountUpsertBulk
 func (u *LpAccountUpsertBulk) UpdateStatus() *LpAccountUpsertBulk {
 	return u.Update(func(s *LpAccountUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetSuiUsdcAddress sets the "sui_usdc_address" field.
+func (u *LpAccountUpsertBulk) SetSuiUsdcAddress(v string) *LpAccountUpsertBulk {
+	return u.Update(func(s *LpAccountUpsert) {
+		s.SetSuiUsdcAddress(v)
+	})
+}
+
+// UpdateSuiUsdcAddress sets the "sui_usdc_address" field to the value that was provided on create.
+func (u *LpAccountUpsertBulk) UpdateSuiUsdcAddress() *LpAccountUpsertBulk {
+	return u.Update(func(s *LpAccountUpsert) {
+		s.UpdateSuiUsdcAddress()
+	})
+}
+
+// ClearSuiUsdcAddress clears the value of the "sui_usdc_address" field.
+func (u *LpAccountUpsertBulk) ClearSuiUsdcAddress() *LpAccountUpsertBulk {
+	return u.Update(func(s *LpAccountUpsert) {
+		s.ClearSuiUsdcAddress()
 	})
 }
 

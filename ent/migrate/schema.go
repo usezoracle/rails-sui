@@ -251,6 +251,7 @@ var (
 		{Name: "bank_name", Type: field.TypeString},
 		{Name: "bank_code", Type: field.TypeString},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "suspended"}, Default: "active"},
+		{Name: "sui_usdc_address", Type: field.TypeString, Nullable: true},
 		{Name: "balance", Type: field.TypeFloat64},
 		{Name: "user_lp_account", Type: field.TypeUUID, Unique: true},
 	}
@@ -262,7 +263,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "lp_accounts_users_lp_account",
-				Columns:    []*schema.Column{LpAccountsColumns[12]},
+				Columns:    []*schema.Column{LpAccountsColumns[13]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -273,7 +274,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "entry_type", Type: field.TypeEnum, Enums: []string{"deposit", "withdrawal", "adjustment"}},
+		{Name: "entry_type", Type: field.TypeEnum, Enums: []string{"deposit", "withdrawal", "adjustment", "fill"}},
 		{Name: "amount", Type: field.TypeFloat64},
 		{Name: "currency", Type: field.TypeString, Default: "NGN"},
 		{Name: "provider_ref", Type: field.TypeString, Unique: true},
@@ -652,7 +653,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "mode", Type: field.TypeEnum, Enums: []string{"lp", "treasury"}, Default: "treasury"},
+		{Name: "mode", Type: field.TypeEnum, Enums: []string{"lp", "treasury", "lp_network"}, Default: "treasury"},
 		{Name: "lifi_quote_id", Type: field.TypeString, Nullable: true},
 		{Name: "lifi_tool", Type: field.TypeString, Nullable: true},
 		{Name: "bridge_provider", Type: field.TypeString, Default: "lifi"},

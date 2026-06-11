@@ -40,6 +40,8 @@ type LpAccount struct {
 	BankCode string `json:"bank_code,omitempty"`
 	// Status holds the value of the "status" field.
 	Status lpaccount.Status `json:"status,omitempty"`
+	// SuiUsdcAddress holds the value of the "sui_usdc_address" field.
+	SuiUsdcAddress string `json:"sui_usdc_address,omitempty"`
 	// Balance holds the value of the "balance" field.
 	Balance decimal.Decimal `json:"balance,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -87,7 +89,7 @@ func (*LpAccount) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case lpaccount.FieldBalance:
 			values[i] = new(decimal.Decimal)
-		case lpaccount.FieldName, lpaccount.FieldEmail, lpaccount.FieldBvnLast4, lpaccount.FieldAccountReference, lpaccount.FieldAccountNumber, lpaccount.FieldBankName, lpaccount.FieldBankCode, lpaccount.FieldStatus:
+		case lpaccount.FieldName, lpaccount.FieldEmail, lpaccount.FieldBvnLast4, lpaccount.FieldAccountReference, lpaccount.FieldAccountNumber, lpaccount.FieldBankName, lpaccount.FieldBankCode, lpaccount.FieldStatus, lpaccount.FieldSuiUsdcAddress:
 			values[i] = new(sql.NullString)
 		case lpaccount.FieldCreatedAt, lpaccount.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -175,6 +177,12 @@ func (la *LpAccount) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				la.Status = lpaccount.Status(value.String)
+			}
+		case lpaccount.FieldSuiUsdcAddress:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field sui_usdc_address", values[i])
+			} else if value.Valid {
+				la.SuiUsdcAddress = value.String
 			}
 		case lpaccount.FieldBalance:
 			if value, ok := values[i].(*decimal.Decimal); !ok {
@@ -264,6 +272,9 @@ func (la *LpAccount) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", la.Status))
+	builder.WriteString(", ")
+	builder.WriteString("sui_usdc_address=")
+	builder.WriteString(la.SuiUsdcAddress)
 	builder.WriteString(", ")
 	builder.WriteString("balance=")
 	builder.WriteString(fmt.Sprintf("%v", la.Balance))

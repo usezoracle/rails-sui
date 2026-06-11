@@ -48,6 +48,11 @@ func (LpAccount) Fields() []ent.Field {
 			Values("active", "suspended").
 			Default("active"),
 
+		// Where Route B fills deliver the LP's USDC (Sui address).
+		// Required before the LP is matchable; set from the LP
+		// dashboard.
+		field.String("sui_usdc_address").Optional(),
+
 		// Spendable NGN. See balance discipline above. No schema
 		// default (ent can't default a decimal GoType) — Onboard sets
 		// it to zero explicitly.

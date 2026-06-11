@@ -30,15 +30,11 @@ const (
 	SettleModeLPNetwork = "lp_network"
 )
 
-// ValidSettleMode reports whether m is a recognised mode and whether
-// it is currently implemented (Route B selection is recognised but
-// not yet wired).
+// ValidSettleMode reports whether m is a recognised, implemented mode.
 func ValidSettleMode(m string) (recognised, implemented bool) {
 	switch strings.ToLower(strings.TrimSpace(m)) {
-	case SettleModeBridge, SettleModeFloat:
+	case SettleModeBridge, SettleModeFloat, SettleModeLPNetwork:
 		return true, true
-	case SettleModeLPNetwork:
-		return true, false
 	default:
 		return false, false
 	}

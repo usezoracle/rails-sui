@@ -808,10 +808,14 @@ func persistTapCardPaymentOrder(
 	// Settlement route: operator-controlled at runtime from the admin
 	// dashboard (services.CurrentSettleMode; CARD_TAP_MODE env is the
 	// fallback). "float" = Route C instant payout from the platform
-	// float; otherwise today's direct Paycrest→merchant flow.
+	// float; "lp_network" = Route B (our LP's ledger pays, LP receives
+	// the USDC, no bridge); otherwise today's Paycrest bridge flow.
 	tapMode := routeaorder.ModeLp
-	if svc.CurrentSettleMode(ctx.Request.Context()) == svc.SettleModeFloat {
+	switch svc.CurrentSettleMode(ctx.Request.Context()) {
+	case svc.SettleModeFloat:
 		tapMode = routeaorder.ModeTreasury
+	case svc.SettleModeLPNetwork:
+		tapMode = routeaorder.ModeLpNetwork
 	}
 	if _, err := tx.RouteAOrder.Create().
 		SetMode(tapMode).

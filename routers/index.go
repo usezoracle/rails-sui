@@ -79,6 +79,7 @@ func RegisterRoutes(route *gin.Engine) {
 	lpGroup.Use(middleware.JWTMiddleware)
 	lpGroup.POST("onboard", lpCtrl.Onboard)
 	lpGroup.GET("account", lpCtrl.GetAccount)
+	lpGroup.PUT("account", lpCtrl.UpdateAccount)
 	lpGroup.GET("ledger", lpCtrl.GetLedger)
 	lpGroup.GET("banks", lpCtrl.Banks)
 	lpGroup.GET("resolve", lpCtrl.Resolve)

@@ -102,6 +102,11 @@ func BankCode(v string) predicate.LpAccount {
 	return predicate.LpAccount(sql.FieldEQ(FieldBankCode, v))
 }
 
+// SuiUsdcAddress applies equality check predicate on the "sui_usdc_address" field. It's identical to SuiUsdcAddressEQ.
+func SuiUsdcAddress(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldEQ(FieldSuiUsdcAddress, v))
+}
+
 // Balance applies equality check predicate on the "balance" field. It's identical to BalanceEQ.
 func Balance(v decimal.Decimal) predicate.LpAccount {
 	return predicate.LpAccount(sql.FieldEQ(FieldBalance, v))
@@ -660,6 +665,81 @@ func StatusIn(vs ...Status) predicate.LpAccount {
 // StatusNotIn applies the NotIn predicate on the "status" field.
 func StatusNotIn(vs ...Status) predicate.LpAccount {
 	return predicate.LpAccount(sql.FieldNotIn(FieldStatus, vs...))
+}
+
+// SuiUsdcAddressEQ applies the EQ predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressEQ(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldEQ(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressNEQ applies the NEQ predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressNEQ(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldNEQ(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressIn applies the In predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressIn(vs ...string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldIn(FieldSuiUsdcAddress, vs...))
+}
+
+// SuiUsdcAddressNotIn applies the NotIn predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressNotIn(vs ...string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldNotIn(FieldSuiUsdcAddress, vs...))
+}
+
+// SuiUsdcAddressGT applies the GT predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressGT(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldGT(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressGTE applies the GTE predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressGTE(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldGTE(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressLT applies the LT predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressLT(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldLT(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressLTE applies the LTE predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressLTE(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldLTE(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressContains applies the Contains predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressContains(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldContains(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressHasPrefix applies the HasPrefix predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressHasPrefix(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldHasPrefix(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressHasSuffix applies the HasSuffix predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressHasSuffix(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldHasSuffix(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressIsNil applies the IsNil predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressIsNil() predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldIsNull(FieldSuiUsdcAddress))
+}
+
+// SuiUsdcAddressNotNil applies the NotNil predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressNotNil() predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldNotNull(FieldSuiUsdcAddress))
+}
+
+// SuiUsdcAddressEqualFold applies the EqualFold predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressEqualFold(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldEqualFold(FieldSuiUsdcAddress, v))
+}
+
+// SuiUsdcAddressContainsFold applies the ContainsFold predicate on the "sui_usdc_address" field.
+func SuiUsdcAddressContainsFold(v string) predicate.LpAccount {
+	return predicate.LpAccount(sql.FieldContainsFold(FieldSuiUsdcAddress, v))
 }
 
 // BalanceEQ applies the EQ predicate on the "balance" field.

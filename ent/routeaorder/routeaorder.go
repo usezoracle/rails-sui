@@ -133,8 +133,9 @@ const DefaultMode = ModeTreasury
 
 // Mode values.
 const (
-	ModeLp       Mode = "lp"
-	ModeTreasury Mode = "treasury"
+	ModeLp        Mode = "lp"
+	ModeTreasury  Mode = "treasury"
+	ModeLpNetwork Mode = "lp_network"
 )
 
 func (m Mode) String() string {
@@ -144,7 +145,7 @@ func (m Mode) String() string {
 // ModeValidator is a validator for the "mode" field enum values. It is called by the builders before save.
 func ModeValidator(m Mode) error {
 	switch m {
-	case ModeLp, ModeTreasury:
+	case ModeLp, ModeTreasury, ModeLpNetwork:
 		return nil
 	default:
 		return fmt.Errorf("routeaorder: invalid enum value for mode field: %q", m)

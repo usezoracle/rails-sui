@@ -503,6 +503,14 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 	if err := d.advanceFloatReload(ctx); err != nil {
 		logger.Errorf("❌ route-a: advance float reload: %v", err)
 	}
+	// Route B phases (services/route_a_lp_network.go): match + claim
+	// new fills, then confirm payouts / deliver USDC / settle.
+	if err := d.advanceLpNetwork(ctx); err != nil {
+		logger.Errorf("❌ route-a: advance lp network: %v", err)
+	}
+	if err := d.advanceLpNetworkPayouts(ctx); err != nil {
+		logger.Errorf("❌ route-a: advance lp network payouts: %v", err)
+	}
 	return nil
 }
 
@@ -513,10 +521,14 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 	orders, err := db.Client.RouteAOrder.
 		Query().
-		Where(routeaorder.BridgeStatusIn(
-			routeaorder.BridgeStatusPending,
-			routeaorder.BridgeStatusAwaitingFunds,
-		)).
+		Where(
+			routeaorder.BridgeStatusIn(
+				routeaorder.BridgeStatusPending,
+				routeaorder.BridgeStatusAwaitingFunds,
+			),
+			// Route B orders never bridge — advanceLpNetwork owns them.
+			routeaorder.ModeNEQ(routeaorder.ModeLpNetwork),
+		).
 		WithPaymentOrder(func(poq *ent.PaymentOrderQuery) {
 			poq.WithToken()
 		}).
@@ -1381,11 +1393,10 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 		Query().
 		Where(
 			routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching),
-			// Treasury orders in `dispatching` are mid float-PAYOUT;
-			// their gateway order (when set) is the float RELOAD, whose
-			// settlement must never drive the order's state. Route C
-			// has its own pollers (route_a_treasury.go).
-			routeaorder.ModeNEQ(routeaorder.ModeTreasury),
+			// Treasury and lp_network orders in `dispatching` are mid
+			// PAYOUT on the BaaS rail — Routes B/C own their own
+			// pollers; Paycrest settlement must never drive their state.
+			routeaorder.ModeEQ(routeaorder.ModeLp),
 		).
 		WithPaymentOrder(func(poq *ent.PaymentOrderQuery) {
 			poq.WithSenderProfile()

@@ -36,6 +36,8 @@ const (
 	FieldBankCode = "bank_code"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldSuiUsdcAddress holds the string denoting the sui_usdc_address field in the database.
+	FieldSuiUsdcAddress = "sui_usdc_address"
 	// FieldBalance holds the string denoting the balance field in the database.
 	FieldBalance = "balance"
 	// EdgeUser holds the string denoting the user edge name in mutations.
@@ -73,6 +75,7 @@ var Columns = []string{
 	FieldBankName,
 	FieldBankCode,
 	FieldStatus,
+	FieldSuiUsdcAddress,
 	FieldBalance,
 }
 
@@ -192,6 +195,11 @@ func ByBankCode(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// BySuiUsdcAddress orders the results by the sui_usdc_address field.
+func BySuiUsdcAddress(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSuiUsdcAddress, opts...).ToFunc()
 }
 
 // ByBalance orders the results by the balance field.

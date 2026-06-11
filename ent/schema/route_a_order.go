@@ -31,10 +31,14 @@ func (RouteAOrder) Mixin() []ent.Mixin {
 
 func (RouteAOrder) Fields() []ent.Field {
 	return []ent.Field{
-		// Post-bridge target: "lp" (settlement Gateway re-entry) or "treasury"
-		// (own BaaS payout). Set by the integrator at order creation.
+		// Settlement rail: "lp" (Route A — bridge + Paycrest Gateway),
+		// "treasury" (Route C — instant payout from the platform float,
+		// Paycrest reloads), or "lp_network" (Route B — our own LP's
+		// ledger pays the merchant and receives the order's Sui USDC
+		// directly; no bridge at all). Set at order creation from the
+		// runtime settle-mode switch.
 		field.Enum("mode").
-			Values("lp", "treasury").
+			Values("lp", "treasury", "lp_network").
 			Default("treasury"),
 
 		field.String("lifi_quote_id").Optional(),

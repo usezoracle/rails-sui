@@ -150,6 +150,26 @@ func (lau *LpAccountUpdate) SetNillableStatus(l *lpaccount.Status) *LpAccountUpd
 	return lau
 }
 
+// SetSuiUsdcAddress sets the "sui_usdc_address" field.
+func (lau *LpAccountUpdate) SetSuiUsdcAddress(s string) *LpAccountUpdate {
+	lau.mutation.SetSuiUsdcAddress(s)
+	return lau
+}
+
+// SetNillableSuiUsdcAddress sets the "sui_usdc_address" field if the given value is not nil.
+func (lau *LpAccountUpdate) SetNillableSuiUsdcAddress(s *string) *LpAccountUpdate {
+	if s != nil {
+		lau.SetSuiUsdcAddress(*s)
+	}
+	return lau
+}
+
+// ClearSuiUsdcAddress clears the value of the "sui_usdc_address" field.
+func (lau *LpAccountUpdate) ClearSuiUsdcAddress() *LpAccountUpdate {
+	lau.mutation.ClearSuiUsdcAddress()
+	return lau
+}
+
 // SetBalance sets the "balance" field.
 func (lau *LpAccountUpdate) SetBalance(d decimal.Decimal) *LpAccountUpdate {
 	lau.mutation.ResetBalance()
@@ -321,6 +341,12 @@ func (lau *LpAccountUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := lau.mutation.Status(); ok {
 		_spec.SetField(lpaccount.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := lau.mutation.SuiUsdcAddress(); ok {
+		_spec.SetField(lpaccount.FieldSuiUsdcAddress, field.TypeString, value)
+	}
+	if lau.mutation.SuiUsdcAddressCleared() {
+		_spec.ClearField(lpaccount.FieldSuiUsdcAddress, field.TypeString)
 	}
 	if value, ok := lau.mutation.Balance(); ok {
 		_spec.SetField(lpaccount.FieldBalance, field.TypeFloat64, value)
@@ -540,6 +566,26 @@ func (lauo *LpAccountUpdateOne) SetNillableStatus(l *lpaccount.Status) *LpAccoun
 	return lauo
 }
 
+// SetSuiUsdcAddress sets the "sui_usdc_address" field.
+func (lauo *LpAccountUpdateOne) SetSuiUsdcAddress(s string) *LpAccountUpdateOne {
+	lauo.mutation.SetSuiUsdcAddress(s)
+	return lauo
+}
+
+// SetNillableSuiUsdcAddress sets the "sui_usdc_address" field if the given value is not nil.
+func (lauo *LpAccountUpdateOne) SetNillableSuiUsdcAddress(s *string) *LpAccountUpdateOne {
+	if s != nil {
+		lauo.SetSuiUsdcAddress(*s)
+	}
+	return lauo
+}
+
+// ClearSuiUsdcAddress clears the value of the "sui_usdc_address" field.
+func (lauo *LpAccountUpdateOne) ClearSuiUsdcAddress() *LpAccountUpdateOne {
+	lauo.mutation.ClearSuiUsdcAddress()
+	return lauo
+}
+
 // SetBalance sets the "balance" field.
 func (lauo *LpAccountUpdateOne) SetBalance(d decimal.Decimal) *LpAccountUpdateOne {
 	lauo.mutation.ResetBalance()
@@ -741,6 +787,12 @@ func (lauo *LpAccountUpdateOne) sqlSave(ctx context.Context) (_node *LpAccount, 
 	}
 	if value, ok := lauo.mutation.Status(); ok {
 		_spec.SetField(lpaccount.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := lauo.mutation.SuiUsdcAddress(); ok {
+		_spec.SetField(lpaccount.FieldSuiUsdcAddress, field.TypeString, value)
+	}
+	if lauo.mutation.SuiUsdcAddressCleared() {
+		_spec.ClearField(lpaccount.FieldSuiUsdcAddress, field.TypeString)
 	}
 	if value, ok := lauo.mutation.Balance(); ok {
 		_spec.SetField(lpaccount.FieldBalance, field.TypeFloat64, value)

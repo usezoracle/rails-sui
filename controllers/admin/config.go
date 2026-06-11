@@ -271,7 +271,7 @@ func (c *ConfigController) GetSettleMode(ctx *gin.Context) {
 		"modes": []gin.H{
 			{"value": services.SettleModeBridge, "label": "Route A — Bridge (Paycrest LP pays merchant)", "available": true},
 			{"value": services.SettleModeFloat, "label": "Route C — Float (instant payout, Paycrest reloads)", "available": true},
-			{"value": services.SettleModeLPNetwork, "label": "Route B — Own LP network", "available": false},
+			{"value": services.SettleModeLPNetwork, "label": "Route B — Own LPs (no bridge: LP float pays, LP receives the USDC)", "available": true},
 		},
 	})
 }
@@ -298,7 +298,7 @@ func (c *ConfigController) SetSettleMode(ctx *gin.Context) {
 	}
 	if !implemented {
 		u.APIResponse(ctx, http.StatusConflict, "error",
-			"Route B (own LP network) settlement is not wired yet — deposits and withdrawals work, but order matching against LP float ships next",
+			"that settlement mode is not available",
 			gin.H{"code": "mode_not_implemented"})
 		return
 	}

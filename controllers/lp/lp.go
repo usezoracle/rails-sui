@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,9 @@ import (
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
+
+// suiAddressRe validates a 32-byte hex Sui address.
+var suiAddressRe = regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`)
 
 // withdrawalRefPrefix namespaces our deterministic withdrawal payment
 // references so the webhook can route transfer.* events back to ledger
@@ -109,6 +113,7 @@ func accountView(a *ent.LpAccount) gin.H {
 		"deposit_bank":      a.BankName,
 		"deposit_bank_code": a.BankCode,
 		"account_reference": a.AccountReference,
+		"sui_usdc_address":  a.SuiUsdcAddress,
 		"created_at":        a.CreatedAt,
 	}
 }
@@ -211,6 +216,43 @@ func (c *Controller) GetAccount(ctx *gin.Context) {
 		return
 	}
 	u.APIResponse(ctx, http.StatusOK, "success", "ok", accountView(acct))
+}
+
+type updateAccountReq struct {
+	SuiUsdcAddress string `json:"sui_usdc_address" binding:"required"`
+}
+
+// UpdateAccount sets the LP's USDC delivery address — where Route B
+// fills send the USDC they've bought. Required before the LP is
+// matchable for fills.
+//
+//	PUT /v1/lp/account
+func (c *Controller) UpdateAccount(ctx *gin.Context) {
+	acct, ok := c.loadAccount(ctx)
+	if !ok {
+		return
+	}
+	var req updateAccountReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "sui_usdc_address is required", nil)
+		return
+	}
+	addr := strings.TrimSpace(req.SuiUsdcAddress)
+	if !suiAddressRe.MatchString(addr) {
+		u.APIResponse(ctx, http.StatusBadRequest, "error",
+			"sui_usdc_address must be a 0x-prefixed 64-hex Sui address", nil)
+		return
+	}
+	updated, err := acct.Update().SetSuiUsdcAddress(strings.ToLower(addr)).Save(ctx)
+	if err != nil {
+		logger.Errorf("lp update account %s: %v", acct.ID, err)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to update account", nil)
+		return
+	}
+	view := accountView(updated)
+	view["sui_usdc_address"] = updated.SuiUsdcAddress
+	u.APIResponse(ctx, http.StatusOK, "success",
+		"USDC delivery address saved — you're now matchable for fills", view)
 }
 
 // GetLedger lists the LP's ledger entries, newest first.

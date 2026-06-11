@@ -33,8 +33,10 @@ func (LpLedgerEntry) Mixin() []ent.Mixin {
 func (LpLedgerEntry) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
+		// fill — the LP settled a Route B order: their NGN paid the
+		// merchant (debit), and they received the order's USDC on Sui.
 		field.Enum("entry_type").
-			Values("deposit", "withdrawal", "adjustment"),
+			Values("deposit", "withdrawal", "adjustment", "fill"),
 		// Always positive; entry_type carries the direction.
 		field.Float("amount").
 			GoType(decimal.Decimal{}),

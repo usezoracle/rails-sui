@@ -103,6 +103,7 @@ const (
 	EntryTypeDeposit    EntryType = "deposit"
 	EntryTypeWithdrawal EntryType = "withdrawal"
 	EntryTypeAdjustment EntryType = "adjustment"
+	EntryTypeFill       EntryType = "fill"
 )
 
 func (et EntryType) String() string {
@@ -112,7 +113,7 @@ func (et EntryType) String() string {
 // EntryTypeValidator is a validator for the "entry_type" field enum values. It is called by the builders before save.
 func EntryTypeValidator(et EntryType) error {
 	switch et {
-	case EntryTypeDeposit, EntryTypeWithdrawal, EntryTypeAdjustment:
+	case EntryTypeDeposit, EntryTypeWithdrawal, EntryTypeAdjustment, EntryTypeFill:
 		return nil
 	default:
 		return fmt.Errorf("lpledgerentry: invalid enum value for entry_type field: %q", et)
