@@ -270,6 +270,10 @@ func (d *RouteADispatcher) startCCTPBridge(ctx context.Context, order *ent.Route
 	}
 
 	if _, perr := order.Update().
+		Where(routeaorder.BridgeStatusIn(
+			routeaorder.BridgeStatusPending,
+			routeaorder.BridgeStatusAwaitingFunds,
+		)).
 		SetBridgeProvider(routeAProviderCCTP).
 		SetLifiTool("cctp"). // reuses the per-tool stale window + admin display
 		SetBridgeTxSui(digest).
@@ -320,9 +324,14 @@ func (d *RouteADispatcher) pollOneCCTP(ctx context.Context, order *ent.RouteAOrd
 			reason := fmt.Sprintf("Circle hasn't indexed burn tx %s after %s — transitioned to bridge_uncertain",
 				order.BridgeTxSui, staleAfter)
 			if _, uerr := order.Update().
+				Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
 				SetBridgeStatus(routeaorder.BridgeStatusBridgeUncertain).
 				SetFailureReason(reason).
 				Save(ctx); uerr != nil {
+				if isStaleTransition(uerr) {
+					logStaleTransition(order.ID, "bridge_uncertain")
+					return
+				}
 				logger.Errorf("❌ route-a: persist bridge_uncertain for %d: %v", order.ID, uerr)
 				err = uerr
 				return
@@ -383,6 +392,10 @@ func (d *RouteADispatcher) finishCCTPMint(ctx context.Context, order *ent.RouteA
 
 	bridgedAmount := decimal.NewFromBigInt(msg.Amount, -int32(d.conf.BaseUSDCDecimals))
 	update := order.Update().
+		Where(routeaorder.BridgeStatusIn(
+			routeaorder.BridgeStatusBridging,
+			routeaorder.BridgeStatusBridgeUncertain,
+		)).
 		SetBridgeStatus(routeaorder.BridgeStatusBridged).
 		SetBridgedAmount(bridgedAmount).
 		SetFailureReason("") // clear any uncertain marker
@@ -390,6 +403,10 @@ func (d *RouteADispatcher) finishCCTPMint(ctx context.Context, order *ent.RouteA
 		update = update.SetBridgeTxDest(destTxHash)
 	}
 	if _, perr := update.Save(ctx); perr != nil {
+		if isStaleTransition(perr) {
+			logStaleTransition(order.ID, "bridged")
+			return nil // mint is idempotent (usedNonces); nothing lost
+		}
 		return fmt.Errorf("persist bridged: %w", perr)
 	}
 
@@ -434,10 +451,15 @@ func (d *RouteADispatcher) recoverUncertainCCTP(ctx context.Context, order *ent.
 		reason := fmt.Sprintf("uncertain past %s window; Circle still has no attestation for %s",
 			uncertainRecoveryWindow, order.BridgeTxSui)
 		if _, uerr := order.Update().
+			Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridgeUncertain)).
 			SetBridgeStatus(routeaorder.BridgeStatusFailed).
 			SetFailureReason(reason).
 			Save(ctx); uerr != nil {
-			logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
+			if isStaleTransition(uerr) {
+				logStaleTransition(order.ID, "failed")
+			} else {
+				logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
+			}
 		}
 		timer.With("recovered_via", "window_expired_to_failed")
 	}

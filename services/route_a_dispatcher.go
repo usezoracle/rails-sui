@@ -28,6 +28,7 @@ import (
 	suisigner "github.com/block-vision/sui-go-sdk/signer"
 	suisdk "github.com/block-vision/sui-go-sdk/sui"
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"github.com/usezoracle/rails-sui/config"
@@ -89,6 +90,13 @@ const (
 	// re-check a `bridge_uncertain` order before giving up and marking
 	// it `failed`. Sized for the longest realistic bridge tail.
 	uncertainRecoveryWindow = 24 * time.Hour
+
+	// maxDispatchShortfallBPS caps how much quote→dispatch rate drift
+	// dispatchLP will absorb from the ops float instead of stranding an
+	// order in `bridged`. 200 bps covers normal NGN/USDC movement over
+	// the minutes an order is in flight; anything bigger is a quoting
+	// bug that should surface, not be papered over.
+	maxDispatchShortfallBPS = 200
 )
 
 // bridgeStaleTimeouts is how long an order can stay in 'bridging' with
@@ -112,6 +120,21 @@ func bridgeStaleTimeoutFor(tool string) time.Duration {
 		return d
 	}
 	return bridgeStaleTimeouts[""]
+}
+
+// isStaleTransition reports whether a guarded status update didn't
+// apply because the row had already moved to a different state (the
+// UpdateOne.Where precondition failed → ent NotFound). Every
+// bridge_status write carries its legal from-states so a writer
+// holding a stale view skips instead of clobbering — see the
+// 2026-06-11 incident where `bridging` was overwritten by
+// `awaiting_funds` four seconds after a CCTP burn went on-chain.
+func isStaleTransition(err error) bool { return ent.IsNotFound(err) }
+
+// logStaleTransition standardizes the skip log so these show up
+// grep-ably in observability.
+func logStaleTransition(orderID int, to string) {
+	logger.Warnf("⚠️ route-a: order %d: skipped stale transition to %s (row already moved)", orderID, to)
 }
 
 // RouteADispatcher drives Route-A orders through their lifecycle. One
@@ -141,6 +164,45 @@ type RouteADispatcher struct {
 	cctpNet   cctp.Network
 	cctpNetOK bool
 	cctpIris  *cctp.Iris
+
+	// instanceID identifies this process in the dispatcher lease —
+	// exactly one dispatcher may tick per database (see acquireLease;
+	// 2026-06-11 incident: a stale local dev server raced the Railway
+	// dispatcher and clobbered an in-flight order's state).
+	instanceID string
+}
+
+// Dispatcher singleton lease. Whoever holds the Redis key ticks;
+// everyone else skips. TTL > tick interval so the leader renews each
+// tick; if the leader dies, another instance takes over within 90s.
+const (
+	dispatcherLeaseKey = "rails:route_a:dispatcher_lease"
+	dispatcherLeaseTTL = 90 * time.Second
+)
+
+// acquireLease reports whether this instance may run the tick. Fails
+// OPEN when Redis is unavailable — a single-instance deployment must
+// not halt payments because Redis blipped; the lease protects against
+// the multi-instance case, which always implies working shared infra.
+func (d *RouteADispatcher) acquireLease(ctx context.Context) bool {
+	rdb := db.RedisClient
+	if rdb == nil {
+		return true
+	}
+	ok, err := rdb.SetNX(ctx, dispatcherLeaseKey, d.instanceID, dispatcherLeaseTTL).Result()
+	if err != nil {
+		logger.Errorf("❌ route-a: dispatcher lease check failed (proceeding open): %v", err)
+		return true
+	}
+	if ok {
+		return true
+	}
+	holder, err := rdb.Get(ctx, dispatcherLeaseKey).Result()
+	if err == nil && holder == d.instanceID {
+		rdb.Expire(ctx, dispatcherLeaseKey, dispatcherLeaseTTL)
+		return true
+	}
+	return false
 }
 
 // NewRouteADispatcher constructs the dispatcher from config. Returns nil
@@ -165,6 +227,7 @@ func NewRouteADispatcher() *RouteADispatcher {
 		signer:          signer,
 		lifi:            lifi.New(conf.LiFiAPIKey),
 		quoteFailCounts: make(map[int]int),
+		instanceID:      uuid.NewString(),
 	}
 
 	// CCTP fallback wiring — constants resolved from the destination
@@ -235,6 +298,10 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 	if d.signer == nil {
 		return errors.New("route-a dispatcher: SUI_AGGREGATOR_PRIVATE_KEY not configured")
 	}
+	if !d.acquireLease(ctx) {
+		logger.Infof("🤝 route-a: another dispatcher instance holds the lease — skipping tick")
+		return nil
+	}
 	if err := d.advancePending(ctx); err != nil {
 		logger.Errorf("❌ route-a: advance pending: %v", err)
 	}
@@ -280,9 +347,14 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 			if errors.Is(err, ErrAwaitingDepositAtAggregator) {
 				if order.BridgeStatus != routeaorder.BridgeStatusAwaitingFunds {
 					if _, uerr := order.Update().
+						Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusPending)).
 						SetBridgeStatus(routeaorder.BridgeStatusAwaitingFunds).
 						Save(ctx); uerr != nil {
-						logger.Errorf("❌ route-a: persist awaiting_funds for %d: %v", order.ID, uerr)
+						if isStaleTransition(uerr) {
+							logStaleTransition(order.ID, "awaiting_funds")
+						} else {
+							logger.Errorf("❌ route-a: persist awaiting_funds for %d: %v", order.ID, uerr)
+						}
 					} else {
 						logger.Infof("🤔 route-a: order %d → awaiting_funds (aggregator deposit not yet settled)", order.ID)
 					}
@@ -324,10 +396,18 @@ func (d *RouteADispatcher) advancePending(ctx context.Context) error {
 				reason := fmt.Sprintf("bridge start (%s) failed %d consecutive times: %v",
 					order.BridgeProvider, count, err)
 				if _, uerr := order.Update().
+					Where(routeaorder.BridgeStatusIn(
+						routeaorder.BridgeStatusPending,
+						routeaorder.BridgeStatusAwaitingFunds,
+					)).
 					SetBridgeStatus(routeaorder.BridgeStatusFailed).
 					SetFailureReason(reason).
 					Save(ctx); uerr != nil {
-					logger.Errorf("❌ route-a: persist quote-fail for %d: %v", order.ID, uerr)
+					if isStaleTransition(uerr) {
+						logStaleTransition(order.ID, "failed")
+					} else {
+						logger.Errorf("❌ route-a: persist quote-fail for %d: %v", order.ID, uerr)
+					}
 				} else {
 					logger.Errorf("❌ route-a: order %d marked FAILED after %d quote retries", order.ID, count)
 				}
@@ -476,6 +556,10 @@ func (d *RouteADispatcher) startBridge(ctx context.Context, order *ent.RouteAOrd
 	}
 
 	if _, err := order.Update().
+		Where(routeaorder.BridgeStatusIn(
+			routeaorder.BridgeStatusPending,
+			routeaorder.BridgeStatusAwaitingFunds,
+		)).
 		SetLifiQuoteID(quote.ID).
 		SetLifiTool(quote.Tool).
 		// Explicit even though it's the column default: an order that
@@ -557,9 +641,14 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			reason := fmt.Sprintf("LiFi /status 'not found' for tx %s after %s — transitioned to bridge_uncertain",
 				order.BridgeTxSui, staleAfter)
 			if _, uerr := order.Update().
+				Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
 				SetBridgeStatus(routeaorder.BridgeStatusBridgeUncertain).
 				SetFailureReason(reason).
 				Save(ctx); uerr != nil {
+				if isStaleTransition(uerr) {
+					logStaleTransition(order.ID, "bridge_uncertain")
+					return
+				}
 				logger.Errorf("❌ route-a: persist bridge_uncertain for %d: %v", order.ID, uerr)
 				err = uerr
 				return
@@ -585,7 +674,9 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 
 	switch status.Status {
 	case "DONE":
-		update := order.Update().SetBridgeStatus(routeaorder.BridgeStatusBridged)
+		update := order.Update().
+			Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
+			SetBridgeStatus(routeaorder.BridgeStatusBridged)
 		if status.Receiving != nil {
 			if status.Receiving.TxHash != "" {
 				update = update.SetBridgeTxDest(status.Receiving.TxHash)
@@ -599,6 +690,10 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			}
 		}
 		if _, uerr := update.Save(ctx); uerr != nil {
+			if isStaleTransition(uerr) {
+				logStaleTransition(order.ID, "bridged")
+				return
+			}
 			logger.Errorf("❌ route-a: persist DONE for %d: %v", order.ID, uerr)
 			err = uerr
 			return
@@ -617,9 +712,14 @@ func (d *RouteADispatcher) pollOneBridge(ctx context.Context, order *ent.RouteAO
 			reason = status.Substatus
 		}
 		if _, uerr := order.Update().
+			Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridging)).
 			SetBridgeStatus(routeaorder.BridgeStatusFailed).
 			SetFailureReason(reason).
 			Save(ctx); uerr != nil {
+			if isStaleTransition(uerr) {
+				logStaleTransition(order.ID, "failed")
+				return
+			}
 			logger.Errorf("❌ route-a: persist FAILED for %d: %v", order.ID, uerr)
 			err = uerr
 			return
@@ -693,10 +793,15 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 					reason = status.Substatus
 				}
 				if _, uerr := order.Update().
+					Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridgeUncertain)).
 					SetBridgeStatus(routeaorder.BridgeStatusFailed).
 					SetFailureReason("late LiFi FAILED: " + reason).
 					Save(ctx); uerr != nil {
-					logger.Errorf("❌ route-a: persist late FAILED for %d: %v", order.ID, uerr)
+					if isStaleTransition(uerr) {
+						logStaleTransition(order.ID, "failed")
+					} else {
+						logger.Errorf("❌ route-a: persist late FAILED for %d: %v", order.ID, uerr)
+					}
 				}
 				timer.With("recovered_via", "lifi_late_failed")
 				timer.End(&loopErr)
@@ -718,10 +823,15 @@ func (d *RouteADispatcher) advanceUncertain(ctx context.Context) error {
 		if time.Since(order.UpdatedAt) > uncertainRecoveryWindow {
 			reason := fmt.Sprintf("uncertain past %s window; LiFi still not found", uncertainRecoveryWindow)
 			if _, uerr := order.Update().
+				Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridgeUncertain)).
 				SetBridgeStatus(routeaorder.BridgeStatusFailed).
 				SetFailureReason(reason).
 				Save(ctx); uerr != nil {
-				logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
+				if isStaleTransition(uerr) {
+					logStaleTransition(order.ID, "failed")
+				} else {
+					logger.Errorf("❌ route-a: persist window-expired FAILED for %d: %v", order.ID, uerr)
+				}
 			}
 			timer.With("recovered_via", "window_expired_to_failed")
 		}
@@ -738,6 +848,10 @@ func (d *RouteADispatcher) markBridgedFromStatus(
 	ctx context.Context, order *ent.RouteAOrder, status *lifi.StatusResponse,
 ) bool {
 	update := order.Update().
+		Where(routeaorder.BridgeStatusIn(
+			routeaorder.BridgeStatusBridging,
+			routeaorder.BridgeStatusBridgeUncertain,
+		)).
 		SetBridgeStatus(routeaorder.BridgeStatusBridged).
 		SetFailureReason("") // clear the uncertain marker
 	if status.Receiving != nil {
@@ -751,6 +865,10 @@ func (d *RouteADispatcher) markBridgedFromStatus(
 		}
 	}
 	if _, err := update.Save(ctx); err != nil {
+		if isStaleTransition(err) {
+			logStaleTransition(order.ID, "bridged")
+			return false
+		}
 		logger.Errorf("❌ route-a: persist late DONE for %d: %v", order.ID, err)
 		return false
 	}
@@ -860,14 +978,49 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 		new(big.Int).Mul(amount, big.NewInt(d.conf.BaseSenderFeeBPS)),
 		big.NewInt(10_000),
 	)
+
+	// The merchant's payout amount is non-negotiable; our skim is.
+	// When the bridged USDC can't cover amount+fee (rates drift between
+	// quote and dispatch — and card-tap orders collect exactly
+	// target/quote-rate with zero cushion), first trim the skim to
+	// whatever fits, down to zero.
+	if new(big.Int).Add(amount, senderFee).Cmp(bridged) > 0 {
+		senderFee = new(big.Int).Sub(bridged, amount)
+		if senderFee.Sign() < 0 {
+			senderFee = big.NewInt(0)
+		}
+	}
+
+	// True shortfall — even fee-less the bridged amount doesn't reach
+	// the payout. Absorb small drift from the wallet's ops float
+	// (stranding a customer order over basis points costs more than
+	// the float), but refuse big gaps: those mean a quoting bug, not
+	// market movement, and need a human.
+	if amount.Cmp(bridged) > 0 {
+		shortfall := new(big.Int).Sub(amount, bridged)
+		maxShort := new(big.Int).Quo(
+			new(big.Int).Mul(amount, big.NewInt(maxDispatchShortfallBPS)),
+			big.NewInt(10_000),
+		)
+		if shortfall.Cmp(maxShort) > 0 {
+			return fmt.Errorf("insufficient bridged USDC: have %s, need %s (live rate %s; shortfall exceeds %d bps tolerance)",
+				bridged.String(), amount.String(), liveQuote.Rate.String(), maxDispatchShortfallBPS)
+		}
+		walletBal, berr := d.evm.USDC().BalanceOf(ctx, d.evm.From())
+		if berr != nil {
+			return fmt.Errorf("check wallet balance for drift absorption: %w", berr)
+		}
+		if walletBal.Cmp(amount) < 0 {
+			return fmt.Errorf("insufficient bridged USDC and wallet float can't absorb drift: wallet %s, need %s",
+				walletBal.String(), amount.String())
+		}
+		logger.Warnf("⚠️ route-a: order %d absorbing %s USDC-subunit rate drift from ops float (bridged %s, payout %s)",
+			order.ID, shortfall.String(), bridged.String(), amount.String())
+		timer.With("drift_absorbed_subunit", shortfall.String())
+	}
+
 	total := new(big.Int).Add(amount, senderFee)
 	senderFeeDec := decimal.NewFromBigInt(senderFee, -int32(d.conf.BaseUSDCDecimals))
-
-	// Ensure the bridged amount is sufficient to cover the payout + sender fee.
-	// If the rate has moved against us or there was high slippage, total may exceed bridged.
-	if total.Cmp(bridged) > 0 {
-		return fmt.Errorf("insufficient bridged USDC: have %s, need %s (live rate %s)", bridged.String(), total.String(), liveQuote.Rate.String())
-	}
 
 	logger.Infof("📈 route-a: fetched fresh the aggregator rate for order %d: NGN/USDC=%s (original NGN/USDC was %s). Payout adjusted: amount=%s USDC, senderFee=%s USDC, bridged=%s USDC",
 		order.ID, liveQuote.Rate.String(), po.Rate.String(), amountDec.String(), senderFeeDec.String(), order.BridgedAmount.String())
@@ -928,13 +1081,17 @@ func (d *RouteADispatcher) dispatchLP(ctx context.Context, order *ent.RouteAOrde
 
 	orderID := strings.ToLower(result.OrderID.Hex())
 	if _, perr := order.Update().
+		Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusBridged)).
 		SetGatewayOrderID(orderID).
 		SetGatewayChainID(uint64(d.conf.BaseChainID)).
 		SetSenderFeeSubunit(senderFeeDec).
 		SetBridgeTxDest(result.TxHash.Hex()).
 		SetBridgeStatus(routeaorder.BridgeStatusDispatching).
 		Save(ctx); perr != nil {
-		return fmt.Errorf("persist dispatching: %w", perr)
+		// createOrder IS on-chain at this point — a stale-transition
+		// skip here means another writer raced us post-submit; surface
+		// loudly either way, ops resolves with the gateway order id.
+		return fmt.Errorf("persist dispatching (gateway order %s already on-chain!): %w", orderID, perr)
 	}
 	logger.Infof("✅ route-a: createOrder submitted order=%d orderId=%s tx=%s gas=%d",
 		order.ID, orderID, result.TxHash.Hex(), result.GasUsed)
@@ -986,6 +1143,7 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 		statusChanged := order.SettlementStatus != string(info.Status)
 		now := time.Now()
 		upd := order.Update().
+			Where(routeaorder.BridgeStatusEQ(routeaorder.BridgeStatusDispatching)).
 			SetSettlementStatus(string(info.Status)).
 			SetSettlementPolledAt(now)
 
@@ -1048,6 +1206,10 @@ func (d *RouteADispatcher) advanceDispatching(ctx context.Context) error {
 			}
 		}
 		if _, err := upd.Save(ctx); err != nil {
+			if isStaleTransition(err) {
+				logStaleTransition(order.ID, string(info.Status))
+				continue
+			}
 			logger.Errorf("❌ route-a: persist dispatching → %s (%d): %v", info.Status, order.ID, err)
 		}
 

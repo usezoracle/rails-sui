@@ -406,6 +406,23 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 				return
 			}
 			txHash = digest
+
+			// The debit moved the USDC cap→aggregator, which IS this
+			// order's self-settlement — record the event the
+			// dispatcher's awaiting-funds guard looks for. Without it a
+			// card order that hits `awaiting_funds` (debit landed
+			// seconds after the first tick) waits forever, because card
+			// orders have no receive-address deposit flow to write the
+			// event (see startBridge/startCCTPBridge).
+			if raID, qerr := storage.Client.RouteAOrder.Query().
+				Where(routeaorder.HasPaymentOrderWith(paymentorder.IDEQ(po.ID))).
+				OnlyID(ctx.Request.Context()); qerr == nil {
+				svc.LogOnce(ctx.Request.Context(), raID, svc.StepSelfSettle,
+					svc.StatusSucceeded, svc.ActorSystem,
+					map[string]any{"via": "card_debit", "tx": digest}, "", "")
+			} else {
+				logger.Errorf("TapCardDebit: locate route-a order for self_settle event: %v", qerr)
+			}
 		} else {
 			logger.Warnf("TapCardDebit: aggregator service not initialized — proceeding with stub digest")
 		}
