@@ -12,6 +12,7 @@ import (
 	"github.com/usezoracle/rails-sui/ent/senderprofile"
 	"github.com/usezoracle/rails-sui/services"
 	"github.com/usezoracle/rails-sui/storage"
+	"github.com/usezoracle/rails-sui/ent/user"
 	u "github.com/usezoracle/rails-sui/utils"
 	"github.com/usezoracle/rails-sui/utils/logger"
 )
@@ -74,6 +75,101 @@ func providerIntegratorView(p *ent.ProviderProfile) gin.H {
 		"api_key":                  apiKeySummary(p.Edges.APIKey),
 	}
 	return out
+}
+
+type createIntegratorReq struct {
+	FirstName       string   `json:"first_name" binding:"required"`
+	LastName        string   `json:"last_name" binding:"required"`
+	Email           string   `json:"email" binding:"required,email"`
+	Password        string   `json:"password" binding:"required,min=8,max=128"`
+	WebhookURL      string   `json:"webhook_url"`
+	DomainWhitelist []string `json:"domain_whitelist"`
+}
+
+// CreateIntegrator creates a sender integrator and returns the new API key secret.
+//
+//	POST /v1/admin/integrators
+func (c *IntegratorsController) CreateIntegrator(ctx *gin.Context) {
+	var body createIntegratorReq
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "failed to validate payload", u.GetErrorData(err))
+		return
+	}
+
+	tx, err := storage.Client.Tx(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to start transaction", nil)
+		return
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	email := strings.ToLower(strings.TrimSpace(body.Email))
+	existing, err := tx.User.Query().Where(user.EmailEQ(email)).Exist(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to validate email", nil)
+		return
+	}
+	if existing {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "email already exists", nil)
+		return
+	}
+
+	userRow, err := tx.User.Create().
+		SetFirstName(strings.TrimSpace(body.FirstName)).
+		SetLastName(strings.TrimSpace(body.LastName)).
+		SetEmail(email).
+		SetPassword(body.Password).
+		SetScope("sender").
+		Save(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "failed to create user", err.Error())
+		return
+	}
+
+	profile, err := tx.SenderProfile.Create().
+		SetUser(userRow).
+		SetWebhookURL(strings.TrimSpace(body.WebhookURL)).
+		SetDomainWhitelist(body.DomainWhitelist).
+		SetIsActive(true).
+		Save(ctx)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusBadRequest, "error", "failed to create sender profile", err.Error())
+		return
+	}
+
+	key, secret, err := c.apiKeyService.GenerateAPIKey(ctx, tx, profile, nil)
+	if err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to create api key", nil)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "failed to commit integrator creation", nil)
+		return
+	}
+
+	writeAudit(ctx, "integrator.create", profile.ID.String(), map[string]any{
+		"api_key_id": key.ID.String(),
+		"email":      email,
+	})
+	u.APIResponse(ctx, http.StatusCreated, "success", "integrator created", gin.H{
+		"integrator": senderIntegratorView(&ent.SenderProfile{
+			ID:             profile.ID,
+			WebhookURL:     profile.WebhookURL,
+			DomainWhitelist: profile.DomainWhitelist,
+			IsActive:       profile.IsActive,
+			UpdatedAt:      profile.UpdatedAt,
+			Edges: ent.SenderProfileEdges{
+				User: userRow,
+				APIKey: key,
+			},
+		}),
+		"api_key": gin.H{
+			"id":      key.ID.String(),
+			"secret":  secret,
+			"present": true,
+		},
+	})
 }
 
 // GetIntegrators returns sender and provider integrators in one inventory view.

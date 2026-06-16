@@ -36,6 +36,7 @@ func buildAdminRouter() *gin.Engine {
 	g.GET("transactions", tx.GetTransactions)
 	g.GET("transactions/:id", tx.GetTransactionTimeline)
 	integrators := NewIntegratorsController()
+	g.POST("integrators", integrators.CreateIntegrator)
 	g.GET("integrators", integrators.GetIntegrators)
 	g.GET("integrators/:kind/:id", integrators.GetIntegrator)
 	g.POST("integrators/:kind/:id/api-key/rotate", integrators.RotateAPIKey)
