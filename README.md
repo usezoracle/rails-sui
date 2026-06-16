@@ -1,13 +1,14 @@
 # Rails
 
-**Sui-native B2B settlement infrastructure.** Converts Sui stablecoins (USDC) into local fiat via a decentralized liquidity-provider protocol and optional cross-chain bridging.
+**Sui-native settlement infrastructure.** Rails converts stablecoins into local fiat in emerging markets through a decentralized LP settlement system built on Sui. It is designed for fintechs, consumer apps, DeFi protocols, and cross-border payment systems that need fast, composable settlement without taking custody of user funds.
 
-Two settlement routes:
+Rails supports native SUI, USDC, and USDT and can settle into local currencies such as KES, NGN, TZS, and MWK. Settlement happens on Sui through on-chain escrow plus liquidity-provider rails: an order is created, LP capacity is matched, fiat is paid out from the LP rail, and the escrowed value is released only after payout is confirmed.
 
-- **Route B (Sui LP):** Sui USDC locked in an on-chain Gateway escrow; LPs deposit fiat into virtual bank accounts they control; matching engine pairs orders with LPs; aggregator releases the coin to the LP's wallet when the LP's fiat payout to the merchant is confirmed.
-- **Route A (Bridging):** Sui USDC bridged to BSC via LiFi, then either re-entered into the existing EVM Gateway/LP system or settled from a centralized treasury — caller's choice per transaction.
+Tapp is the proof of work for how products can be built on Rails. It combines the cardholder and merchant experiences into one product flow, showing how users can pay, merchants can accept, and settlement can move through Rails with a Sui wallet and local payout rails underneath.
 
-The aggregator never custodies user funds: LPs own their fiat (held by a BaaS partner under a mandate), and the on-chain Gateway holds escrow released only by the smart contract itself.
+Rails is built for speed and composability. We have had transactions settle in minutes, and the system is designed so new payment experiences can be composed on top of the same settlement layer without changing the core rails.
+
+The system never custodies user funds long term: LPs own their fiat, the on-chain gateway holds escrow until settlement conditions are met, and Rails coordinates the lifecycle without becoming the asset holder.
 
 ## Layout
 
