@@ -15,8 +15,6 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/usezoracle/rails-sui/docs"
 )
 
 // swaggerUIHTML is a tiny Swagger UI shell that loads the official
@@ -64,15 +62,12 @@ func (ctrl *Controller) ServeSwaggerUI(c *gin.Context) {
 }
 
 // ServeOpenAPISpec handles GET /openapi.yaml. In dev it reads docs/openapi.yaml
-// from disk so spec edits hot-reload without a rebuild. The production image
-// ships only the binary (no repo tree), so on a disk miss it falls back to the
-// copy embedded via go:embed (see docs/embed.go).
+// from disk so spec edits hot-reload without a rebuild. If the file is missing
+// from disk, it returns 404.
 func (ctrl *Controller) ServeOpenAPISpec(c *gin.Context) {
 	if b, err := os.ReadFile(filepath.Join("docs", "openapi.yaml")); err == nil {
 		c.Data(http.StatusOK, "application/yaml; charset=utf-8", b)
 		return
 	}
-	// application/yaml is the IANA-registered media type; some tools prefer
-	// text/yaml. Either works for Swagger UI's url loader.
-	c.Data(http.StatusOK, "application/yaml; charset=utf-8", docs.OpenAPISpec)
+	c.Status(http.StatusNotFound)
 }
