@@ -1,0 +1,43 @@
+# How it works
+
+Rails moves value through a small number of explicit steps. The point is to make every transition observable and easy to debug.
+
+## Lifecycle
+
+1. A partner requests a quote.
+2. The partner creates an order.
+3. Rails locks the crypto leg into settlement state.
+4. Rails matches or routes the fiat payout leg.
+5. The payout is confirmed.
+6. The escrowed value is released according to the contract path.
+
+## First principles
+
+- Stablecoins enter the system.
+- Rails selects the correct corridor.
+- Fiat leaves through the supported local rail.
+- The on-chain leg only completes when the off-chain leg is satisfied.
+
+## Failure modes
+
+- Quote expires before payment
+- Liquidity is unavailable
+- Fiat confirmation does not arrive
+- Route times out
+- A retry must be issued
+
+## What to expect from the app layer
+
+Your application should treat settlement as a state machine, not a single request/response call.
+
+That means you should handle:
+
+- pending
+- funded
+- matching
+- settling
+- settled
+- failed
+- expired
+
+Next: [Supported assets and currencies](/docs/rails/supported-assets)

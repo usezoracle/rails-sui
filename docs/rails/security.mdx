@@ -1,0 +1,36 @@
+# Security and custody
+
+Rails is designed around a simple custody boundary: Rails orchestrates settlement, but it does not become the long-term custodian of user funds.
+
+## Custody model
+
+- User value enters the settlement system only for the active order.
+- Escrow is enforced on-chain where applicable.
+- Local fiat payout is handled through the supported corridor.
+- Settlement state is tracked so failures can be recovered and audited.
+
+## What Rails controls
+
+- Quote generation
+- Order creation
+- Settlement state
+- Matching and routing
+- Webhook delivery
+
+## What partners control
+
+- Their own customer relationship
+- Their own application state
+- Their API credentials
+- Their compliance and product policies
+
+## Rule of thumb
+
+If a failure happens, the partner should be able to tell:
+
+- whether the asset leg succeeded
+- whether the fiat leg succeeded
+- whether the order expired
+- whether the order needs a retry
+
+Next: [API reference](/docs/rails/api-reference)

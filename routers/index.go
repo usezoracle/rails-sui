@@ -256,6 +256,10 @@ func cardsRoutes(route *gin.Engine) {
 	txCtrl := adminCtrl.NewTransactionsController()
 	adminConsole.GET("transactions", txCtrl.GetTransactions)
 	adminConsole.GET("transactions/:id", txCtrl.GetTransactionTimeline)
+	integratorsCtrl := adminCtrl.NewIntegratorsController()
+	adminConsole.GET("integrators", integratorsCtrl.GetIntegrators)
+	adminConsole.GET("integrators/:kind/:id", integratorsCtrl.GetIntegrator)
+	adminConsole.POST("integrators/:kind/:id/api-key/rotate", integratorsCtrl.RotateAPIKey)
 
 	fundCtrl := adminCtrl.NewFundingController()
 	adminConsole.GET("funding/balances", fundCtrl.GetBalances)

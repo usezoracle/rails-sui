@@ -1,0 +1,30 @@
+# Supported assets and currencies
+
+Rails currently supports a narrow set of assets and payout currencies so the integration surface stays predictable.
+
+## Assets
+
+- Native SUI
+- USDC
+- USDT
+
+## Local currencies
+
+- KES
+- NGN
+- TZS
+- MWK
+
+## Integration note
+
+Do not assume a corridor exists just because the asset is supported.
+
+Your app should always verify:
+
+- the asset
+- the source network
+- the destination currency
+- the corridor availability
+- the quote expiry
+
+Next: [Security and custody](/docs/rails/security)

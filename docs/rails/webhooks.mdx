@@ -1,0 +1,25 @@
+# Webhooks
+
+Rails uses webhooks to notify partners about state changes that matter for the integration.
+
+## What webhooks are for
+
+- order created
+- order funded
+- order matched
+- order settled
+- order failed
+- order expired
+
+## Integration rules
+
+- Make webhook handlers idempotent.
+- Persist the last known event ID.
+- Reconcile webhook state against your own order table.
+- Treat retries as normal.
+
+## Operational rule
+
+Never depend on a single webhook delivery to advance your business state.
+
+Next: [Integration guide](/docs/rails/integration-guide)

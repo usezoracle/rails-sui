@@ -1,0 +1,41 @@
+{
+  "name": "Rails",
+  "theme": "mint",
+  "colors": {
+    "primary": "#0F172A"
+  },
+  "navigation": [
+    {
+      "group": "Introduction",
+      "pages": [
+        "docs/rails/index",
+        "docs/rails/getting-started"
+      ]
+    },
+    {
+      "group": "Implementation",
+      "pages": [
+        "docs/rails/how-it-works",
+        "docs/rails/supported-assets",
+        "docs/rails/security",
+        "docs/rails/api-reference",
+        "docs/rails/webhooks",
+        "docs/rails/integration-guide"
+      ]
+    },
+    {
+      "group": "Products on Rails",
+      "pages": [
+        "docs/rails/tapp",
+        "docs/rails/tapp-merchant"
+      ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "docs/rails/faq",
+        "docs/rails/resources"
+      ]
+    }
+  ]
+}
