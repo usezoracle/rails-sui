@@ -101,8 +101,8 @@ func authRoutes(route *gin.Engine) {
 	// spraying but generous enough that an honest user fat-fingering
 	// won't get locked out.
 	v1 := route.Group("/v1/")
-	v1.POST("auth/register", middleware.RateLimit("auth.register", 5, time.Hour, nil), authCtrl.Register)
-	v1.POST("auth/login", middleware.RateLimit("auth.login", 10, 15*time.Minute, nil), authCtrl.Login)
+	v1.POST("auth/register", middleware.RateLimit("auth.register", 15, time.Hour, nil), authCtrl.Register)
+	v1.POST("auth/login", middleware.RateLimit("auth.login", 40, 15*time.Minute, nil), authCtrl.Login)
 	v1.POST("auth/google", middleware.RateLimit("auth.google", 20, 15*time.Minute, nil), authCtrl.GoogleAuth)
 	v1.POST("auth/confirm-account", middleware.RateLimit("auth.confirm", 10, 10*time.Minute, nil), authCtrl.ConfirmEmail)
 	v1.POST("auth/resend-token", middleware.RateLimit("auth.resend", 3, 10*time.Minute, nil), authCtrl.ResendVerificationToken)
