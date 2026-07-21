@@ -818,8 +818,8 @@ func StartCronJobs() {
 		logger.Errorf("StartCronJobs: %v", err)
 	}
 
-	// Refresh provision bucket priority queues every N minutes.
-	if _, err := scheduler.Cron(fmt.Sprintf("*/%d * * * *", orderConf.BucketQueueRebuildInterval)).
+	// Refresh provision bucket priority queues every N hours (as defined by BucketQueueRebuildInterval).
+	if _, err := scheduler.Cron(fmt.Sprintf("0 */%d * * *", orderConf.BucketQueueRebuildInterval)).
 		Do(priorityQueue.ProcessBucketQueues); err != nil {
 		logger.Errorf("StartCronJobs: %v", err)
 	}
@@ -865,7 +865,7 @@ func StartCronJobs() {
 	// a tick boundary; now ≤10s). Tick itself skips when a previous
 	// run is still in flight and holds the cross-instance Redis lease.
 	routeAD := services.NewRouteADispatcher()
-	if _, err := scheduler.Every(10).Seconds().Do(func() {
+	if _, err := scheduler.Every(2).Minutes().Do(func() {
 		if err := routeAD.Tick(context.Background()); err != nil {
 			logger.Errorf("StartCronJobs: route-a dispatcher: %v", err)
 		}
