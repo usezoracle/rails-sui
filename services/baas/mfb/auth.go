@@ -97,6 +97,7 @@ func NewAuthenticator(cfg Config) (*Authenticator, error) {
 	}
 	// Env vars frequently store the PEM with literal "\n"; restore newlines.
 	pem := strings.ReplaceAll(cfg.PrivateKeyPEM, `\n`, "\n")
+	pem = strings.Trim(pem, `"' `)
 	key, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(pem))
 	if err != nil {
 		return nil, fmt.Errorf("mfb: parse private key: %w", err)

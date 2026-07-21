@@ -287,6 +287,11 @@ const (
 // burst ticking. Called after events that create dispatcher work:
 // card debits, deposit self-settles.
 func KickRouteA() {
+	if rdb := db.RedisClient; rdb != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = rdb.Del(ctx, "rails:route_a:no_active_orders").Err()
+		cancel()
+	}
 	if d := activeRouteADispatcher.Load(); d != nil {
 		d.ExtendBurst()
 	}
@@ -492,6 +497,55 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 		logger.Infof("🤝 route-a: another dispatcher instance holds the lease — skipping tick")
 		return nil
 	}
+
+	// 1. Clean up stale pending/awaiting_funds orders (older than ReceiveAddressValidity)
+	// so the dispatcher stops polling them.
+	if d.conf.ReceiveAddressValidity > 0 {
+		cutoff := time.Now().Add(-d.conf.ReceiveAddressValidity)
+		if n, err := db.Client.RouteAOrder.Update().
+			Where(
+				routeaorder.BridgeStatusIn(
+					routeaorder.BridgeStatusPending,
+					routeaorder.BridgeStatusAwaitingFunds,
+				),
+				routeaorder.CreatedAtLT(cutoff),
+			).
+			SetBridgeStatus(routeaorder.BridgeStatusFailed).
+			SetFailureReason("expired: funds did not arrive within validity period").
+			Save(ctx); err == nil && n > 0 {
+			logger.Infof("🧹 route-a: marked %d stale/expired pending orders as failed", n)
+		}
+	}
+
+	// 2. Check if we have active/in-flight orders requiring execution. If none, we can skip DB queries.
+	rdb := db.RedisClient
+	if rdb != nil {
+		exists, err := rdb.Exists(ctx, "rails:route_a:no_active_orders").Result()
+		if err == nil && exists > 0 {
+			return nil
+		}
+	}
+
+	// Double check in database
+	exists, err := db.Client.RouteAOrder.Query().
+		Where(
+			routeaorder.BridgeStatusNotIn(
+				routeaorder.BridgeStatusSettled,
+				routeaorder.BridgeStatusFailed,
+				routeaorder.BridgeStatusRefunded,
+			),
+		).
+		Exist(ctx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if rdb != nil {
+			_ = rdb.Set(ctx, "rails:route_a:no_active_orders", "true", 5*time.Minute).Err()
+		}
+		return nil
+	}
+
 	if err := d.advancePending(ctx); err != nil {
 		logger.Errorf("❌ route-a: advance pending: %v", err)
 	}
@@ -523,6 +577,22 @@ func (d *RouteADispatcher) Tick(ctx context.Context) error {
 	if err := d.advanceLpNetworkPayouts(ctx); err != nil {
 		logger.Errorf("❌ route-a: advance lp network payouts: %v", err)
 	}
+
+	// 3. Keep the burst loop awake if there are active in-flight orders that
+	// require active status checks (bridging, bridged, or dispatching).
+	if active, err := db.Client.RouteAOrder.Query().
+		Where(
+			routeaorder.BridgeStatusIn(
+				routeaorder.BridgeStatusBridging,
+				routeaorder.BridgeStatusBridgeUncertain,
+				routeaorder.BridgeStatusBridged,
+				routeaorder.BridgeStatusDispatching,
+			),
+		).
+		Exist(ctx); err == nil && active {
+		d.ExtendBurst()
+	}
+
 	return nil
 }
 
