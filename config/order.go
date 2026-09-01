@@ -84,6 +84,11 @@ func OrderConfig() *OrderConfiguration {
 	viper.SetDefault("NETWORK_FEE", 0.05)
 	viper.SetDefault("PERCENT_DEVIATION_FROM_EXTERNAL_RATE", 0.01)
 	viper.SetDefault("PERCENT_DEVIATION_FROM_MARKET_RATE", 0.1)
+	// PUBLIC fullnodes (fullnode.{mainnet,testnet}.sui.io) no longer serve
+	// JSON-RPC — every method returns -32601 "Method not found". The Sui SDK
+	// this codebase uses is JSON-RPC, so SUI_RPC_URL must be set to a provider
+	// that still serves it (e.g. https://rpc.ankr.com/sui/<token>). This default
+	// only keeps local boot working; it will fail on the first RPC call.
 	viper.SetDefault("SUI_RPC_URL", "https://fullnode.testnet.sui.io:443")
 	viper.SetDefault("LIFI_BASE_URL", "https://li.quest/v1")
 	viper.SetDefault("CCTP_FALLBACK_ENABLED", true)

@@ -57,7 +57,8 @@ ADMIN_API_TOKEN=                         # `openssl rand -hex 32` for /v1/cards/
 DB_NAME=rails  DB_USER=...  DB_PASSWORD=...  DB_HOST=...
 
 # Sui
-SUI_RPC_URL=https://fullnode.testnet.sui.io:443
+SUI_RPC_URL=https://rpc.ankr.com/sui/<token>   # NOT a public fullnode: JSON-RPC
+                                              # is deprecated there (-32601)
 SUI_GATEWAY_PACKAGE_ID=                  # from step 1.1
 SUI_GATEWAY_OBJECT_ID=                   # from step 1.1
 SUI_AGGREGATOR_CAP_ID=                   # from step 1.2
