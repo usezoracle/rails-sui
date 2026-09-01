@@ -253,9 +253,26 @@ func (s *PriorityQueueService) AssignLockPaymentOrder(ctx context.Context, order
 			logger.Errorf("%s - failed to get provider: %v", orderIDPrefix, err)
 		}
 
-		if provider.VisibilityMode == providerprofile.VisibilityModePrivate {
+		// provider is nil whenever the query above failed — reading
+		// VisibilityMode unconditionally panics on exactly the error path the
+		// else-branch just logged. A provider we couldn't load has no
+		// visibility to honour, so fall through to the public queue; only a
+		// provider we did load, and that is private, stops here.
+		if provider != nil && provider.VisibilityMode == providerprofile.VisibilityModePrivate {
 			return nil
 		}
+	}
+
+	// The provision bucket IS the queue key (currency + amount range), so
+	// without one there is nothing to match against. This is reachable, not
+	// defensive: sui_event_indexer.go deliberately passes a nil bucket when no
+	// bucket covers the order's fiat amount, and
+	// lock_payment_orders.provision_bucket is nullable. Leave the order
+	// unassigned — it stays in escrow until the aggregator refunds it — rather
+	// than dereferencing nil and taking the caller down.
+	if order.ProvisionBucket == nil || order.ProvisionBucket.Edges.Currency == nil {
+		logger.Errorf("%s - no provision bucket on order; leaving unassigned (no provider queue to match against)", orderIDPrefix)
+		return nil
 	}
 
 	// Get the first provider from the circular queue
