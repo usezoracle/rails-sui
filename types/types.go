@@ -178,6 +178,7 @@ type RegisterResponse struct {
 	FirstName    string    `json:"firstName"`
 	LastName     string    `json:"lastName"`
 	Email        string    `json:"email"`
+	EVMAddress   string    `json:"evmAddress,omitempty"`
 	AccessToken  string    `json:"accessToken,omitempty"`
 	RefreshToken string    `json:"refreshToken,omitempty"`
 }
@@ -228,6 +229,7 @@ type LoginResponse struct {
 	AccessToken  string   `json:"accessToken"`
 	RefreshToken string   `json:"refreshToken"`
 	Scopes       []string `json:"scopes"`
+	EVMAddress   string   `json:"evmAddress,omitempty"`
 }
 
 // RefreshJWTPayload is the payload for the refresh endpoint

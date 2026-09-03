@@ -116,6 +116,34 @@ func (uc *UserCreate) SetNillableHasEarlyAccess(b *bool) *UserCreate {
 	return uc
 }
 
+// SetEvmAddress sets the "evm_address" field.
+func (uc *UserCreate) SetEvmAddress(s string) *UserCreate {
+	uc.mutation.SetEvmAddress(s)
+	return uc
+}
+
+// SetNillableEvmAddress sets the "evm_address" field if the given value is not nil.
+func (uc *UserCreate) SetNillableEvmAddress(s *string) *UserCreate {
+	if s != nil {
+		uc.SetEvmAddress(*s)
+	}
+	return uc
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (uc *UserCreate) SetEncryptedPrivateKey(s string) *UserCreate {
+	uc.mutation.SetEncryptedPrivateKey(s)
+	return uc
+}
+
+// SetNillableEncryptedPrivateKey sets the "encrypted_private_key" field if the given value is not nil.
+func (uc *UserCreate) SetNillableEncryptedPrivateKey(s *string) *UserCreate {
+	if s != nil {
+		uc.SetEncryptedPrivateKey(*s)
+	}
+	return uc
+}
+
 // SetID sets the "id" field.
 func (uc *UserCreate) SetID(u uuid.UUID) *UserCreate {
 	uc.mutation.SetID(u)
@@ -412,6 +440,14 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldHasEarlyAccess, field.TypeBool, value)
 		_node.HasEarlyAccess = value
 	}
+	if value, ok := uc.mutation.EvmAddress(); ok {
+		_spec.SetField(user.FieldEvmAddress, field.TypeString, value)
+		_node.EvmAddress = value
+	}
+	if value, ok := uc.mutation.EncryptedPrivateKey(); ok {
+		_spec.SetField(user.FieldEncryptedPrivateKey, field.TypeString, value)
+		_node.EncryptedPrivateKey = value
+	}
 	if nodes := uc.mutation.SenderProfileIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2O,
@@ -656,6 +692,42 @@ func (u *UserUpsert) UpdateHasEarlyAccess() *UserUpsert {
 	return u
 }
 
+// SetEvmAddress sets the "evm_address" field.
+func (u *UserUpsert) SetEvmAddress(v string) *UserUpsert {
+	u.Set(user.FieldEvmAddress, v)
+	return u
+}
+
+// UpdateEvmAddress sets the "evm_address" field to the value that was provided on create.
+func (u *UserUpsert) UpdateEvmAddress() *UserUpsert {
+	u.SetExcluded(user.FieldEvmAddress)
+	return u
+}
+
+// ClearEvmAddress clears the value of the "evm_address" field.
+func (u *UserUpsert) ClearEvmAddress() *UserUpsert {
+	u.SetNull(user.FieldEvmAddress)
+	return u
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (u *UserUpsert) SetEncryptedPrivateKey(v string) *UserUpsert {
+	u.Set(user.FieldEncryptedPrivateKey, v)
+	return u
+}
+
+// UpdateEncryptedPrivateKey sets the "encrypted_private_key" field to the value that was provided on create.
+func (u *UserUpsert) UpdateEncryptedPrivateKey() *UserUpsert {
+	u.SetExcluded(user.FieldEncryptedPrivateKey)
+	return u
+}
+
+// ClearEncryptedPrivateKey clears the value of the "encrypted_private_key" field.
+func (u *UserUpsert) ClearEncryptedPrivateKey() *UserUpsert {
+	u.SetNull(user.FieldEncryptedPrivateKey)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -816,6 +888,48 @@ func (u *UserUpsertOne) SetHasEarlyAccess(v bool) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateHasEarlyAccess() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateHasEarlyAccess()
+	})
+}
+
+// SetEvmAddress sets the "evm_address" field.
+func (u *UserUpsertOne) SetEvmAddress(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetEvmAddress(v)
+	})
+}
+
+// UpdateEvmAddress sets the "evm_address" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateEvmAddress() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateEvmAddress()
+	})
+}
+
+// ClearEvmAddress clears the value of the "evm_address" field.
+func (u *UserUpsertOne) ClearEvmAddress() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearEvmAddress()
+	})
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (u *UserUpsertOne) SetEncryptedPrivateKey(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetEncryptedPrivateKey(v)
+	})
+}
+
+// UpdateEncryptedPrivateKey sets the "encrypted_private_key" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateEncryptedPrivateKey() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateEncryptedPrivateKey()
+	})
+}
+
+// ClearEncryptedPrivateKey clears the value of the "encrypted_private_key" field.
+func (u *UserUpsertOne) ClearEncryptedPrivateKey() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearEncryptedPrivateKey()
 	})
 }
 
@@ -1146,6 +1260,48 @@ func (u *UserUpsertBulk) SetHasEarlyAccess(v bool) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateHasEarlyAccess() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateHasEarlyAccess()
+	})
+}
+
+// SetEvmAddress sets the "evm_address" field.
+func (u *UserUpsertBulk) SetEvmAddress(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetEvmAddress(v)
+	})
+}
+
+// UpdateEvmAddress sets the "evm_address" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateEvmAddress() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateEvmAddress()
+	})
+}
+
+// ClearEvmAddress clears the value of the "evm_address" field.
+func (u *UserUpsertBulk) ClearEvmAddress() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearEvmAddress()
+	})
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (u *UserUpsertBulk) SetEncryptedPrivateKey(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetEncryptedPrivateKey(v)
+	})
+}
+
+// UpdateEncryptedPrivateKey sets the "encrypted_private_key" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateEncryptedPrivateKey() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateEncryptedPrivateKey()
+	})
+}
+
+// ClearEncryptedPrivateKey clears the value of the "encrypted_private_key" field.
+func (u *UserUpsertBulk) ClearEncryptedPrivateKey() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearEncryptedPrivateKey()
 	})
 }
 

@@ -101,6 +101,16 @@ func HasEarlyAccess(v bool) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldHasEarlyAccess, v))
 }
 
+// EvmAddress applies equality check predicate on the "evm_address" field. It's identical to EvmAddressEQ.
+func EvmAddress(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldEvmAddress, v))
+}
+
+// EncryptedPrivateKey applies equality check predicate on the "encrypted_private_key" field. It's identical to EncryptedPrivateKeyEQ.
+func EncryptedPrivateKey(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldEncryptedPrivateKey, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldCreatedAt, v))
@@ -524,6 +534,156 @@ func HasEarlyAccessEQ(v bool) predicate.User {
 // HasEarlyAccessNEQ applies the NEQ predicate on the "has_early_access" field.
 func HasEarlyAccessNEQ(v bool) predicate.User {
 	return predicate.User(sql.FieldNEQ(FieldHasEarlyAccess, v))
+}
+
+// EvmAddressEQ applies the EQ predicate on the "evm_address" field.
+func EvmAddressEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldEvmAddress, v))
+}
+
+// EvmAddressNEQ applies the NEQ predicate on the "evm_address" field.
+func EvmAddressNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldEvmAddress, v))
+}
+
+// EvmAddressIn applies the In predicate on the "evm_address" field.
+func EvmAddressIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldEvmAddress, vs...))
+}
+
+// EvmAddressNotIn applies the NotIn predicate on the "evm_address" field.
+func EvmAddressNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldEvmAddress, vs...))
+}
+
+// EvmAddressGT applies the GT predicate on the "evm_address" field.
+func EvmAddressGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldEvmAddress, v))
+}
+
+// EvmAddressGTE applies the GTE predicate on the "evm_address" field.
+func EvmAddressGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldEvmAddress, v))
+}
+
+// EvmAddressLT applies the LT predicate on the "evm_address" field.
+func EvmAddressLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldEvmAddress, v))
+}
+
+// EvmAddressLTE applies the LTE predicate on the "evm_address" field.
+func EvmAddressLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldEvmAddress, v))
+}
+
+// EvmAddressContains applies the Contains predicate on the "evm_address" field.
+func EvmAddressContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldEvmAddress, v))
+}
+
+// EvmAddressHasPrefix applies the HasPrefix predicate on the "evm_address" field.
+func EvmAddressHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldEvmAddress, v))
+}
+
+// EvmAddressHasSuffix applies the HasSuffix predicate on the "evm_address" field.
+func EvmAddressHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldEvmAddress, v))
+}
+
+// EvmAddressIsNil applies the IsNil predicate on the "evm_address" field.
+func EvmAddressIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldEvmAddress))
+}
+
+// EvmAddressNotNil applies the NotNil predicate on the "evm_address" field.
+func EvmAddressNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldEvmAddress))
+}
+
+// EvmAddressEqualFold applies the EqualFold predicate on the "evm_address" field.
+func EvmAddressEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldEvmAddress, v))
+}
+
+// EvmAddressContainsFold applies the ContainsFold predicate on the "evm_address" field.
+func EvmAddressContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldEvmAddress, v))
+}
+
+// EncryptedPrivateKeyEQ applies the EQ predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyNEQ applies the NEQ predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyIn applies the In predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldEncryptedPrivateKey, vs...))
+}
+
+// EncryptedPrivateKeyNotIn applies the NotIn predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldEncryptedPrivateKey, vs...))
+}
+
+// EncryptedPrivateKeyGT applies the GT predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyGTE applies the GTE predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyLT applies the LT predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyLTE applies the LTE predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyContains applies the Contains predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyHasPrefix applies the HasPrefix predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyHasSuffix applies the HasSuffix predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyIsNil applies the IsNil predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldEncryptedPrivateKey))
+}
+
+// EncryptedPrivateKeyNotNil applies the NotNil predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldEncryptedPrivateKey))
+}
+
+// EncryptedPrivateKeyEqualFold applies the EqualFold predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldEncryptedPrivateKey, v))
+}
+
+// EncryptedPrivateKeyContainsFold applies the ContainsFold predicate on the "encrypted_private_key" field.
+func EncryptedPrivateKeyContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldEncryptedPrivateKey, v))
 }
 
 // HasSenderProfile applies the HasEdge predicate on the "sender_profile" edge.

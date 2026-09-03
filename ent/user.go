@@ -39,6 +39,10 @@ type User struct {
 	IsEmailVerified bool `json:"is_email_verified,omitempty"`
 	// HasEarlyAccess holds the value of the "has_early_access" field.
 	HasEarlyAccess bool `json:"has_early_access,omitempty"`
+	// EvmAddress holds the value of the "evm_address" field.
+	EvmAddress string `json:"evm_address,omitempty"`
+	// EncryptedPrivateKey holds the value of the "encrypted_private_key" field.
+	EncryptedPrivateKey string `json:"-"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -131,7 +135,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldIsEmailVerified, user.FieldHasEarlyAccess:
 			values[i] = new(sql.NullBool)
-		case user.FieldFirstName, user.FieldLastName, user.FieldEmail, user.FieldPassword, user.FieldScope:
+		case user.FieldFirstName, user.FieldLastName, user.FieldEmail, user.FieldPassword, user.FieldScope, user.FieldEvmAddress, user.FieldEncryptedPrivateKey:
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -211,6 +215,18 @@ func (u *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field has_early_access", values[i])
 			} else if value.Valid {
 				u.HasEarlyAccess = value.Bool
+			}
+		case user.FieldEvmAddress:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field evm_address", values[i])
+			} else if value.Valid {
+				u.EvmAddress = value.String
+			}
+		case user.FieldEncryptedPrivateKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field encrypted_private_key", values[i])
+			} else if value.Valid {
+				u.EncryptedPrivateKey = value.String
 			}
 		default:
 			u.selectValues.Set(columns[i], values[i])
@@ -303,6 +319,11 @@ func (u *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("has_early_access=")
 	builder.WriteString(fmt.Sprintf("%v", u.HasEarlyAccess))
+	builder.WriteString(", ")
+	builder.WriteString("evm_address=")
+	builder.WriteString(u.EvmAddress)
+	builder.WriteString(", ")
+	builder.WriteString("encrypted_private_key=<sensitive>")
 	builder.WriteByte(')')
 	return builder.String()
 }

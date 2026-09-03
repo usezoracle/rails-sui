@@ -34,6 +34,10 @@ const (
 	FieldIsEmailVerified = "is_email_verified"
 	// FieldHasEarlyAccess holds the string denoting the has_early_access field in the database.
 	FieldHasEarlyAccess = "has_early_access"
+	// FieldEvmAddress holds the string denoting the evm_address field in the database.
+	FieldEvmAddress = "evm_address"
+	// FieldEncryptedPrivateKey holds the string denoting the encrypted_private_key field in the database.
+	FieldEncryptedPrivateKey = "encrypted_private_key"
 	// EdgeSenderProfile holds the string denoting the sender_profile edge name in mutations.
 	EdgeSenderProfile = "sender_profile"
 	// EdgeProviderProfile holds the string denoting the provider_profile edge name in mutations.
@@ -104,6 +108,8 @@ var Columns = []string{
 	FieldScope,
 	FieldIsEmailVerified,
 	FieldHasEarlyAccess,
+	FieldEvmAddress,
+	FieldEncryptedPrivateKey,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -192,6 +198,16 @@ func ByIsEmailVerified(opts ...sql.OrderTermOption) OrderOption {
 // ByHasEarlyAccess orders the results by the has_early_access field.
 func ByHasEarlyAccess(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldHasEarlyAccess, opts...).ToFunc()
+}
+
+// ByEvmAddress orders the results by the evm_address field.
+func ByEvmAddress(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEvmAddress, opts...).ToFunc()
+}
+
+// ByEncryptedPrivateKey orders the results by the encrypted_private_key field.
+func ByEncryptedPrivateKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEncryptedPrivateKey, opts...).ToFunc()
 }
 
 // BySenderProfileField orders the results by sender_profile field.

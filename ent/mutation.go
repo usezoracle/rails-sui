@@ -28847,6 +28847,8 @@ type UserMutation struct {
 	scope                     *string
 	is_email_verified         *bool
 	has_early_access          *bool
+	evm_address               *string
+	encrypted_private_key     *string
 	clearedFields             map[string]struct{}
 	sender_profile            *uuid.UUID
 	clearedsender_profile     bool
@@ -29296,6 +29298,104 @@ func (m *UserMutation) ResetHasEarlyAccess() {
 	m.has_early_access = nil
 }
 
+// SetEvmAddress sets the "evm_address" field.
+func (m *UserMutation) SetEvmAddress(s string) {
+	m.evm_address = &s
+}
+
+// EvmAddress returns the value of the "evm_address" field in the mutation.
+func (m *UserMutation) EvmAddress() (r string, exists bool) {
+	v := m.evm_address
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEvmAddress returns the old "evm_address" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldEvmAddress(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEvmAddress is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEvmAddress requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEvmAddress: %w", err)
+	}
+	return oldValue.EvmAddress, nil
+}
+
+// ClearEvmAddress clears the value of the "evm_address" field.
+func (m *UserMutation) ClearEvmAddress() {
+	m.evm_address = nil
+	m.clearedFields[user.FieldEvmAddress] = struct{}{}
+}
+
+// EvmAddressCleared returns if the "evm_address" field was cleared in this mutation.
+func (m *UserMutation) EvmAddressCleared() bool {
+	_, ok := m.clearedFields[user.FieldEvmAddress]
+	return ok
+}
+
+// ResetEvmAddress resets all changes to the "evm_address" field.
+func (m *UserMutation) ResetEvmAddress() {
+	m.evm_address = nil
+	delete(m.clearedFields, user.FieldEvmAddress)
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (m *UserMutation) SetEncryptedPrivateKey(s string) {
+	m.encrypted_private_key = &s
+}
+
+// EncryptedPrivateKey returns the value of the "encrypted_private_key" field in the mutation.
+func (m *UserMutation) EncryptedPrivateKey() (r string, exists bool) {
+	v := m.encrypted_private_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEncryptedPrivateKey returns the old "encrypted_private_key" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldEncryptedPrivateKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEncryptedPrivateKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEncryptedPrivateKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEncryptedPrivateKey: %w", err)
+	}
+	return oldValue.EncryptedPrivateKey, nil
+}
+
+// ClearEncryptedPrivateKey clears the value of the "encrypted_private_key" field.
+func (m *UserMutation) ClearEncryptedPrivateKey() {
+	m.encrypted_private_key = nil
+	m.clearedFields[user.FieldEncryptedPrivateKey] = struct{}{}
+}
+
+// EncryptedPrivateKeyCleared returns if the "encrypted_private_key" field was cleared in this mutation.
+func (m *UserMutation) EncryptedPrivateKeyCleared() bool {
+	_, ok := m.clearedFields[user.FieldEncryptedPrivateKey]
+	return ok
+}
+
+// ResetEncryptedPrivateKey resets all changes to the "encrypted_private_key" field.
+func (m *UserMutation) ResetEncryptedPrivateKey() {
+	m.encrypted_private_key = nil
+	delete(m.clearedFields, user.FieldEncryptedPrivateKey)
+}
+
 // SetSenderProfileID sets the "sender_profile" edge to the SenderProfile entity by id.
 func (m *UserMutation) SetSenderProfileID(id uuid.UUID) {
 	m.sender_profile = &id
@@ -29609,7 +29709,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 11)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -29637,6 +29737,12 @@ func (m *UserMutation) Fields() []string {
 	if m.has_early_access != nil {
 		fields = append(fields, user.FieldHasEarlyAccess)
 	}
+	if m.evm_address != nil {
+		fields = append(fields, user.FieldEvmAddress)
+	}
+	if m.encrypted_private_key != nil {
+		fields = append(fields, user.FieldEncryptedPrivateKey)
+	}
 	return fields
 }
 
@@ -29663,6 +29769,10 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.IsEmailVerified()
 	case user.FieldHasEarlyAccess:
 		return m.HasEarlyAccess()
+	case user.FieldEvmAddress:
+		return m.EvmAddress()
+	case user.FieldEncryptedPrivateKey:
+		return m.EncryptedPrivateKey()
 	}
 	return nil, false
 }
@@ -29690,6 +29800,10 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldIsEmailVerified(ctx)
 	case user.FieldHasEarlyAccess:
 		return m.OldHasEarlyAccess(ctx)
+	case user.FieldEvmAddress:
+		return m.OldEvmAddress(ctx)
+	case user.FieldEncryptedPrivateKey:
+		return m.OldEncryptedPrivateKey(ctx)
 	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
@@ -29762,6 +29876,20 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetHasEarlyAccess(v)
 		return nil
+	case user.FieldEvmAddress:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEvmAddress(v)
+		return nil
+	case user.FieldEncryptedPrivateKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEncryptedPrivateKey(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -29791,7 +29919,14 @@ func (m *UserMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *UserMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(user.FieldEvmAddress) {
+		fields = append(fields, user.FieldEvmAddress)
+	}
+	if m.FieldCleared(user.FieldEncryptedPrivateKey) {
+		fields = append(fields, user.FieldEncryptedPrivateKey)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -29804,6 +29939,14 @@ func (m *UserMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *UserMutation) ClearField(name string) error {
+	switch name {
+	case user.FieldEvmAddress:
+		m.ClearEvmAddress()
+		return nil
+	case user.FieldEncryptedPrivateKey:
+		m.ClearEncryptedPrivateKey()
+		return nil
+	}
 	return fmt.Errorf("unknown User nullable field %s", name)
 }
 
@@ -29837,6 +29980,12 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldHasEarlyAccess:
 		m.ResetHasEarlyAccess()
+		return nil
+	case user.FieldEvmAddress:
+		m.ResetEvmAddress()
+		return nil
+	case user.FieldEncryptedPrivateKey:
+		m.ResetEncryptedPrivateKey()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

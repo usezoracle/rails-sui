@@ -41,6 +41,11 @@ func (User) Fields() []ent.Field {
 			Default(false),
 		field.Bool("has_early_access").
 			Default(false),
+		field.String("evm_address").
+			Optional(),
+		field.String("encrypted_private_key").
+			Sensitive().
+			Optional(),
 	}
 }
 

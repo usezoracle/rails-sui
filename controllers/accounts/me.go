@@ -32,6 +32,7 @@ type meResponse struct {
 	Email           string    `json:"email"`
 	FirstName       string    `json:"first_name"`
 	LastName        string    `json:"last_name"`
+	EVMAddress      string    `json:"evm_address,omitempty"`
 	Scopes          []string  `json:"scopes"`
 	IsEmailVerified bool      `json:"is_email_verified"`
 	CreatedAt       time.Time `json:"created_at"`
@@ -202,6 +203,7 @@ func (ctrl *AuthController) Me(ctx *gin.Context) {
 		Email:              user.Email,
 		FirstName:          user.FirstName,
 		LastName:           user.LastName,
+		EVMAddress:         user.EvmAddress,
 		Scopes:             splitScopes(user.Scope),
 		IsEmailVerified:    user.IsEmailVerified,
 		CreatedAt:          user.CreatedAt,

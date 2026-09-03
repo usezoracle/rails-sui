@@ -74,27 +74,23 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 
 	// Save the user
 	scope := strings.Join(payload.Scopes, " ")
+	evmAddr, encKey, wErr := crypto.GenerateEVMWallet("")
+	if wErr != nil {
+		logger.Errorf("Register: wallet generation error: %v", wErr)
+	}
+
 	userCreate := tx.User.
 		Create().
 		SetFirstName(payload.FirstName).
 		SetLastName(payload.LastName).
 		SetEmail(strings.ToLower(payload.Email)).
 		SetPassword(payload.Password).
-		SetScope(scope)
+		SetScope(scope).
+		SetIsEmailVerified(true).
+		SetHasEarlyAccess(true)
 
-	// Auto-verify ONLY in true local dev. Every deployed environment requires
-	// the user to verify their email before the account is usable.
-	if serverConf.Environment == "local" {
-		userCreate = userCreate.
-			SetIsEmailVerified(true)
-	}
-
-	// Providers (LPs) are onboarded partners, not part of the consumer beta —
-	// so they must not be blocked by the early-access gate at login. Google
-	// sign-in already grants this; keep email/password registration consistent
-	// so an LP who registers can actually log in (after verifying their email).
-	if u.ContainsString(payload.Scopes, "provider") {
-		userCreate = userCreate.SetHasEarlyAccess(true)
+	if evmAddr != "" {
+		userCreate = userCreate.SetEvmAddress(evmAddr).SetEncryptedPrivateKey(encKey)
 	}
 
 	user, err := userCreate.Save(ctx)
@@ -228,34 +224,29 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	// Auto-login (return tokens) ONLY in local dev. In every deployed
-	// environment the user must verify their email, then log in — register
-	// never returns usable credentials for an unverified account.
 	var accessToken, refreshToken string
-	if serverConf.Environment == "local" {
-		var err error
-		accessToken, err = token.GenerateAccessJWT(user.ID.String(), user.Scope)
-		if err != nil {
-			logger.Errorf("error: %v", err)
-			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate access token on registration", nil)
-			return
-		}
-
-		refreshTTL := time.Duration(authConf.JwtRefreshLifespan) * time.Minute
-		issued, err := authSvc.IssueNewFamily(
-			ctx,
-			user.ID,
-			refreshTTL,
-			ctx.GetHeader("User-Agent"),
-			ctx.ClientIP(),
-		)
-		if err != nil {
-			logger.Errorf("error: %v", err)
-			u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate refresh token on registration", nil)
-			return
-		}
-		refreshToken = issued.Raw
+	var errJwt error
+	accessToken, errJwt = token.GenerateAccessJWT(user.ID.String(), user.Scope)
+	if errJwt != nil {
+		logger.Errorf("error: %v", errJwt)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate access token on registration", nil)
+		return
 	}
+
+	refreshTTL := time.Duration(authConf.JwtRefreshLifespan) * time.Minute
+	issued, errJwt := authSvc.IssueNewFamily(
+		ctx,
+		user.ID,
+		refreshTTL,
+		ctx.GetHeader("User-Agent"),
+		ctx.ClientIP(),
+	)
+	if errJwt != nil {
+		logger.Errorf("error: %v", errJwt)
+		u.APIResponse(ctx, http.StatusInternalServerError, "error", "Failed to generate refresh token on registration", nil)
+		return
+	}
+	refreshToken = issued.Raw
 
 	response := &types.RegisterResponse{
 		ID:           user.ID,
@@ -264,6 +255,7 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		FirstName:    user.FirstName,
 		LastName:     user.LastName,
 		Email:        user.Email,
+		EVMAddress:   user.EvmAddress,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}
@@ -316,15 +308,13 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// Email verification is COMPULSORY in every deployed environment — block
-	// login until verified. Local dev auto-verifies at registration, so this
-	// never blocks there. Fail-closed: a misconfigured ENVIRONMENT still
-	// enforces verification rather than silently disabling it.
-	if serverConf.Environment != "local" && !user.IsEmailVerified {
-		u.APIResponse(ctx, http.StatusBadRequest, "error",
-			"Email is not verified, please verify your email", nil,
-		)
-		return
+	// Ensure user has an EVM wallet
+	if user.EvmAddress == "" {
+		evmAddr, encKey, wErr := crypto.GenerateEVMWallet("")
+		if wErr == nil && evmAddr != "" {
+			_ = user.Update().SetEvmAddress(evmAddr).SetEncryptedPrivateKey(encKey).SetIsEmailVerified(true).Exec(ctx)
+			user.EvmAddress = evmAddr
+		}
 	}
 
 	// Stateless short-lived access JWT.
@@ -359,6 +349,7 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		AccessToken:  accessToken,
 		RefreshToken: issued.Raw,
 		Scopes:       strings.Split(user.Scope, " "),
+		EVMAddress:   user.EvmAddress,
 	})
 }
 

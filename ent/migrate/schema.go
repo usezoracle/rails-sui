@@ -897,6 +897,8 @@ var (
 		{Name: "scope", Type: field.TypeString},
 		{Name: "is_email_verified", Type: field.TypeBool, Default: false},
 		{Name: "has_early_access", Type: field.TypeBool, Default: false},
+		{Name: "evm_address", Type: field.TypeString, Nullable: true},
+		{Name: "encrypted_private_key", Type: field.TypeString, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{

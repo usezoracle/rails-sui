@@ -139,6 +139,46 @@ func (uu *UserUpdate) SetNillableHasEarlyAccess(b *bool) *UserUpdate {
 	return uu
 }
 
+// SetEvmAddress sets the "evm_address" field.
+func (uu *UserUpdate) SetEvmAddress(s string) *UserUpdate {
+	uu.mutation.SetEvmAddress(s)
+	return uu
+}
+
+// SetNillableEvmAddress sets the "evm_address" field if the given value is not nil.
+func (uu *UserUpdate) SetNillableEvmAddress(s *string) *UserUpdate {
+	if s != nil {
+		uu.SetEvmAddress(*s)
+	}
+	return uu
+}
+
+// ClearEvmAddress clears the value of the "evm_address" field.
+func (uu *UserUpdate) ClearEvmAddress() *UserUpdate {
+	uu.mutation.ClearEvmAddress()
+	return uu
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (uu *UserUpdate) SetEncryptedPrivateKey(s string) *UserUpdate {
+	uu.mutation.SetEncryptedPrivateKey(s)
+	return uu
+}
+
+// SetNillableEncryptedPrivateKey sets the "encrypted_private_key" field if the given value is not nil.
+func (uu *UserUpdate) SetNillableEncryptedPrivateKey(s *string) *UserUpdate {
+	if s != nil {
+		uu.SetEncryptedPrivateKey(*s)
+	}
+	return uu
+}
+
+// ClearEncryptedPrivateKey clears the value of the "encrypted_private_key" field.
+func (uu *UserUpdate) ClearEncryptedPrivateKey() *UserUpdate {
+	uu.mutation.ClearEncryptedPrivateKey()
+	return uu
+}
+
 // SetSenderProfileID sets the "sender_profile" edge to the SenderProfile entity by ID.
 func (uu *UserUpdate) SetSenderProfileID(id uuid.UUID) *UserUpdate {
 	uu.mutation.SetSenderProfileID(id)
@@ -419,6 +459,18 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := uu.mutation.HasEarlyAccess(); ok {
 		_spec.SetField(user.FieldHasEarlyAccess, field.TypeBool, value)
+	}
+	if value, ok := uu.mutation.EvmAddress(); ok {
+		_spec.SetField(user.FieldEvmAddress, field.TypeString, value)
+	}
+	if uu.mutation.EvmAddressCleared() {
+		_spec.ClearField(user.FieldEvmAddress, field.TypeString)
+	}
+	if value, ok := uu.mutation.EncryptedPrivateKey(); ok {
+		_spec.SetField(user.FieldEncryptedPrivateKey, field.TypeString, value)
+	}
+	if uu.mutation.EncryptedPrivateKeyCleared() {
+		_spec.ClearField(user.FieldEncryptedPrivateKey, field.TypeString)
 	}
 	if uu.mutation.SenderProfileCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -766,6 +818,46 @@ func (uuo *UserUpdateOne) SetNillableHasEarlyAccess(b *bool) *UserUpdateOne {
 	return uuo
 }
 
+// SetEvmAddress sets the "evm_address" field.
+func (uuo *UserUpdateOne) SetEvmAddress(s string) *UserUpdateOne {
+	uuo.mutation.SetEvmAddress(s)
+	return uuo
+}
+
+// SetNillableEvmAddress sets the "evm_address" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableEvmAddress(s *string) *UserUpdateOne {
+	if s != nil {
+		uuo.SetEvmAddress(*s)
+	}
+	return uuo
+}
+
+// ClearEvmAddress clears the value of the "evm_address" field.
+func (uuo *UserUpdateOne) ClearEvmAddress() *UserUpdateOne {
+	uuo.mutation.ClearEvmAddress()
+	return uuo
+}
+
+// SetEncryptedPrivateKey sets the "encrypted_private_key" field.
+func (uuo *UserUpdateOne) SetEncryptedPrivateKey(s string) *UserUpdateOne {
+	uuo.mutation.SetEncryptedPrivateKey(s)
+	return uuo
+}
+
+// SetNillableEncryptedPrivateKey sets the "encrypted_private_key" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableEncryptedPrivateKey(s *string) *UserUpdateOne {
+	if s != nil {
+		uuo.SetEncryptedPrivateKey(*s)
+	}
+	return uuo
+}
+
+// ClearEncryptedPrivateKey clears the value of the "encrypted_private_key" field.
+func (uuo *UserUpdateOne) ClearEncryptedPrivateKey() *UserUpdateOne {
+	uuo.mutation.ClearEncryptedPrivateKey()
+	return uuo
+}
+
 // SetSenderProfileID sets the "sender_profile" edge to the SenderProfile entity by ID.
 func (uuo *UserUpdateOne) SetSenderProfileID(id uuid.UUID) *UserUpdateOne {
 	uuo.mutation.SetSenderProfileID(id)
@@ -1076,6 +1168,18 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if value, ok := uuo.mutation.HasEarlyAccess(); ok {
 		_spec.SetField(user.FieldHasEarlyAccess, field.TypeBool, value)
+	}
+	if value, ok := uuo.mutation.EvmAddress(); ok {
+		_spec.SetField(user.FieldEvmAddress, field.TypeString, value)
+	}
+	if uuo.mutation.EvmAddressCleared() {
+		_spec.ClearField(user.FieldEvmAddress, field.TypeString)
+	}
+	if value, ok := uuo.mutation.EncryptedPrivateKey(); ok {
+		_spec.SetField(user.FieldEncryptedPrivateKey, field.TypeString, value)
+	}
+	if uuo.mutation.EncryptedPrivateKeyCleared() {
+		_spec.ClearField(user.FieldEncryptedPrivateKey, field.TypeString)
 	}
 	if uuo.mutation.SenderProfileCleared() {
 		edge := &sqlgraph.EdgeSpec{
