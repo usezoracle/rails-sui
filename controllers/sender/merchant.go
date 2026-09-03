@@ -299,10 +299,20 @@ func (ctrl *SenderController) InitiateTapPayment(ctx *gin.Context) {
 		WithNetwork().
 		First(ctx)
 	if err != nil {
-		logger.Errorf("InitiateTapPayment: default token lookup: %v", err)
-		u.APIResponse(ctx, http.StatusFailedDependency, "error",
-			"Default tap token (USDC on Sui) is not configured", nil)
-		return
+		tok, err = storage.Client.Token.
+			Query().
+			Where(
+				tokenEnt.IsEnabledEQ(true),
+				tokenEnt.SymbolEQ("USDC"),
+			).
+			WithNetwork().
+			First(ctx)
+		if err != nil {
+			logger.Errorf("InitiateTapPayment: default token lookup: %v", err)
+			u.APIResponse(ctx, http.StatusFailedDependency, "error",
+				"Default tap token (USDC) is not configured", nil)
+			return
+		}
 	}
 
 	if len(orderConf.SuiAggregatorPrivateKey) != 32 {

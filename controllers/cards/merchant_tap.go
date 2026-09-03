@@ -695,8 +695,6 @@ func persistTapCardPaymentOrder(
 	amount decimal.Decimal,
 	memo string,
 ) (*ent.PaymentOrder, string, error) {
-	// Default token: a USDC-class token on sui-*. Same selection
-	// rule as merchant.go's InitiateTapPayment.
 	tok, err := storage.Client.Token.
 		Query().
 		Where(
@@ -707,7 +705,18 @@ func persistTapCardPaymentOrder(
 		WithNetwork().
 		First(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("default token: %w", err)
+		// Fallback to any enabled USDC token (e.g. Base USDC)
+		tok, err = storage.Client.Token.
+			Query().
+			Where(
+				tokenEnt.IsEnabledEQ(true),
+				tokenEnt.SymbolEQ("USDC"),
+			).
+			WithNetwork().
+			First(ctx)
+		if err != nil {
+			return nil, "", fmt.Errorf("default token: %w", err)
+		}
 	}
 
 	// Denominate the order in USDC (the cap debits USDC and Route A bridges
