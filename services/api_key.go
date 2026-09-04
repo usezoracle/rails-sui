@@ -34,7 +34,10 @@ func (s *APIKeyService) GenerateAPIKey(
 	}
 
 	// Encrypt the secret key
-	encryptedSecret, _ := crypto.EncryptPlain([]byte(secretKey))
+	encryptedSecret, err := crypto.EncryptPlain([]byte(secretKey))
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to encrypt secret key: %w", err)
+	}
 	encodedSecret := base64.StdEncoding.EncodeToString(encryptedSecret)
 
 	var apiKey *ent.APIKey

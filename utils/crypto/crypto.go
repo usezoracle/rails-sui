@@ -5,7 +5,9 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -19,6 +21,20 @@ import (
 var authConf = config.AuthConfig()
 var _ = config.CryptoConfig // kept callable; package init validates it loads
 
+func getSecretKeyBytes() []byte {
+	sec := authConf.Secret
+	if len(sec) == 64 {
+		if b, err := hex.DecodeString(sec); err == nil && len(b) == 32 {
+			return b
+		}
+	}
+	if len(sec) == 16 || len(sec) == 24 || len(sec) == 32 {
+		return []byte(sec)
+	}
+	h := sha256.Sum256([]byte(sec))
+	return h[:]
+}
+
 // CheckPasswordHash is a function to compare provided password with the hashed password
 func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
@@ -27,7 +43,7 @@ func CheckPasswordHash(password, hash string) bool {
 
 // EncryptPlain encrypts plaintext using AES encryption algorithm with Galois Counter Mode
 func EncryptPlain(plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher([]byte(authConf.Secret))
+	block, err := aes.NewCipher(getSecretKeyBytes())
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +69,7 @@ func EncryptPlain(plaintext []byte) ([]byte, error) {
 // DecryptPlain decrypts ciphertext using AES encryption algorithm with Galois Counter Mode
 func DecryptPlain(ciphertext []byte) ([]byte, error) {
 
-	block, err := aes.NewCipher([]byte(authConf.Secret))
+	block, err := aes.NewCipher(getSecretKeyBytes())
 	if err != nil {
 		return nil, err
 	}

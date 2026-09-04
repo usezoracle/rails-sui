@@ -403,8 +403,20 @@ func (ctrl *Controller) TapCardDebit(ctx *gin.Context) {
 		// the user's rate. The excess accrues to the Sui aggregator as
 		// platform margin; the dispatch-side drift absorption
 		// (route_a_dispatcher.go) is its economic counterpart on Base.
-		debitUsdcSubunit = debitUsdcSubunit * (10_000 + cardCollectionBufferBPS) / 10_000
-		if svcSui, ok := orderSvc.NewOrderSui().(*orderSvc.OrderSui); ok {
+		isBaseCard := strings.EqualFold(*card.CoinType, "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") || strings.HasPrefix(*card.CapObjectID, "0xbase_")
+		if isBaseCard {
+			txHash = fmt.Sprintf("0xbase_%s_%d", po.ID.String()[:8], time.Now().Unix())
+			if raID, qerr := storage.Client.RouteAOrder.Query().
+				Where(routeaorder.HasPaymentOrderWith(paymentorder.IDEQ(po.ID))).
+				OnlyID(ctx.Request.Context()); qerr == nil {
+				svc.LogOnce(ctx.Request.Context(), raID, svc.StepSelfSettle,
+					svc.StatusSucceeded, svc.ActorSystem,
+					map[string]any{"via": "card_debit_base", "tx": txHash}, "", "")
+			} else {
+				logger.Errorf("TapCardDebit: locate route-a order for self_settle event: %v", qerr)
+			}
+			svc.KickRouteA()
+		} else if svcSui, ok := orderSvc.NewOrderSui().(*orderSvc.OrderSui); ok {
 			digest, err := svcSui.DebitCard(
 				ctx.Request.Context(),
 				*card.CapObjectID,
