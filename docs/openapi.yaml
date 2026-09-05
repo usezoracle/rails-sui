@@ -1,0 +1,1229 @@
+openapi: "3.1.0"
+info:
+  title: Tapp Rails API
+  description: |
+    Backend API for Tapp — Tap. Pay. Done.
+
+    **Auth model:** Most endpoints require a JWT `Authorization: Bearer <token>` header.
+    Obtain tokens via `POST /v1/auth/login` or `POST /v1/auth/register`.
+    Admin endpoints require an `Admin-Token` header.
+  version: "2.0.0"
+  contact:
+    name: Zoracle Labs
+    url: https://zoracle.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.tapp.me
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentication — register, login, password reset, session management
+  - name: Profile
+    description: User profile settings (sender/provider)
+  - name: Sender
+    description: Merchant/sender order management and payments
+  - name: Provider
+    description: Liquidity provider order fulfillment
+  - name: Cards
+    description: Tapp Card — link, top-up, revoke, resync, step-up
+  - name: Cards (Merchant)
+    description: Tap Card debit flow from the merchant side
+  - name: LP
+    description: Liquidity provider onboarding, ledger, withdrawals
+  - name: Public
+    description: Public endpoints — rates, currencies, institutions
+  - name: KYC
+    description: Identity verification
+  - name: Admin
+    description: Admin console — users, transactions, config, funding
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    AdminToken:
+      type: apiKey
+      in: header
+      name: Admin-Token
+    APIKey:
+      type: apiKey
+      in: header
+      name: API-Key
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+        data:
+          type: object
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+        data: {}
+
+paths:
+  # ──────────────────────────────────────────────
+  # Health
+  # ──────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Public]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  live:
+                    type: string
+                    example: ok
+
+  # ──────────────────────────────────────────────
+  # Auth
+  # ──────────────────────────────────────────────
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: Creates a user with email/password. Generates an EVM wallet (Base) automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, first_name, last_name, scopes]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [sender, provider]
+      responses:
+        "201":
+          description: User created, verification email sent
+        "400":
+          description: Validation error or user already exists
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      evmAddress:
+                        type: string
+                      scopes:
+                        type: array
+                        items:
+                          type: string
+        "401":
+          description: Invalid credentials
+
+  /v1/auth/google:
+    post:
+      tags: [Auth]
+      summary: Sign in with Google ID token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token:
+                  type: string
+      responses:
+        "200":
+          description: Login successful
+        "401":
+          description: Invalid token
+
+  /v1/auth/confirm-account:
+    post:
+      tags: [Auth]
+      summary: Confirm email with OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, token]
+              properties:
+                email:
+                  type: string
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Email confirmed
+
+  /v1/auth/resend-token:
+    post:
+      tags: [Auth]
+      summary: Resend email verification token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+      responses:
+        "200":
+          description: Token resent
+
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: New access token issued
+
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke refresh token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Logged out
+
+  /v1/auth/reset-password-token:
+    post:
+      tags: [Auth]
+      summary: Request a password reset OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+      responses:
+        "200":
+          description: Reset code sent
+
+  /v1/auth/reset-password:
+    patch:
+      tags: [Auth]
+      summary: Reset password with OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, token, new_password]
+              properties:
+                email:
+                  type: string
+                token:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        "200":
+          description: Password reset successful
+
+  /v1/auth/change-password:
+    patch:
+      tags: [Auth]
+      summary: Change password (authenticated)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        "200":
+          description: Password changed
+
+  /v1/me:
+    get:
+      tags: [Auth]
+      summary: Get current user info
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user data
+    patch:
+      tags: [Auth]
+      summary: Update current user info
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User updated
+
+  # ──────────────────────────────────────────────
+  # Profile
+  # ──────────────────────────────────────────────
+  /v1/settings/sender:
+    get:
+      tags: [Profile]
+      summary: Get sender profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Sender profile
+    patch:
+      tags: [Profile]
+      summary: Update sender profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile updated
+
+  /v1/settings/provider:
+    get:
+      tags: [Profile]
+      summary: Get provider profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Provider profile
+    patch:
+      tags: [Profile]
+      summary: Update provider profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile updated
+
+  # ──────────────────────────────────────────────
+  # Public
+  # ──────────────────────────────────────────────
+  /v1/currencies:
+    get:
+      tags: [Public]
+      summary: List supported fiat currencies
+      responses:
+        "200":
+          description: Currency list
+
+  /v1/institutions/{currency_code}:
+    get:
+      tags: [Public]
+      summary: List financial institutions for a currency
+      parameters:
+        - name: currency_code
+          in: path
+          required: true
+          schema:
+            type: string
+            example: NGN
+      responses:
+        "200":
+          description: Institution list
+
+  /v1/rates/{token}/{amount}/{fiat}:
+    get:
+      tags: [Public]
+      summary: Get token-to-fiat exchange rate
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            example: USDC
+        - name: amount
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fiat
+          in: path
+          required: true
+          schema:
+            type: string
+            example: NGN
+      responses:
+        "200":
+          description: Rate quote
+
+  /v1/pubkey:
+    get:
+      tags: [Public]
+      summary: Get aggregator public key
+      responses:
+        "200":
+          description: Public key
+
+  /v1/verify-account:
+    post:
+      tags: [Public]
+      summary: Verify a bank account (name lookup)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                institution_code:
+                  type: string
+                account_number:
+                  type: string
+      responses:
+        "200":
+          description: Account verification result
+
+  # ──────────────────────────────────────────────
+  # Orders (Public)
+  # ──────────────────────────────────────────────
+  /v1/orders/{id}:
+    get:
+      tags: [Public]
+      summary: Get payment order status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+
+  /v1/orders/{id}/stream:
+    get:
+      tags: [Public]
+      summary: SSE stream for order status updates
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Server-Sent Events stream
+
+  /v1/orders/{id}/confirm:
+    post:
+      tags: [Public]
+      summary: Customer confirms payment sent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Confirmed
+
+  # ──────────────────────────────────────────────
+  # Sender (Merchant)
+  # ──────────────────────────────────────────────
+  /v1/sender/orders:
+    get:
+      tags: [Sender]
+      summary: List merchant payment orders
+      security:
+        - BearerAuth: []
+        - APIKey: []
+      responses:
+        "200":
+          description: Order list
+    post:
+      tags: [Sender]
+      summary: Create a new payment order
+      security:
+        - BearerAuth: []
+        - APIKey: []
+      responses:
+        "201":
+          description: Order created
+
+  /v1/sender/orders/route-a:
+    post:
+      tags: [Sender]
+      summary: Create a Route A payment order
+      security:
+        - BearerAuth: []
+        - APIKey: []
+      responses:
+        "201":
+          description: Order created
+
+  /v1/sender/orders/{id}:
+    get:
+      tags: [Sender]
+      summary: Get a specific order
+      security:
+        - BearerAuth: []
+        - APIKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order details
+
+  /v1/sender/orders/{id}/cancel:
+    post:
+      tags: [Sender]
+      summary: Cancel an order
+      security:
+        - BearerAuth: []
+        - APIKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order cancelled
+
+  /v1/sender/stats:
+    get:
+      tags: [Sender]
+      summary: Merchant stats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Stats
+
+  /v1/sender/me/bank-account:
+    get:
+      tags: [Sender]
+      summary: Get merchant bank account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Bank account details
+    post:
+      tags: [Sender]
+      summary: Save merchant bank account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Bank account saved
+
+  /v1/sender/me/tap:
+    post:
+      tags: [Sender]
+      summary: Initiate a phone-to-phone tap payment
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Payment initiated
+
+  /v1/sender/me/payments/stream:
+    get:
+      tags: [Sender]
+      summary: SSE stream for merchant payment events
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Server-Sent Events stream
+
+  # ──────────────────────────────────────────────
+  # Cards (Merchant — Tap Card Debit)
+  # ──────────────────────────────────────────────
+  /v1/sender/me/tap-card/nonce:
+    get:
+      tags: [Cards (Merchant)]
+      summary: Get a nonce for tap card debit
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Nonce
+
+  /v1/sender/me/tap-card:
+    post:
+      tags: [Cards (Merchant)]
+      summary: Initiate a tap card debit
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Debit initiated
+
+  /v1/sender/me/tap-card/{order_id}/token-ack:
+    post:
+      tags: [Cards (Merchant)]
+      summary: Acknowledge token rotation after debit
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Acknowledged
+
+  /v1/sender/me/tap-card/step-up:
+    get:
+      tags: [Cards (Merchant)]
+      summary: Poll for step-up approval
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Step-up status
+
+  # ──────────────────────────────────────────────
+  # Provider
+  # ──────────────────────────────────────────────
+  /v1/provider/orders:
+    get:
+      tags: [Provider]
+      summary: List available orders
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Order list
+
+  /v1/provider/orders/{id}/accept:
+    post:
+      tags: [Provider]
+      summary: Accept an order
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order accepted
+
+  /v1/provider/orders/{id}/decline:
+    post:
+      tags: [Provider]
+      summary: Decline an order
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order declined
+
+  /v1/provider/orders/{id}/fulfill:
+    post:
+      tags: [Provider]
+      summary: Mark an order as fulfilled
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order fulfilled
+
+  /v1/provider/orders/{id}/cancel:
+    post:
+      tags: [Provider]
+      summary: Cancel an accepted order
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order cancelled
+
+  /v1/provider/stats:
+    get:
+      tags: [Provider]
+      summary: Provider stats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Stats
+
+  /v1/provider/balance:
+    get:
+      tags: [Provider]
+      summary: Get provider balance
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Balance
+
+  # ──────────────────────────────────────────────
+  # Cards (Cardholder)
+  # ──────────────────────────────────────────────
+  /v1/cards/link/claim:
+    post:
+      tags: [Cards]
+      summary: Claim a card by activation token
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Card claimed
+
+  /v1/cards/link/complete:
+    post:
+      tags: [Cards]
+      summary: Complete card linking
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Card linked
+
+  /v1/cards/me:
+    get:
+      tags: [Cards]
+      summary: Get my card summary
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Card summary
+
+  /v1/cards/me/limits:
+    post:
+      tags: [Cards]
+      summary: Update card spend limits
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Limits updated
+
+  /v1/cards/top-up:
+    post:
+      tags: [Cards]
+      summary: Top up card balance
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Top-up PTB skeleton
+
+  /v1/cards/revoke:
+    post:
+      tags: [Cards]
+      summary: Revoke card
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Card revoked
+
+  /v1/cards/me/resync:
+    post:
+      tags: [Cards]
+      summary: Start card resync (rotation token)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Resync payload
+
+  /v1/cards/me/resync/complete:
+    post:
+      tags: [Cards]
+      summary: Confirm resync written to card
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Resync confirmed
+
+  /v1/cards/me/relink:
+    post:
+      tags: [Cards]
+      summary: Re-provision a damaged card
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Card relinked
+
+  /v1/cards/me/step-up/parse:
+    post:
+      tags: [Cards]
+      summary: Parse a step-up token
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Step-up details
+
+  /v1/cards/me/step-up/grant:
+    post:
+      tags: [Cards]
+      summary: Grant step-up via biometric
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Step-up granted
+
+  /v1/cards/reclaimable:
+    get:
+      tags: [Cards]
+      summary: List reclaimable card caps
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Reclaimable caps
+
+  /v1/cards/reset:
+    post:
+      tags: [Cards]
+      summary: Delete all card rows (if no balance)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Cards reset
+
+  /c/{token}:
+    get:
+      tags: [Cards]
+      summary: Card tap-to-URL redirect (public)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to PWA
+
+  # ──────────────────────────────────────────────
+  # LP (Liquidity Provider)
+  # ──────────────────────────────────────────────
+  /v1/lp/onboard:
+    post:
+      tags: [LP]
+      summary: Onboard as liquidity provider
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Onboarded
+
+  /v1/lp/account:
+    get:
+      tags: [LP]
+      summary: Get LP account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account details
+    put:
+      tags: [LP]
+      summary: Update LP account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account updated
+
+  /v1/lp/ledger:
+    get:
+      tags: [LP]
+      summary: Get LP ledger entries
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Ledger entries
+
+  /v1/lp/banks:
+    get:
+      tags: [LP]
+      summary: List banks for LP withdrawals
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Bank list
+
+  /v1/lp/resolve:
+    get:
+      tags: [LP]
+      summary: Resolve a bank account
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Resolved account
+
+  /v1/lp/withdraw:
+    post:
+      tags: [LP]
+      summary: Withdraw LP balance to bank
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Withdrawal initiated
+
+  # ──────────────────────────────────────────────
+  # KYC
+  # ──────────────────────────────────────────────
+  /v1/kyc:
+    post:
+      tags: [KYC]
+      summary: Request ID verification
+      responses:
+        "200":
+          description: Verification initiated
+
+  /v1/kyc/{wallet_address}:
+    get:
+      tags: [KYC]
+      summary: Get ID verification status
+      parameters:
+        - name: wallet_address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verification status
+
+  # ──────────────────────────────────────────────
+  # Admin
+  # ──────────────────────────────────────────────
+  /v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: User list
+
+  /v1/admin/users/{id}:
+    get:
+      tags: [Admin]
+      summary: Get user by ID
+      security:
+        - AdminToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User details
+    patch:
+      tags: [Admin]
+      summary: Update user
+      security:
+        - AdminToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User updated
+
+  /v1/admin/transactions:
+    get:
+      tags: [Admin]
+      summary: List transactions
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Transaction list
+
+  /v1/admin/transactions/{id}:
+    get:
+      tags: [Admin]
+      summary: Get transaction timeline
+      security:
+        - AdminToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaction timeline
+
+  /v1/admin/stats:
+    get:
+      tags: [Admin]
+      summary: Platform stats
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Stats
+
+  /v1/admin/cards:
+    get:
+      tags: [Admin]
+      summary: List all cards
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Card list
+
+  /v1/admin/cards/{id}:
+    get:
+      tags: [Admin]
+      summary: Get card details
+      security:
+        - AdminToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Card details
+
+  /v1/admin/cards/issue-batch:
+    post:
+      tags: [Admin]
+      summary: Issue a batch of cards
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Batch issued
+
+  /v1/admin/funding/balances:
+    get:
+      tags: [Admin]
+      summary: Get funding balances
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Balances
+
+  /v1/admin/funding/transfer:
+    post:
+      tags: [Admin]
+      summary: Transfer funds
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Transfer executed
+
+  /v1/admin/config/currencies:
+    get:
+      tags: [Admin]
+      summary: Get currency config
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Currencies
+
+  /v1/admin/config/tokens:
+    get:
+      tags: [Admin]
+      summary: Get token config
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Tokens
+
+  /v1/admin/config/settle-mode:
+    get:
+      tags: [Admin]
+      summary: Get settlement mode
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Settle mode
+    put:
+      tags: [Admin]
+      summary: Set settlement mode
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Updated
+
+  /v1/admin/treasury/overview:
+    get:
+      tags: [Admin]
+      summary: Treasury overview
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Treasury data
+
+  /v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Get audit logs
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Audit logs
+
+  /v1/admin/orders/{id}/refund:
+    post:
+      tags: [Admin]
+      summary: Refund an order
+      security:
+        - AdminToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order refunded
